@@ -3,3 +3,5 @@ run
 tags
 shaders/*.spv
 imgui.ini
+lib/imgui/examples
+lib/imgui/docs
