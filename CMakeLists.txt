@@ -54,6 +54,7 @@ if(WIN32)
         ${Vulkan_LIBRARIES}
         -lglfw3
         -lgdi32
+        -limm32
     )
 else()
     target_link_libraries(boa
