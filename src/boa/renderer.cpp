@@ -14,6 +14,7 @@
 boa::Renderer::Renderer() {
     init_window_user_pointers();
     init_window();
+    init_input();
     create_instance();
     setup_debug_messenger();
     create_surface();
@@ -43,6 +44,7 @@ void boa::Renderer::run() {
         current_time = std::chrono::high_resolution_clock::now();
         float time_change
             = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
+        fmt::print("Framerate: {}\n", 1.00 / time_change);
         last_time = current_time;
 
         input_update(time_change);
@@ -69,9 +71,6 @@ void boa::Renderer::input_update(float time_change) {
 
     Camera::DirectionFlags directions{};
 
-    if (m_keyboard.key(GLFW_KEY_ESCAPE))
-        m_window.set_cursor_disabled(!m_window.get_cursor_disabled());
-
     if (m_keyboard.key(GLFW_KEY_W))
         directions |= Camera::DirectionFlags::Forward;
     if (m_keyboard.key(GLFW_KEY_A))
@@ -92,6 +91,36 @@ void boa::Renderer::input_update(float time_change) {
     }
 }
 
+void boa::Renderer::init_window() {
+    m_window.set_window_user_pointer(&m_user_pointers);
+    m_window.set_framebuffer_size_callback(framebuffer_size_callback);
+    m_window.set_keyboard_callback(m_keyboard.keyboard_callback);
+    m_window.set_cursor_callback(m_mouse.cursor_callback);
+    m_window.set_mouse_button_callback(m_mouse.mouse_button_callback);
+}
+
+void boa::Renderer::init_window_user_pointers() {
+    m_user_pointers.renderer = this;
+    m_user_pointers.keyboard = &m_keyboard;
+    m_user_pointers.mouse = &m_mouse;
+}
+
+void boa::Renderer::init_input() {
+    m_keyboard.set_first_press_callback([&](int key, int mods) {
+        if (key == GLFW_KEY_ESCAPE) {
+            if (m_window.get_cursor_disabled()) {
+                m_window.set_cursor_disabled(false);
+                ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+            } else {
+                m_window.set_cursor_disabled(true);
+                ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+            }
+
+            return;
+        }
+    });
+}
+
 void boa::Renderer::create_allocator() {
     VmaAllocatorCreateInfo alloc_info{
         .physicalDevice     = m_physical_device,
@@ -101,20 +130,6 @@ void boa::Renderer::create_allocator() {
     };
 
     vmaCreateAllocator(&alloc_info, &m_allocator);
-}
-
-void boa::Renderer::init_window_user_pointers() {
-    m_user_pointers.renderer = this;
-    m_user_pointers.keyboard = &m_keyboard;
-    m_user_pointers.mouse = &m_mouse;
-}
-
-void boa::Renderer::init_window() {
-    m_window.set_window_user_pointer(&m_user_pointers);
-    m_window.set_framebuffer_size_callback(framebuffer_size_callback);
-    m_window.set_keyboard_callback(m_keyboard.keyboard_callback);
-    m_window.set_cursor_callback(m_mouse.cursor_callback);
-    m_window.set_mouse_button_callback(m_mouse.mouse_button_callback);
 }
 
 void boa::Renderer::framebuffer_size_callback(void *user_ptr_v, int w, int h) {

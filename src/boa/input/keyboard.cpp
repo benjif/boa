@@ -5,12 +5,25 @@
 void boa::Keyboard::keyboard_callback(void *user_ptr_v, int key, int scancode, int action, int mods) {
     auto user_pointers = reinterpret_cast<Renderer::WindowUserPointers *>(user_ptr_v);
     auto keyboard = user_pointers->keyboard;
+    auto keyboard_user_callback = keyboard->m_callback;
+
+    if (action == GLFW_PRESS && !keyboard->key(key))
+        keyboard_user_callback(key, mods);
 
     if (action == GLFW_PRESS) {
-        keyboard->set_key(key);
+        keyboard->set_key(key, true);
     } else if (action == GLFW_RELEASE) {
-        keyboard->unset_key(key);
+        keyboard->set_key(key, false);
     }
+}
+
+void boa::Keyboard::set_first_press_callback(std::function<void(int, int)> callback) {
+    m_callback = callback;
+}
+
+void boa::Keyboard::set_key(uint32_t key, bool pressed) {
+    assert(key < 348);
+    m_keys[key] = pressed;
 }
 
 bool boa::Keyboard::key(uint32_t key) const {
@@ -18,12 +31,7 @@ bool boa::Keyboard::key(uint32_t key) const {
     return m_keys[key];
 }
 
-void boa::Keyboard::set_key(uint32_t key) {
+void boa::Keyboard::flip_key(uint32_t key) {
     assert(key < 348);
-    m_keys[key] = true;
-}
-
-void boa::Keyboard::unset_key(uint32_t key) {
-    assert(key < 348);
-    m_keys[key] = false;
+    m_keys[key] = !m_keys[key];
 }

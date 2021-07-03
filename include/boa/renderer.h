@@ -159,6 +159,7 @@ private:
 
     void init_window_user_pointers();
     void init_window();
+    void init_input();
     void init_imgui();
 
     void cleanup();
