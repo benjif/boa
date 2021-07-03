@@ -54,7 +54,7 @@ private:
 
     const std::vector<const char *> device_extensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        "VK_KHR_imageless_framebuffer",
+        VK_KHR_IMAGELESS_FRAMEBUFFER_EXTENSION_NAME,
     };
 
 #ifdef NDEBUG
@@ -132,7 +132,7 @@ private:
     std::vector<vk::ImageView> m_swapchain_image_views;
 
     vk::RenderPass m_renderpass;
-    std::vector<vk::Framebuffer> m_framebuffers;
+    vk::Framebuffer m_framebuffer;
 
     PerFrame m_frames[FRAMES_IN_FLIGHT];
 

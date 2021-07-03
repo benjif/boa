@@ -166,22 +166,47 @@ void boa::Renderer::draw_frame() {
         vk::ClearDepthStencilValue{ 1.0f, 0 },
     };
 
+    const vk::ImageView attachments[] = { m_swapchain_image_views[image_index], m_depth_image_view };
+
+    vk::RenderPassAttachmentBeginInfo attach_begin_info{
+        .attachmentCount    = 2,
+        .pAttachments       = attachments,
+    };
+
     vk::RenderPassBeginInfo render_pass_info{
-        .renderPass = m_renderpass,
-        .framebuffer = m_framebuffers[image_index],
-        .renderArea = {
-            .offset = {
-                .x = 0,
-                .y = 0,
+        .pNext              = &attach_begin_info,
+        .renderPass         = m_renderpass,
+        .framebuffer        = m_framebuffer,
+        .renderArea         = {
+            .offset         = {
+                .x          = 0,
+                .y          = 0,
             },
-            .extent = m_window_extent,
+            .extent         = m_window_extent,
         },
-        .clearValueCount = static_cast<uint32_t>(clear_values.size()),
-        .pClearValues = clear_values.data(),
+        .clearValueCount    = static_cast<uint32_t>(clear_values.size()),
+        .pClearValues       = clear_values.data(),
     };
 
     // START DRAW COMMANDS
     frame_cmd.beginRenderPass(render_pass_info, vk::SubpassContents::eInline);
+
+    vk::Viewport viewport{
+        .x          = 0.0f,
+        .y          = 0.0f,
+        .width      = (float)m_window_extent.width,
+        .height     = (float)m_window_extent.height,
+        .minDepth   = 0.0f,
+        .maxDepth   = 1.0f,
+    };
+
+    vk::Rect2D scissor{
+        .offset = { .x = 0, .y = 0 },
+        .extent = m_window_extent,
+    };
+
+    frame_cmd.setViewport(0, viewport);
+    frame_cmd.setScissor(0, scissor);
 
     draw_objects(frame_cmd, m_models.data(), m_models.size());
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame_cmd);
@@ -408,7 +433,12 @@ void boa::Renderer::create_logical_device() {
         .samplerAnisotropy = true,
     };
 
+    vk::PhysicalDeviceImagelessFramebufferFeatures imageless_framebuffer_features{
+        .imagelessFramebuffer = true,
+    };
+
     vk::DeviceCreateInfo create_info{
+        .pNext                      = &imageless_framebuffer_features,
         .queueCreateInfoCount       = static_cast<uint32_t>(q_create_infos.size()),
         .pQueueCreateInfos          = q_create_infos.data(),
         .enabledExtensionCount      = static_cast<uint32_t>(device_extensions.size()),
@@ -463,10 +493,14 @@ bool boa::Renderer::check_device(vk::PhysicalDevice device) {
 
     vk::PhysicalDeviceFeatures supported_features = device.getFeatures();
 
+    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features> more_features;
+    device.getFeatures2(&more_features.get<vk::PhysicalDeviceFeatures2>());
+
     return indices.is_complete() &&
         extensions_supported &&
         swap_chain_adequate &&
-        supported_features.samplerAnisotropy;
+        supported_features.samplerAnisotropy &&
+        more_features.get<vk::PhysicalDeviceVulkan12Features>().imagelessFramebuffer;
 }
 
 bool boa::Renderer::check_device_extension_support(vk::PhysicalDevice device) {
@@ -586,6 +620,8 @@ void boa::Renderer::create_swapchain() {
 
     m_deletion_queue.enqueue([=]() {
         m_device.get().destroySwapchainKHR(m_swapchain);
+        for (size_t i = 0; i < m_swapchain_image_views.size(); i++)
+            m_device.get().destroyImageView(m_swapchain_image_views[i]);
     });
 
     vk::Extent3D depth_image_extent = {
@@ -732,33 +768,51 @@ void boa::Renderer::create_default_renderpass() {
 }
 
 void boa::Renderer::create_framebuffers() {
+    vk::FramebufferAttachmentImageInfo depth_attach{
+        .usage              = vk::ImageUsageFlagBits::eDepthStencilAttachment,
+        .width              = m_window_extent.width,
+        .height             = m_window_extent.height,
+        .layerCount         = 1,
+        .viewFormatCount    = 1,
+        .pViewFormats       = &m_depth_format,
+    };
+
+    vk::FramebufferAttachmentImageInfo color_attach{
+        .usage              = vk::ImageUsageFlagBits::eColorAttachment,
+        .width              = m_window_extent.width,
+        .height             = m_window_extent.height,
+        .layerCount         = 1,
+        .viewFormatCount    = 1,
+        .pViewFormats       = &m_swapchain_format,
+    };
+
+    vk::FramebufferAttachmentImageInfo attach_infos[] = { color_attach, depth_attach };
+
+    vk::FramebufferAttachmentsCreateInfo attach_create_info{
+        .attachmentImageInfoCount   = 2,
+        .pAttachmentImageInfos      = attach_infos,
+    };
+
     vk::FramebufferCreateInfo create_info{
+        .pNext              = &attach_create_info,
+        .flags              = vk::FramebufferCreateFlagBits::eImageless,
         .renderPass         = m_renderpass,
         .attachmentCount    = 2,
+        .pAttachments       = nullptr,
         .width              = m_window_extent.width,
         .height             = m_window_extent.height,
         .layers             = 1,
     };
 
-    m_framebuffers.resize(m_swapchain_images.size());
-
-    for (size_t i = 0; i < m_swapchain_images.size(); i++) {
-        vk::ImageView attachments[] = { m_swapchain_image_views[i], m_depth_image_view };
-
-        //create_info.pAttachments = &m_swapchain_image_views[i];
-        create_info.pAttachments = attachments;
-
-        try {
-            m_framebuffers[i] = m_device.get().createFramebuffer(create_info);
-        } catch (const vk::SystemError &err) {
-            throw std::runtime_error("Failed to create framebuffer");
-        }
-
-        m_deletion_queue.enqueue([=]() {
-            m_device.get().destroyFramebuffer(m_framebuffers[i]);
-            m_device.get().destroyImageView(m_swapchain_image_views[i]);
-        });
+    try {
+        m_framebuffer = m_device.get().createFramebuffer(create_info);
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to create framebuffer");
     }
+
+    m_deletion_queue.enqueue([=]() {
+        m_device.get().destroyFramebuffer(m_framebuffer);
+    });
 }
 
 void boa::Renderer::create_sync_objects() {
@@ -841,19 +895,6 @@ void boa::Renderer::create_pipelines() {
     PipelineContext pipeline_ctx;
 
     pipeline_ctx.input_assembly = input_assembly_create_info(vk::PrimitiveTopology::eTriangleList);
-    pipeline_ctx.viewport = vk::Viewport{
-        .x          = 0.0f,
-        .y          = 0.0f,
-        .width      = (float)m_window_extent.width,
-        .height     = (float)m_window_extent.height,
-        .minDepth   = 0.0f,
-        .maxDepth   = 1.0f,
-    };
-
-    pipeline_ctx.scissor = vk::Rect2D{
-        .offset = { .x = 0, .y = 0 },
-        .extent = m_window_extent,
-    };
 
     auto attrib_desc = Vertex::get_attribute_descriptions();
     auto binding_desc = Vertex::get_binding_description();
@@ -1225,6 +1266,8 @@ void boa::Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)>
 }
 
 void boa::Renderer::init_imgui() {
+    IMGUI_CHECKVERSION();
+
     vk::DescriptorPoolSize pool_sizes[] = {
         { vk::DescriptorType::eSampler, 1000 },
         { vk::DescriptorType::eCombinedImageSampler, 1000 },
@@ -1266,6 +1309,8 @@ void boa::Renderer::init_imgui() {
     };
 
     ImGui_ImplVulkan_Init(&init_info, m_renderpass);
+    ImGui::StyleColorsDark();
+    ImGui::GetStyle().WindowRounding = 5.0f;
 
     immediate_command([&](vk::CommandBuffer cmd) {
         ImGui_ImplVulkan_CreateFontsTexture(cmd);
@@ -1276,5 +1321,7 @@ void boa::Renderer::init_imgui() {
     m_deletion_queue.enqueue([=]() {
         m_device.get().destroyDescriptorPool(imgui_pool);
         ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
     });
 }

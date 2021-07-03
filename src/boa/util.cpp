@@ -137,9 +137,15 @@ vk::Format boa::find_depth_format(vk::PhysicalDevice physical_device) {
 vk::Pipeline boa::PipelineContext::build(vk::Device device, vk::RenderPass renderpass) {
     vk::PipelineViewportStateCreateInfo viewport_state{
         .viewportCount  = 1,
-        .pViewports     = &viewport,
+        .pViewports     = nullptr,
         .scissorCount   = 1,
-        .pScissors      = &scissor,
+        .pScissors      = nullptr,
+    };
+
+    vk::DynamicState dynamic_states[] = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+    vk::PipelineDynamicStateCreateInfo dynamic_info{
+        .dynamicStateCount  = 2,
+        .pDynamicStates     = dynamic_states
     };
 
     vk::PipelineColorBlendStateCreateInfo color_blend{
@@ -161,8 +167,9 @@ vk::Pipeline boa::PipelineContext::build(vk::Device device, vk::RenderPass rende
         .pViewportState         = &viewport_state,
         .pRasterizationState    = &rasterizer,
         .pMultisampleState      = &multisampling,
-        .pDepthStencilState = &depth_stencil,
+        .pDepthStencilState     = &depth_stencil,
         .pColorBlendState       = &color_blend,
+        .pDynamicState          = &dynamic_info,
         .layout                 = pipeline_layout,
         .renderPass             = renderpass,
         .subpass                = 0,

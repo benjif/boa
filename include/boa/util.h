@@ -13,8 +13,6 @@ struct PipelineContext {
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
     vk::PipelineVertexInputStateCreateInfo vertex_input_info;
     vk::PipelineInputAssemblyStateCreateInfo input_assembly;
-    vk::Viewport viewport;
-    vk::Rect2D scissor;
     vk::PipelineRasterizationStateCreateInfo rasterizer;
     vk::PipelineColorBlendAttachmentState color_blend_attachment;
     vk::PipelineMultisampleStateCreateInfo multisampling;
