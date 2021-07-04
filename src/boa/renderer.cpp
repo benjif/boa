@@ -44,7 +44,7 @@ void boa::Renderer::run() {
         current_time = std::chrono::high_resolution_clock::now();
         float time_change
             = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
-        //fmt::print("Framerate: {}\n", 1.00 / time_change);
+        fmt::print("Framerate: {}\n", 1.00 / time_change);
         last_time = current_time;
 
         input_update(time_change);
@@ -53,7 +53,6 @@ void boa::Renderer::run() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        //ImGui::ShowDemoWindow();
         ImGui::Begin("Example window");
         ImGui::Button("Hello!");
         float pos[3];
@@ -290,7 +289,7 @@ void boa::Renderer::draw_objects(vk::CommandBuffer cmd, Model *first, size_t cou
             glm::radians(60.0f),
             m_window_extent.width / (float)m_window_extent.height,
             0.1f,
-            30.0f
+            100.0f
         )
     };
 
@@ -901,96 +900,6 @@ vk::ShaderModule boa::Renderer::load_shader(const char *path) {
     return shader_module;
 }
 
-void boa::Renderer::create_pipelines() {
-    vk::ShaderModule untextured_frag = load_shader("shaders/untextured_frag.spv");
-    vk::ShaderModule untextured_vert = load_shader("shaders/untextured_vert.spv");
-    vk::ShaderModule textured_frag = load_shader("shaders/textured_frag.spv");
-    vk::ShaderModule textured_vert = load_shader("shaders/textured_vert.spv");
-
-    vk::PushConstantRange push_constants{
-        .stageFlags = vk::ShaderStageFlagBits::eVertex,
-        .offset     = 0,
-        .size       = sizeof(PushConstants),
-    };
-
-    vk::PipelineLayoutCreateInfo untextured_layout_info = pipeline_layout_create_info();
-
-    untextured_layout_info.setLayoutCount = 1;
-    untextured_layout_info.pSetLayouts = &m_descriptor_set_layout;
-    untextured_layout_info.pushConstantRangeCount = 1;
-    untextured_layout_info.pPushConstantRanges = &push_constants;
-
-    vk::PipelineLayout untextured_pipeline_layout;
-    try {
-        untextured_pipeline_layout = m_device.get().createPipelineLayout(untextured_layout_info);
-    } catch (const vk::SystemError &err) {
-        throw std::runtime_error("Failed to create untextured pipeline layout");
-    }
-
-    PipelineContext pipeline_ctx;
-
-    pipeline_ctx.input_assembly = input_assembly_create_info(vk::PrimitiveTopology::eTriangleList);
-
-    auto attrib_desc = Vertex::get_attribute_descriptions();
-    auto binding_desc = Vertex::get_binding_description();
-
-    pipeline_ctx.vertex_input_info.pVertexAttributeDescriptions = attrib_desc.data();
-    pipeline_ctx.vertex_input_info.vertexAttributeDescriptionCount = attrib_desc.size();
-    pipeline_ctx.vertex_input_info.pVertexBindingDescriptions = &binding_desc;
-    pipeline_ctx.vertex_input_info.vertexBindingDescriptionCount = 1;
-
-    pipeline_ctx.shader_stages.push_back(
-        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, untextured_vert));
-    pipeline_ctx.shader_stages.push_back(
-        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, untextured_frag));
-
-    pipeline_ctx.rasterizer = rasterization_state_create_info(vk::PolygonMode::eFill);
-    pipeline_ctx.multisampling = multisample_state_create_info();
-    pipeline_ctx.color_blend_attachment = color_blend_attachment_state();
-    pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLessOrEqual);
-    pipeline_ctx.pipeline_layout = untextured_pipeline_layout;
-
-    vk::Pipeline untextured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
-    create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
-
-    vk::PipelineLayoutCreateInfo textured_layout_info = untextured_layout_info;
-
-    vk::DescriptorSetLayout textured_set_layouts[] = { m_descriptor_set_layout, m_texture_descriptor_set_layout };
-
-    textured_layout_info.setLayoutCount = 2;
-    textured_layout_info.pSetLayouts = textured_set_layouts;
-
-    vk::PipelineLayout textured_pipeline_layout;
-    try {
-        textured_pipeline_layout = m_device.get().createPipelineLayout(textured_layout_info);
-    } catch (const vk::SystemError &err) {
-        throw std::runtime_error("Failed to create textured pipeline layout");
-    }
-
-    pipeline_ctx.shader_stages.clear();
-    pipeline_ctx.shader_stages.push_back(
-        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, textured_vert));
-    pipeline_ctx.shader_stages.push_back(
-        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, textured_frag));
-
-    pipeline_ctx.pipeline_layout = textured_pipeline_layout;
-
-    vk::Pipeline textured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
-    create_material(textured_pipeline, textured_pipeline_layout, "textured");
-
-    m_deletion_queue.enqueue([=]() {
-        m_device.get().destroyPipeline(untextured_pipeline);
-        m_device.get().destroyPipeline(textured_pipeline);
-        m_device.get().destroyPipelineLayout(untextured_pipeline_layout);
-        m_device.get().destroyPipelineLayout(textured_pipeline_layout);
-    });
-
-    m_device.get().destroyShaderModule(untextured_frag);
-    m_device.get().destroyShaderModule(untextured_vert);
-    m_device.get().destroyShaderModule(textured_frag);
-    m_device.get().destroyShaderModule(textured_vert);
-}
-
 boa::Renderer::PerFrame &boa::Renderer::current_frame() {
     return m_frames[m_frame % FRAMES_IN_FLIGHT];
 }
@@ -1113,17 +1022,111 @@ void boa::Renderer::create_descriptors() {
     });
 }
 
+void boa::Renderer::create_pipelines() {
+    vk::ShaderModule untextured_frag = load_shader("shaders/untextured_frag.spv");
+    vk::ShaderModule untextured_vert = load_shader("shaders/untextured_vert.spv");
+    vk::ShaderModule textured_frag = load_shader("shaders/textured_frag.spv");
+    vk::ShaderModule textured_vert = load_shader("shaders/textured_vert.spv");
+
+    vk::PushConstantRange push_constants{
+        .stageFlags = vk::ShaderStageFlagBits::eVertex,
+        .offset     = 0,
+        .size       = sizeof(PushConstants),
+    };
+
+    vk::PipelineLayoutCreateInfo untextured_layout_info = pipeline_layout_create_info();
+
+    untextured_layout_info.setLayoutCount = 1;
+    untextured_layout_info.pSetLayouts = &m_descriptor_set_layout;
+    untextured_layout_info.pushConstantRangeCount = 1;
+    untextured_layout_info.pPushConstantRanges = &push_constants;
+
+    vk::PipelineLayout untextured_pipeline_layout;
+    try {
+        untextured_pipeline_layout = m_device.get().createPipelineLayout(untextured_layout_info);
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to create untextured pipeline layout");
+    }
+
+    PipelineContext pipeline_ctx;
+
+    pipeline_ctx.input_assembly = input_assembly_create_info(vk::PrimitiveTopology::eTriangleList);
+
+    auto attrib_desc = Vertex::get_attribute_descriptions();
+    auto binding_desc = Vertex::get_binding_description();
+
+    pipeline_ctx.vertex_input_info.pVertexAttributeDescriptions = attrib_desc.data();
+    pipeline_ctx.vertex_input_info.vertexAttributeDescriptionCount = attrib_desc.size();
+    pipeline_ctx.vertex_input_info.pVertexBindingDescriptions = &binding_desc;
+    pipeline_ctx.vertex_input_info.vertexBindingDescriptionCount = 1;
+
+    pipeline_ctx.shader_stages.push_back(
+        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, untextured_vert));
+    pipeline_ctx.shader_stages.push_back(
+        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, untextured_frag));
+
+    pipeline_ctx.rasterizer = rasterization_state_create_info(vk::PolygonMode::eFill);
+    pipeline_ctx.multisampling = multisample_state_create_info();
+    pipeline_ctx.color_blend_attachment = color_blend_attachment_state();
+    pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLessOrEqual);
+    pipeline_ctx.pipeline_layout = untextured_pipeline_layout;
+
+    vk::Pipeline untextured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
+    create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
+
+    vk::PipelineLayoutCreateInfo textured_layout_info = untextured_layout_info;
+
+    vk::DescriptorSetLayout textured_set_layouts[] = { m_descriptor_set_layout, m_texture_descriptor_set_layout };
+
+    textured_layout_info.setLayoutCount = 2;
+    textured_layout_info.pSetLayouts = textured_set_layouts;
+
+    vk::PipelineLayout textured_pipeline_layout;
+    try {
+        textured_pipeline_layout = m_device.get().createPipelineLayout(textured_layout_info);
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to create textured pipeline layout");
+    }
+
+    pipeline_ctx.shader_stages.clear();
+    pipeline_ctx.shader_stages.push_back(
+        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, textured_vert));
+    pipeline_ctx.shader_stages.push_back(
+        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, textured_frag));
+
+    pipeline_ctx.pipeline_layout = textured_pipeline_layout;
+
+    vk::Pipeline textured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
+    create_material(textured_pipeline, textured_pipeline_layout, "textured");
+
+    m_deletion_queue.enqueue([=]() {
+        m_device.get().destroyPipeline(untextured_pipeline);
+        m_device.get().destroyPipeline(textured_pipeline);
+        m_device.get().destroyPipelineLayout(untextured_pipeline_layout);
+        m_device.get().destroyPipelineLayout(textured_pipeline_layout);
+    });
+
+    m_device.get().destroyShaderModule(untextured_frag);
+    m_device.get().destroyShaderModule(untextured_vert);
+    m_device.get().destroyShaderModule(textured_frag);
+    m_device.get().destroyShaderModule(textured_vert);
+}
+
 void boa::Renderer::load_meshes() {
     Mesh domino_crown;
     Mesh bmw;
+    Mesh minecraft;
     domino_crown.load_from_file("models/domino_crown.obj");
     bmw.load_from_file("models/bmw.obj");
+    minecraft.load_from_file("models/minecraft.obj");
 
     upload_mesh(domino_crown);
     upload_mesh(bmw);
+    upload_mesh(minecraft);
 
     m_meshes["domino crown"] = domino_crown;
     m_meshes["bmw"] = bmw;
+    m_meshes["minecraft"] = minecraft;
 }
 
 void boa::Renderer::load_textures() {
@@ -1134,6 +1137,10 @@ void boa::Renderer::load_textures() {
     Texture domino_crown;
     domino_crown.load_from_file(this, "textures/domino_crown.png");
     m_textures["domino crown"] = domino_crown;
+
+    Texture minecraft;
+    minecraft.load_from_file(this, "textures/minecraft.png");
+    m_textures["minecraft"] = minecraft;
 }
 
 void boa::Renderer::upload_mesh(Mesh &mesh) {
@@ -1216,20 +1223,22 @@ boa::Mesh *boa::Renderer::get_mesh(const std::string &name) {
 }
 
 void boa::Renderer::create_scene() {
-    vk::SamplerCreateInfo sampler_info = sampler_create_info(vk::Filter::eLinear);
+    vk::SamplerCreateInfo sampler_info = sampler_create_info(vk::Filter::eNearest);
 
-    vk::Sampler linear_sampler;
+    vk::Sampler sampler;
     try {
-        linear_sampler = m_device.get().createSampler(sampler_info);
+        sampler = m_device.get().createSampler(sampler_info);
     } catch (const vk::SystemError &err) {
         throw std::runtime_error("Failed to create sampler");
     }
 
     m_deletion_queue.enqueue([=]() {
-        m_device.get().destroySampler(linear_sampler);
+        m_device.get().destroySampler(sampler);
     });
 
     Material *textured = get_material("textured");
+    create_material(textured->pipeline, textured->pipeline_layout, "textured minecraft");
+    Material *textured_minecraft = get_material("textured minecraft");
 
     vk::DescriptorSetAllocateInfo alloc_info{
         .descriptorPool     = m_descriptor_pool,
@@ -1240,20 +1249,26 @@ void boa::Renderer::create_scene() {
     // TODO separate into create_materials()
     try {
         textured->texture_set = m_device.get().allocateDescriptorSets(alloc_info)[0];
+        textured_minecraft->texture_set = m_device.get().allocateDescriptorSets(alloc_info)[0];
     } catch (const vk::SystemError &err) {
         throw std::runtime_error("Failed to allocate descriptor set");
     }
 
     vk::DescriptorImageInfo image_buffer_info{
-        .sampler        = linear_sampler,
+        .sampler        = sampler,
         .imageView      = m_textures["domino crown"].image_view,
         .imageLayout    = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 
     vk::WriteDescriptorSet t1 = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
         textured->texture_set, &image_buffer_info, 0);
-
     m_device.get().updateDescriptorSets(t1, 0);
+
+    image_buffer_info.imageView = m_textures["minecraft"].image_view;
+
+    vk::WriteDescriptorSet t2 = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
+        textured_minecraft->texture_set, &image_buffer_info, 0);
+    m_device.get().updateDescriptorSets(t2, 0);
 
     Model domino_crown;
     domino_crown.mesh = get_mesh("domino crown");
@@ -1263,11 +1278,16 @@ void boa::Renderer::create_scene() {
     Model bmw;
     bmw.mesh = get_mesh("bmw");
     bmw.material = get_material("untextured");
-    //bmw.transform_matrix = glm::mat4{ 1.0f };
-    bmw.transform_matrix = glm::scale(glm::vec3(0.1, 0.1, 0.1));
+    bmw.transform_matrix = glm::scale(glm::vec3(0.2, 0.2, 0.2));
+
+    Model minecraft;
+    minecraft.mesh = get_mesh("minecraft");
+    minecraft.material = get_material("textured minecraft");
+    minecraft.transform_matrix = glm::scale(glm::vec3(0.1, 0.1, 0.1));
 
     m_models.push_back(domino_crown);
     m_models.push_back(bmw);
+    m_models.push_back(minecraft);
 }
 
 void boa::Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function) {
