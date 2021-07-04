@@ -9,14 +9,18 @@ layout (location = 0) out vec3 outColor;
 //layout (location = 1) out vec2 outTexCoord;
 
 layout(set = 0, binding = 0) uniform Transformations {
-    mat4 model;
     mat4 view;
     mat4 projection;
-    mat4 model_view_projection;
+    mat4 view_projection;
 } transform;
 
+layout(push_constant) uniform constants {
+    vec4 extra;
+    mat4 model_view_projection;
+} PushConstants;
+
 void main() {
-    gl_Position = transform.model_view_projection * vec4(inPosition, 1.0f);
+    gl_Position = PushConstants.model_view_projection * vec4(inPosition, 1.0f);
     outColor = inNormal;
     //outTexCoord = inTexCoord;
 }

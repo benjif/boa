@@ -81,9 +81,13 @@ private:
     };
 
     struct Transformations {
-        glm::mat4 model;
         glm::mat4 view;
         glm::mat4 projection;
+        glm::mat4 view_projection;
+    };
+
+    struct PushConstants {
+        glm::vec4 extra;
         glm::mat4 model_view_projection;
     };
 

@@ -10,7 +10,7 @@ class Keyboard {
 public:
     static void keyboard_callback(void *ptrs_v, int key, int scancode, int action, int mods);
 
-    void set_first_press_callback(std::function<void(int, int)> callback);
+    void set_callback(std::function<void(int, int, int)> callback);
 
     bool key(uint32_t key) const;
     void flip_key(uint32_t key);
@@ -18,7 +18,7 @@ public:
 
 private:
     std::bitset<348> m_keys;
-    std::function<void(int, int)> m_callback;
+    std::function<void(int, int, int)> m_callback;
 };
 
 }

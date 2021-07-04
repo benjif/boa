@@ -90,6 +90,18 @@ void boa::Window::set_mouse_button_callback(mouse_button_callback_type callback)
     glfwSetMouseButtonCallback(m_window, wrap_f);
 }
 
+void boa::Window::set_mouse_scroll_callback(mouse_scroll_callback_type callback) {
+    auto wrap_f = +[](GLFWwindow *window, double x_offset, double y_offset) {
+        auto main_class = reinterpret_cast<boa::Window *>(glfwGetWindowUserPointer(window));
+        auto callback = main_class->get_mouse_scroll_callback();
+        auto user_p = main_class->get_window_user_pointer();
+        callback(user_p, x_offset, y_offset);
+    };
+
+    m_mouse_scroll_callback = callback;
+    glfwSetScrollCallback(m_window, wrap_f);
+}
+
 void boa::Window::set_window_user_pointer(void *ptr) {
     m_user_pointer = ptr;
 }
@@ -112,6 +124,10 @@ boa::Window::cursor_callback_type boa::Window::get_cursor_callback() const {
 
 boa::Window::mouse_button_callback_type boa::Window::get_mouse_button_callback() const {
     return m_mouse_button_callback;
+}
+
+boa::Window::mouse_scroll_callback_type boa::Window::get_mouse_scroll_callback() const {
+    return m_mouse_scroll_callback;
 }
 
 void *boa::Window::get_window_user_pointer() const {

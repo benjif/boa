@@ -44,7 +44,7 @@ void boa::Renderer::run() {
         current_time = std::chrono::high_resolution_clock::now();
         float time_change
             = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
-        fmt::print("Framerate: {}\n", 1.00 / time_change);
+        //fmt::print("Framerate: {}\n", 1.00 / time_change);
         last_time = current_time;
 
         input_update(time_change);
@@ -56,6 +56,8 @@ void boa::Renderer::run() {
         //ImGui::ShowDemoWindow();
         ImGui::Begin("Example window");
         ImGui::Button("Hello!");
+        float pos[3];
+        ImGui::InputFloat3("Position", pos);
         ImGui::End();
 
         draw_frame();
@@ -97,6 +99,7 @@ void boa::Renderer::init_window() {
     m_window.set_keyboard_callback(m_keyboard.keyboard_callback);
     m_window.set_cursor_callback(m_mouse.cursor_callback);
     m_window.set_mouse_button_callback(m_mouse.mouse_button_callback);
+    m_window.set_mouse_scroll_callback(m_mouse.scroll_callback);
 }
 
 void boa::Renderer::init_window_user_pointers() {
@@ -106,17 +109,22 @@ void boa::Renderer::init_window_user_pointers() {
 }
 
 void boa::Renderer::init_input() {
-    m_keyboard.set_first_press_callback([&](int key, int mods) {
-        if (key == GLFW_KEY_ESCAPE) {
-            if (m_window.get_cursor_disabled()) {
-                m_window.set_cursor_disabled(false);
-                ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
-            } else {
-                m_window.set_cursor_disabled(true);
-                ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+    m_keyboard.set_callback([&](int key, int action, int mods) {
+        if (action == GLFW_RELEASE) {
+            if (key == GLFW_KEY_LEFT_SHIFT)
+                m_camera.set_movement_speed(0.08f);
+        } else if (action == GLFW_PRESS) {
+            if (key == GLFW_KEY_ESCAPE) {
+                if (m_window.get_cursor_disabled()) {
+                    m_window.set_cursor_disabled(false);
+                    ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+                } else {
+                    m_window.set_cursor_disabled(true);
+                    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+                }
+            } else if (key == GLFW_KEY_LEFT_SHIFT) {
+                m_camera.set_movement_speed(0.20f);
             }
-
-            return;
         }
     });
 }
@@ -273,7 +281,6 @@ void boa::Renderer::draw_frame() {
 
 void boa::Renderer::draw_objects(vk::CommandBuffer cmd, Model *first, size_t count) {
     Transformations transforms{
-        .model = glm::mat4(1.0f),
         .view = glm::lookAt(
             m_camera.get_position(),
             m_camera.get_position() + m_camera.get_target(),
@@ -288,7 +295,7 @@ void boa::Renderer::draw_objects(vk::CommandBuffer cmd, Model *first, size_t cou
     };
 
     transforms.projection[1][1] *= -1;
-    transforms.model_view_projection = transforms.projection * transforms.view * transforms.model;
+    transforms.view_projection = transforms.projection * transforms.view;
 
     void *data;
     vmaMapMemory(m_allocator, current_frame().transformations.allocation, &data);
@@ -320,6 +327,11 @@ void boa::Renderer::draw_objects(vk::CommandBuffer cmd, Model *first, size_t cou
                     nullptr);
             }
         }
+
+        glm::mat4 model_view_projection = transforms.view_projection * model.transform_matrix;
+        PushConstants push_constants = { .model_view_projection = model_view_projection };
+
+        cmd.pushConstants(model.material->pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
         if (model.mesh != last_mesh) {
             vk::Buffer vertex_buffers[] = { model.mesh->vertex_buffer.buffer };
@@ -895,10 +907,18 @@ void boa::Renderer::create_pipelines() {
     vk::ShaderModule textured_frag = load_shader("shaders/textured_frag.spv");
     vk::ShaderModule textured_vert = load_shader("shaders/textured_vert.spv");
 
+    vk::PushConstantRange push_constants{
+        .stageFlags = vk::ShaderStageFlagBits::eVertex,
+        .offset     = 0,
+        .size       = sizeof(PushConstants),
+    };
+
     vk::PipelineLayoutCreateInfo untextured_layout_info = pipeline_layout_create_info();
 
     untextured_layout_info.setLayoutCount = 1;
     untextured_layout_info.pSetLayouts = &m_descriptor_set_layout;
+    untextured_layout_info.pushConstantRangeCount = 1;
+    untextured_layout_info.pPushConstantRanges = &push_constants;
 
     vk::PipelineLayout untextured_pipeline_layout;
     try {
@@ -1217,7 +1237,7 @@ void boa::Renderer::create_scene() {
         .pSetLayouts        = &m_texture_descriptor_set_layout,
     };
 
-    // todo separate into create_materials()
+    // TODO separate into create_materials()
     try {
         textured->texture_set = m_device.get().allocateDescriptorSets(alloc_info)[0];
     } catch (const vk::SystemError &err) {
@@ -1238,12 +1258,13 @@ void boa::Renderer::create_scene() {
     Model domino_crown;
     domino_crown.mesh = get_mesh("domino crown");
     domino_crown.material = get_material("textured");
-    domino_crown.transform_matrix = glm::mat4{ 1.0f };
+    domino_crown.transform_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.0f, -2.0f));
 
     Model bmw;
     bmw.mesh = get_mesh("bmw");
     bmw.material = get_material("untextured");
-    bmw.transform_matrix = glm::mat4{ 1.0f };
+    //bmw.transform_matrix = glm::mat4{ 1.0f };
+    bmw.transform_matrix = glm::scale(glm::vec3(0.1, 0.1, 0.1));
 
     m_models.push_back(domino_crown);
     m_models.push_back(bmw);

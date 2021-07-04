@@ -28,6 +28,13 @@ void boa::Mouse::cursor_callback(void *user_ptr_v, double x, double y) {
     mouse->set_position(glm::dvec2{ x, y });
 }
 
+void boa::Mouse::scroll_callback(void *user_ptr_v, double x_offset, double y_offset) {
+    auto user_pointers = reinterpret_cast<Renderer::WindowUserPointers *>(user_ptr_v);
+    auto mouse = user_pointers->mouse;
+
+    mouse->set_scroll_movement(glm::dvec2{ x_offset, y_offset });
+}
+
 glm::dvec2 boa::Mouse::position() const {
     return m_position;
 }
@@ -38,12 +45,22 @@ glm::dvec2 boa::Mouse::last_movement() {
     return tmp;
 }
 
-void boa::Mouse::set_position(glm::dvec2 pos) {
+glm::dvec2 boa::Mouse::last_scroll_movement() {
+    glm::dvec2 tmp = m_scroll_movement;
+    m_scroll_movement = { 0.0f, 0.0f };
+    return tmp;
+}
+
+void boa::Mouse::set_position(const glm::dvec2 &pos) {
     m_position = pos;
 }
 
-void boa::Mouse::set_movement(glm::dvec2 mov) {
+void boa::Mouse::set_movement(const glm::dvec2 &mov) {
     m_movement = mov;
+}
+
+void boa::Mouse::set_scroll_movement(const glm::dvec2 &mov) {
+    m_scroll_movement = mov;
 }
 
 bool boa::Mouse::button(uint8_t button) const {
