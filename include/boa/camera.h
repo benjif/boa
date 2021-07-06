@@ -37,7 +37,7 @@ public:
 
 private:
     float m_sensitivity = 1.0f;
-    float m_movement_speed = 0.08f;
+    float m_movement_speed = 0.05f;
     glm::vec3 m_position{ 0.0f, 0.0f, -2.0f };
     glm::vec3 m_target{ 0.0f, 0.0f, 1.0f };
     glm::vec3 m_up{ 0.0f, 1.0f, 0.0f };

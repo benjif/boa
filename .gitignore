@@ -5,5 +5,5 @@ shaders/*.spv
 imgui.ini
 lib/imgui/examples
 lib/imgui/docs
-textures/minecraft.png
-models/minecraft.obj
+models/minecraft*
+textures/minecraft*

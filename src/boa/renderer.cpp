@@ -12,6 +12,8 @@
 #include <chrono>
 
 boa::Renderer::Renderer() {
+    auto boa_start_time = std::chrono::high_resolution_clock::now();
+
     init_window_user_pointers();
     init_window();
     init_input();
@@ -32,6 +34,10 @@ boa::Renderer::Renderer() {
     load_meshes();
     load_textures();
     create_scene();
+
+    auto boa_end_time = std::chrono::high_resolution_clock::now();
+    fmt::print("It took {} seconds for Boa to startup\n",
+        std::chrono::duration<float, std::chrono::seconds::period>(boa_end_time - boa_start_time).count());
 }
 
 void boa::Renderer::run() {
@@ -44,7 +50,7 @@ void boa::Renderer::run() {
         current_time = std::chrono::high_resolution_clock::now();
         float time_change
             = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
-        fmt::print("Framerate: {}\n", 1.00 / time_change);
+        //fmt::print("Framerate: {}\n", 1.00 / time_change);
         last_time = current_time;
 
         input_update(time_change);
@@ -55,7 +61,7 @@ void boa::Renderer::run() {
 
         ImGui::Begin("Example window");
         ImGui::Button("Hello!");
-        float pos[3];
+        float pos[3] = { 0.0f, 0.0f, 0.0f };
         ImGui::InputFloat3("Position", pos);
         ImGui::End();
 
@@ -111,7 +117,7 @@ void boa::Renderer::init_input() {
     m_keyboard.set_callback([&](int key, int action, int mods) {
         if (action == GLFW_RELEASE) {
             if (key == GLFW_KEY_LEFT_SHIFT)
-                m_camera.set_movement_speed(0.08f);
+                m_camera.set_movement_speed(0.05f);
         } else if (action == GLFW_PRESS) {
             if (key == GLFW_KEY_ESCAPE) {
                 if (m_window.get_cursor_disabled()) {
@@ -1114,18 +1120,18 @@ void boa::Renderer::create_pipelines() {
 
 void boa::Renderer::load_meshes() {
     Mesh domino_crown;
-    Mesh bmw;
+    //Mesh bmw;
     Mesh minecraft;
-    domino_crown.load_from_file("models/domino_crown.obj");
-    bmw.load_from_file("models/bmw.obj");
-    minecraft.load_from_file("models/minecraft.obj");
+    domino_crown.load_from_obj_file("models/domino_crown.obj");
+    //bmw.load_from_file("models/bmw.obj");
+    minecraft.load_from_gltf_file("models/minecraft.gltf");
 
     upload_mesh(domino_crown);
-    upload_mesh(bmw);
+    //upload_mesh(bmw);
     upload_mesh(minecraft);
 
     m_meshes["domino crown"] = domino_crown;
-    m_meshes["bmw"] = bmw;
+    //m_meshes["bmw"] = bmw;
     m_meshes["minecraft"] = minecraft;
 }
 
@@ -1139,7 +1145,7 @@ void boa::Renderer::load_textures() {
     m_textures["domino crown"] = domino_crown;
 
     Texture minecraft;
-    minecraft.load_from_file(this, "textures/minecraft.png");
+    minecraft.load_from_file(this, "textures/minecraft-RGBA.png");
     m_textures["minecraft"] = minecraft;
 }
 
@@ -1275,10 +1281,10 @@ void boa::Renderer::create_scene() {
     domino_crown.material = get_material("textured");
     domino_crown.transform_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.0f, -2.0f));
 
-    Model bmw;
+    /*Model bmw;
     bmw.mesh = get_mesh("bmw");
     bmw.material = get_material("untextured");
-    bmw.transform_matrix = glm::scale(glm::vec3(0.2, 0.2, 0.2));
+    bmw.transform_matrix = glm::scale(glm::vec3(0.2, 0.2, 0.2));*/
 
     Model minecraft;
     minecraft.mesh = get_mesh("minecraft");
@@ -1286,7 +1292,7 @@ void boa::Renderer::create_scene() {
     minecraft.transform_matrix = glm::scale(glm::vec3(0.1, 0.1, 0.1));
 
     m_models.push_back(domino_crown);
-    m_models.push_back(bmw);
+    //m_models.push_back(bmw);
     m_models.push_back(minecraft);
 }
 
@@ -1325,17 +1331,17 @@ void boa::Renderer::init_imgui() {
     IMGUI_CHECKVERSION();
 
     vk::DescriptorPoolSize pool_sizes[] = {
-        { vk::DescriptorType::eSampler, 1000 },
-        { vk::DescriptorType::eCombinedImageSampler, 1000 },
-        { vk::DescriptorType::eSampledImage, 1000 },
-        { vk::DescriptorType::eStorageImage, 1000 },
-        { vk::DescriptorType::eUniformTexelBuffer, 1000 },
-        { vk::DescriptorType::eStorageTexelBuffer, 1000 },
-        { vk::DescriptorType::eUniformBuffer, 1000 },
-        { vk::DescriptorType::eStorageBuffer, 1000 },
-        { vk::DescriptorType::eUniformBufferDynamic, 1000 },
-        { vk::DescriptorType::eStorageBufferDynamic, 1000 },
-        { vk::DescriptorType::eInputAttachment, 1000 },
+        { vk::DescriptorType::eSampler,                 1000 },
+        { vk::DescriptorType::eCombinedImageSampler,    1000 },
+        { vk::DescriptorType::eSampledImage,            1000 },
+        { vk::DescriptorType::eStorageImage,            1000 },
+        { vk::DescriptorType::eUniformTexelBuffer,      1000 },
+        { vk::DescriptorType::eStorageTexelBuffer,      1000 },
+        { vk::DescriptorType::eUniformBuffer,           1000 },
+        { vk::DescriptorType::eStorageBuffer,           1000 },
+        { vk::DescriptorType::eUniformBufferDynamic,    1000 },
+        { vk::DescriptorType::eStorageBufferDynamic,    1000 },
+        { vk::DescriptorType::eInputAttachment,         1000 },
     };
 
     vk::DescriptorPoolCreateInfo pool_info{
