@@ -1,5 +1,5 @@
 #include <GLFW/glfw3.h>
-#include "boa/renderer.h"
+#include "boa/gfx/renderer.h"
 #include "boa/input/keyboard.h"
 #include "fmt/format.h"
 

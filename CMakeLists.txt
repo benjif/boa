@@ -17,7 +17,9 @@ file(GLOB SOURCES
     src/*.cpp
     src/boa/*.cpp
     src/boa/input/*.cpp
-    src/boa/asset/*.cpp
+    src/boa/gfx/*.cpp
+    src/boa/gfx/asset/*.cpp
+    src/boa/gfx/vk/*.cpp
 )
 
 add_executable(boa ${SOURCES})

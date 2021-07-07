@@ -1,5 +1,5 @@
 #include <iostream>
-#include "boa/renderer.h"
+#include "boa/gfx/renderer.h"
 #include "boa/input/mouse.h"
 
 void boa::Mouse::mouse_button_callback(void *user_ptr_v, int button, int action, int mods) {

@@ -1,4 +1,4 @@
-#include "boa/renderer.h"
+#include "boa/gfx/renderer.h"
 
 int main(int argc, char **argv) {
     boa::Renderer renderer;
