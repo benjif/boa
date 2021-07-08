@@ -44,8 +44,6 @@ vk::PipelineRasterizationStateCreateInfo rasterization_state_create_info(vk::Pol
         .depthClampEnable           = false,
         .rasterizerDiscardEnable    = false,
         .polygonMode                = polygon_mode,
-        //.cullMode                   = vk::CullModeFlagBits::eNone,
-        //.frontFace                  = vk::FrontFace::eClockwise,
         .cullMode                   = vk::CullModeFlagBits::eBack,
         .frontFace                  = vk::FrontFace::eCounterClockwise,
         .depthBiasEnable            = false,
@@ -62,8 +60,13 @@ vk::PipelineMultisampleStateCreateInfo multisample_state_create_info(vk::SampleC
 
 vk::PipelineColorBlendAttachmentState color_blend_attachment_state() {
     return vk::PipelineColorBlendAttachmentState{
-        .blendEnable    = false,
-        .colorWriteMask = vk::ColorComponentFlagBits::eR |
+        .blendEnable            = true,
+        .srcColorBlendFactor    = vk::BlendFactor::eSrcAlpha,
+        .dstColorBlendFactor    = vk::BlendFactor::eOneMinusSrcAlpha,
+        .colorBlendOp           = vk::BlendOp::eAdd,
+        .srcAlphaBlendFactor    = vk::BlendFactor::eOne,
+        .dstAlphaBlendFactor    = vk::BlendFactor::eZero,
+        .colorWriteMask         = vk::ColorComponentFlagBits::eR |
             vk::ColorComponentFlagBits::eG |
             vk::ColorComponentFlagBits::eB |
             vk::ColorComponentFlagBits::eA,

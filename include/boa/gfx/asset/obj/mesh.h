@@ -10,7 +10,7 @@ namespace boa::gfx {
 
 struct Vertex {
     glm::vec3 position, normal;
-    glm::vec3 color0;
+    glm::vec4 color0;
     glm::vec2 texture_coord0, texture_coord1;
 
     // others?
@@ -41,7 +41,8 @@ struct Vertex {
             vk::VertexInputAttributeDescription{
                 .location   = 2,
                 .binding    = 0,
-                .format     = vk::Format::eR32G32B32Sfloat,
+                .format     = vk::Format::eR32G32B32A32Sfloat,
+                //.format     = vk::Format::eR32G32B32Sfloat,
                 .offset     = offsetof(Vertex, color0),
             },
             vk::VertexInputAttributeDescription{

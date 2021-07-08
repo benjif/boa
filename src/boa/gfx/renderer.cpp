@@ -1208,19 +1208,20 @@ void Renderer::create_pipelines() {
 
 void Renderer::load_meshes() {
     Mesh domino_crown;
-    //Mesh bmw;
-    Mesh minecraft;
-    domino_crown.load_from_obj_file("models/domino_crown.obj");
-    //bmw.load_from_file("models/bmw.obj");
-    minecraft.load_from_gltf_file("models/minecraft.gltf");
-
+    //domino_crown.load_from_obj_file("models/domino_crown.obj");
+    domino_crown.load_from_gltf_file("models/domino_crown.gltf");
     upload_mesh(domino_crown);
-    //upload_mesh(bmw);
-    upload_mesh(minecraft);
-
     m_meshes["domino crown"] = domino_crown;
-    //m_meshes["bmw"] = bmw;
-    m_meshes["minecraft"] = minecraft;
+
+    Mesh box_interleaved;
+    box_interleaved.load_from_gltf_file("models/BoxInterleaved.gltf");
+    upload_mesh(box_interleaved);
+    m_meshes["box interleaved"] = box_interleaved;
+
+    //Mesh minecraft;
+    //minecraft.load_from_gltf_file("models/minecraft.gltf");
+    //upload_mesh(minecraft);
+    //m_meshes["minecraft"] = minecraft;
 }
 
 void Renderer::load_textures() {
@@ -1232,9 +1233,9 @@ void Renderer::load_textures() {
     domino_crown.load_from_file(this, "textures/domino_crown.png", true);
     m_textures["domino crown"] = domino_crown;
 
-    Texture minecraft;
+    /*Texture minecraft;
     minecraft.load_from_file(this, "textures/minecraft-RGBA.png", true);
-    m_textures["minecraft"] = minecraft;
+    m_textures["minecraft"] = minecraft;*/
 }
 
 void Renderer::upload_mesh(Mesh &mesh) {
@@ -1317,11 +1318,11 @@ Mesh *Renderer::get_mesh(const std::string &name) {
 }
 
 void Renderer::create_scene() {
-    Texture minecraft_texture = m_textures["minecraft"];
+    //Texture minecraft_texture = m_textures["minecraft"];
     Texture domino_crown_texture = m_textures["domino crown"];
 
     // TODO: move sampler stuff elsewhere
-    vk::SamplerCreateInfo sampler_info = sampler_create_info(vk::Filter::eNearest);
+    vk::SamplerCreateInfo sampler_info = sampler_create_info(vk::Filter::eLinear);
     sampler_info.setMipmapMode(vk::SamplerMipmapMode::eLinear)
         .setMaxLod(domino_crown_texture.mip_levels)
         .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
@@ -1340,8 +1341,8 @@ void Renderer::create_scene() {
     });
 
     Material *textured = get_material("textured");
-    create_material(textured->pipeline, textured->pipeline_layout, "textured minecraft");
-    Material *textured_minecraft = get_material("textured minecraft");
+    //create_material(textured->pipeline, textured->pipeline_layout, "textured minecraft");
+    //Material *textured_minecraft = get_material("textured minecraft");
 
     vk::DescriptorSetAllocateInfo alloc_info{
         .descriptorPool     = m_descriptor_pool,
@@ -1352,7 +1353,7 @@ void Renderer::create_scene() {
     // TODO separate into create_materials()
     try {
         textured->texture_set = m_device.get().allocateDescriptorSets(alloc_info)[0];
-        textured_minecraft->texture_set = m_device.get().allocateDescriptorSets(alloc_info)[0];
+        //textured_minecraft->texture_set = m_device.get().allocateDescriptorSets(alloc_info)[0];
     } catch (const vk::SystemError &err) {
         throw std::runtime_error("Failed to allocate descriptor set");
     }
@@ -1367,30 +1368,30 @@ void Renderer::create_scene() {
         textured->texture_set, &image_buffer_info, 0);
     m_device.get().updateDescriptorSets(t1, 0);
 
-    image_buffer_info.imageView = m_textures["minecraft"].image_view;
+    /*image_buffer_info.imageView = m_textures["minecraft"].image_view;
 
     vk::WriteDescriptorSet t2 = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
         textured_minecraft->texture_set, &image_buffer_info, 0);
-    m_device.get().updateDescriptorSets(t2, 0);
+    m_device.get().updateDescriptorSets(t2, 0);*/
 
     Model domino_crown;
     domino_crown.mesh = get_mesh("domino crown");
     domino_crown.material = get_material("textured");
     domino_crown.transform_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.0f, -2.0f));
 
-    /*Model bmw;
-    bmw.mesh = get_mesh("bmw");
-    bmw.material = get_material("untextured");
-    bmw.transform_matrix = glm::scale(glm::vec3(0.2, 0.2, 0.2));*/
+    Model box_interleaved;
+    box_interleaved.mesh = get_mesh("box interleaved");
+    box_interleaved.material = get_material("untextured");
+    box_interleaved.transform_matrix = glm::scale(glm::vec3(0.2, 0.2, 0.2));
 
-    Model minecraft;
+    /*Model minecraft;
     minecraft.mesh = get_mesh("minecraft");
     minecraft.material = get_material("textured minecraft");
-    minecraft.transform_matrix = glm::scale(glm::vec3(0.1, 0.1, 0.1));
+    minecraft.transform_matrix = glm::scale(glm::vec3(0.1, 0.1, 0.1));*/
 
     m_models.push_back(domino_crown);
-    //m_models.push_back(bmw);
-    m_models.push_back(minecraft);
+    m_models.push_back(box_interleaved);
+    //m_models.push_back(minecraft);
 }
 
 void Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function) {

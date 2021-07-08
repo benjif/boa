@@ -1,10 +1,10 @@
 #define TINYGLTF_IMPLEMENTATION
-#define TINYGTLF_NO_EXTERNAL_IMAGE
+//#define TINYGTLF_NO_EXTERNAL_IMAGE
 #define TINYGTLF_NO_INCLUDE_STB_IMAGE
 #define TINYGTLF_NO_INCLUDE_STB_IMAGE_WRITE
 #include "tiny_obj_loader.h"
 #include "tiny_gltf.h"
-#include "boa/gfx/asset/mesh.h"
+#include "boa/gfx/asset/obj/mesh.h"
 #include "glm/gtc/type_ptr.hpp"
 #include <stack>
 #include <vector>
@@ -117,6 +117,8 @@ void Mesh::load_from_gltf_file(const char *path) {
                      stride_texcoord2,
                      stride_color0;
 
+            int type_color0;
+
             tinygltf::Accessor position_accessor;
 
             for (const auto &attrib : primitive.attributes) {
@@ -173,8 +175,9 @@ void Mesh::load_from_gltf_file(const char *path) {
                 case AttributeType::Color0:
                     stride_color0 = accessor.ByteStride(buffer_view) ?
                         (accessor.ByteStride(buffer_view) / sizeof(float)) :
-                        (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+                        (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(accessor.type));
                     data_color0 = data;
+                    type_color0 = accessor.type;
                     break;
                 }
             }
@@ -188,7 +191,24 @@ void Mesh::load_from_gltf_file(const char *path) {
                 vertex.normal = data_normal ? glm::normalize(glm::make_vec3(&data_normal[i * stride_normal])) : glm::vec3(0.0f);
                 vertex.texture_coord0 = data_texcoord0 ? glm::make_vec2(&data_texcoord0[i * stride_texcoord0]) : glm::vec2(0.0f);
                 vertex.texture_coord1 = data_texcoord1 ? glm::make_vec2(&data_texcoord1[i * stride_texcoord1]) : glm::vec2(0.0f);
-                vertex.color0 = data_color0 ? glm::make_vec3(&data_color0[i * stride_color0]) : glm::vec3(0.0f);
+
+                if (data_color0) {
+                    if (type_color0 == TINYGLTF_TYPE_VEC3) {
+                        vertex.color0 = glm::vec4{
+                            data_color0[i * stride_color0 + 0 * sizeof(float)],
+                            data_color0[i * stride_color0 + 1 * sizeof(float)],
+                            data_color0[i * stride_color0 + 2 * sizeof(float)],
+                            1.0f,
+                        };
+                    } else if (type_color0 == TINYGLTF_TYPE_VEC4) {
+                        vertex.color0 = glm::make_vec4(&data_color0[i * stride_color0]);
+                    } else {
+                        throw std::runtime_error("Unknown glTF color type");
+                    }
+                } else {
+                    vertex.color0 = glm::vec4(0.0f);
+                }
+
                 vertices.push_back(std::move(vertex));
             }
         }

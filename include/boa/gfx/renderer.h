@@ -6,7 +6,7 @@
 #include "boa/gfx/window.h"
 #include "boa/gfx/vk/util.h"
 #include "boa/gfx/vk/types.h"
-#include "boa/gfx/asset/mesh.h"
+#include "boa/gfx/asset/obj/mesh.h"
 #include "boa/gfx/asset/texture.h"
 #include "boa/gfx/camera.h"
 #include "boa/input/keyboard.h"
