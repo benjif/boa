@@ -3,7 +3,7 @@
 
 #include <glm/glm.hpp>
 
-namespace boa {
+namespace boa::gfx {
 
 class Camera {
 public:
@@ -46,20 +46,20 @@ private:
 
 }
 
-inline boa::Camera::DirectionFlags operator|(boa::Camera::DirectionFlags lhs, boa::Camera::DirectionFlags rhs) {
-    return static_cast<boa::Camera::DirectionFlags>(static_cast<int>(lhs) | static_cast<int>(rhs));
+inline boa::gfx::Camera::DirectionFlags operator|(boa::gfx::Camera::DirectionFlags lhs, boa::gfx::Camera::DirectionFlags rhs) {
+    return static_cast<boa::gfx::Camera::DirectionFlags>(static_cast<int>(lhs) | static_cast<int>(rhs));
 }
 
-inline boa::Camera::DirectionFlags operator&(boa::Camera::DirectionFlags lhs, boa::Camera::DirectionFlags rhs) {
-    return static_cast<boa::Camera::DirectionFlags>(static_cast<int>(lhs) & static_cast<int>(rhs));
+inline boa::gfx::Camera::DirectionFlags operator&(boa::gfx::Camera::DirectionFlags lhs, boa::gfx::Camera::DirectionFlags rhs) {
+    return static_cast<boa::gfx::Camera::DirectionFlags>(static_cast<int>(lhs) & static_cast<int>(rhs));
 }
 
-inline boa::Camera::DirectionFlags &operator|=(boa::Camera::DirectionFlags &lhs, boa::Camera::DirectionFlags rhs) {
-    return (boa::Camera::DirectionFlags &)((int &)(lhs) |= static_cast<int>(rhs));
+inline boa::gfx::Camera::DirectionFlags &operator|=(boa::gfx::Camera::DirectionFlags &lhs, boa::gfx::Camera::DirectionFlags rhs) {
+    return (boa::gfx::Camera::DirectionFlags &)((int &)(lhs) |= static_cast<int>(rhs));
 }
 
-inline boa::Camera::DirectionFlags &operator&=(boa::Camera::DirectionFlags &lhs, boa::Camera::DirectionFlags rhs) {
-    return (boa::Camera::DirectionFlags &)((int &)(lhs) &= static_cast<int>(rhs));
+inline boa::gfx::Camera::DirectionFlags &operator&=(boa::gfx::Camera::DirectionFlags &lhs, boa::gfx::Camera::DirectionFlags rhs) {
+    return (boa::gfx::Camera::DirectionFlags &)((int &)(lhs) &= static_cast<int>(rhs));
 }
 
 #endif

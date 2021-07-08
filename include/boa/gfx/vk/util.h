@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.hpp>
 #include <vector>
 
-namespace boa {
+namespace boa::gfx {
 
 struct PipelineContext {
     vk::Pipeline build(vk::Device device, vk::RenderPass renderpass);
@@ -29,7 +29,7 @@ void destroy_debug_utils_messenger_ext(vk::Instance instance, vk::DebugUtilsMess
         const VkAllocationCallbacks *p_allocator);
 vk::SurfaceFormatKHR choose_swap_surface_format(const std::vector<vk::SurfaceFormatKHR> &available_formats);
 vk::PresentModeKHR choose_swap_present_mode(const std::vector<vk::PresentModeKHR> &available_present_modes);
-vk::Extent2D choose_swap_extent(const vk::SurfaceCapabilitiesKHR &capabilities, boa::Window &window);
+vk::Extent2D choose_swap_extent(const vk::SurfaceCapabilitiesKHR &capabilities, Window &window);
 vk::Format find_supported_format(
     vk::PhysicalDevice physical_device,
     const std::vector<vk::Format> &candidates,

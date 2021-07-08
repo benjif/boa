@@ -11,7 +11,9 @@
 #include <fstream>
 #include <chrono>
 
-boa::Renderer::Renderer() {
+namespace boa::gfx {
+
+Renderer::Renderer() {
     auto boa_start_time = std::chrono::high_resolution_clock::now();
 
     init_window_user_pointers();
@@ -40,7 +42,7 @@ boa::Renderer::Renderer() {
         std::chrono::duration<float, std::chrono::seconds::period>(boa_end_time - boa_start_time).count());
 }
 
-void boa::Renderer::run() {
+void Renderer::run() {
     auto last_time = std::chrono::high_resolution_clock::now();
     auto current_time = std::chrono::high_resolution_clock::now();
 
@@ -74,7 +76,7 @@ void boa::Renderer::run() {
     cleanup();
 }
 
-void boa::Renderer::input_update(float time_change) {
+void Renderer::input_update(float time_change) {
     time_change *= 60.0f;
     //LOG_INFO("Time change: {}\n", time_change);
 
@@ -100,7 +102,7 @@ void boa::Renderer::input_update(float time_change) {
     }
 }
 
-void boa::Renderer::init_window() {
+void Renderer::init_window() {
     m_window.set_window_user_pointer(&m_user_pointers);
     m_window.set_framebuffer_size_callback(framebuffer_size_callback);
     m_window.set_keyboard_callback(m_keyboard.keyboard_callback);
@@ -109,13 +111,13 @@ void boa::Renderer::init_window() {
     m_window.set_mouse_scroll_callback(m_mouse.scroll_callback);
 }
 
-void boa::Renderer::init_window_user_pointers() {
+void Renderer::init_window_user_pointers() {
     m_user_pointers.renderer = this;
     m_user_pointers.keyboard = &m_keyboard;
     m_user_pointers.mouse = &m_mouse;
 }
 
-void boa::Renderer::init_input() {
+void Renderer::init_input() {
     m_keyboard.set_callback([&](int key, int action, int mods) {
         if (action == GLFW_RELEASE) {
             if (key == GLFW_KEY_LEFT_SHIFT)
@@ -136,7 +138,7 @@ void boa::Renderer::init_input() {
     });
 }
 
-void boa::Renderer::create_allocator() {
+void Renderer::create_allocator() {
     VmaAllocatorCreateInfo alloc_info{
         .physicalDevice     = m_physical_device,
         .device             = m_device.get(),
@@ -147,13 +149,13 @@ void boa::Renderer::create_allocator() {
     vmaCreateAllocator(&alloc_info, &m_allocator);
 }
 
-void boa::Renderer::framebuffer_size_callback(void *user_ptr_v, int w, int h) {
+void Renderer::framebuffer_size_callback(void *user_ptr_v, int w, int h) {
     //auto user_pointers = reinterpret_cast<Renderer::WindowUserPointers *>(user_ptr_v);
     //auto renderer = user_pointers->renderer;
     // TODO: implement proper framebuffer resizing
 }
 
-void boa::Renderer::cleanup() {
+void Renderer::cleanup() {
     m_deletion_queue.flush();
 
     if (validation_enabled)
@@ -162,7 +164,7 @@ void boa::Renderer::cleanup() {
     vmaDestroyAllocator(m_allocator);
 }
 
-void boa::Renderer::draw_frame() {
+void Renderer::draw_frame() {
     m_device.get().waitForFences(1, &current_frame().render_fence, VK_TRUE, 1e9);
     m_device.get().resetFences(1, &current_frame().render_fence);
 
@@ -290,7 +292,7 @@ void boa::Renderer::draw_frame() {
     m_frame++;
 }
 
-void boa::Renderer::draw_objects(vk::CommandBuffer cmd, Model *first, size_t count) {
+void Renderer::draw_objects(vk::CommandBuffer cmd, Model *first, size_t count) {
     Transformations transforms{
         .view = glm::lookAt(
             m_camera.get_position(),
@@ -357,7 +359,7 @@ void boa::Renderer::draw_objects(vk::CommandBuffer cmd, Model *first, size_t cou
     }
 }
 
-void boa::Renderer::create_instance() {
+void Renderer::create_instance() {
     if (validation_enabled && !check_validation_layer_support(validation_layers))
         throw std::runtime_error("Validation layers unavailable");
 
@@ -406,7 +408,7 @@ void boa::Renderer::create_instance() {
     }
 }
 
-void boa::Renderer::setup_debug_messenger() {
+void Renderer::setup_debug_messenger() {
     if (!validation_enabled)
         return;
 
@@ -424,7 +426,7 @@ void boa::Renderer::setup_debug_messenger() {
         throw std::runtime_error("Failed to setup debug messenger");
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL boa::Renderer::debug_callback(
+VKAPI_ATTR VkBool32 VKAPI_CALL Renderer::debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
     VkDebugUtilsMessageTypeFlagsEXT message_type,
     const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
@@ -433,7 +435,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL boa::Renderer::debug_callback(
     return VK_FALSE;
 }
 
-vk::SampleCountFlagBits boa::Renderer::get_max_sample_count() {
+vk::SampleCountFlagBits Renderer::get_max_sample_count() {
     const vk::SampleCountFlagBits descending_sample_counts[] = {
         vk::SampleCountFlagBits::e64,
         vk::SampleCountFlagBits::e32,
@@ -454,7 +456,7 @@ vk::SampleCountFlagBits boa::Renderer::get_max_sample_count() {
     return vk::SampleCountFlagBits::e1;
 }
 
-void boa::Renderer::select_physical_device() {
+void Renderer::select_physical_device() {
     std::vector<vk::PhysicalDevice> devices =
         m_instance.get().enumeratePhysicalDevices();
 
@@ -474,7 +476,7 @@ void boa::Renderer::select_physical_device() {
         throw std::runtime_error("Failed to find suitable GPU");
 }
 
-void boa::Renderer::create_logical_device() {
+void Renderer::create_logical_device() {
     QueueFamilyIndices indices = find_queue_families(m_physical_device);
 
     std::vector<vk::DeviceQueueCreateInfo> q_create_infos;
@@ -524,14 +526,14 @@ void boa::Renderer::create_logical_device() {
     m_device.get().getQueue(indices.present_family.value(), 0, &m_present_queue);
 }
 
-void boa::Renderer::create_surface() {
+void Renderer::create_surface() {
     vk::SurfaceKHR temp_surface;
     if (m_window.create_window_surface(static_cast<VkInstance>(m_instance.get()), reinterpret_cast<VkSurfaceKHR *>(&temp_surface)) != VK_SUCCESS)
         throw std::runtime_error("Failed to create window surface");
     m_surface = vk::UniqueSurfaceKHR(temp_surface, m_instance.get());
 }
 
-boa::Renderer::SwapChainSupportDetails boa::Renderer::query_swap_chain_support(vk::PhysicalDevice device) {
+Renderer::SwapChainSupportDetails Renderer::query_swap_chain_support(vk::PhysicalDevice device) {
     SwapChainSupportDetails details;
 
     details.capabilities = device.getSurfaceCapabilitiesKHR(m_surface.get());
@@ -541,7 +543,7 @@ boa::Renderer::SwapChainSupportDetails boa::Renderer::query_swap_chain_support(v
     return details;
 }
 
-bool boa::Renderer::check_device(vk::PhysicalDevice device) {
+bool Renderer::check_device(vk::PhysicalDevice device) {
     QueueFamilyIndices indices = find_queue_families(device);
 
     bool extensions_supported = check_device_extension_support(device);
@@ -564,7 +566,7 @@ bool boa::Renderer::check_device(vk::PhysicalDevice device) {
         more_features.get<vk::PhysicalDeviceVulkan12Features>().imagelessFramebuffer;
 }
 
-bool boa::Renderer::check_device_extension_support(vk::PhysicalDevice device) {
+bool Renderer::check_device_extension_support(vk::PhysicalDevice device) {
     std::vector<vk::ExtensionProperties> available_extensions =
         device.enumerateDeviceExtensionProperties();
 
@@ -576,7 +578,7 @@ bool boa::Renderer::check_device_extension_support(vk::PhysicalDevice device) {
     return required_extensions.empty();
 }
 
-boa::Renderer::QueueFamilyIndices boa::Renderer::find_queue_families(vk::PhysicalDevice device) {
+Renderer::QueueFamilyIndices Renderer::find_queue_families(vk::PhysicalDevice device) {
     QueueFamilyIndices indices;
 
     auto queue_families = device.getQueueFamilyProperties();
@@ -597,7 +599,7 @@ boa::Renderer::QueueFamilyIndices boa::Renderer::find_queue_families(vk::Physica
     return indices;
 }
 
-vk::ImageView boa::Renderer::create_image_view(vk::Image image, vk::Format format, vk::ImageAspectFlags aspect_flags, uint32_t mip_levels) {
+vk::ImageView Renderer::create_image_view(vk::Image image, vk::Format format, vk::ImageAspectFlags aspect_flags, uint32_t mip_levels) {
     vk::ImageViewCreateInfo view_info{
         .image              = image,
         .viewType           = vk::ImageViewType::e2D,
@@ -622,7 +624,7 @@ vk::ImageView boa::Renderer::create_image_view(vk::Image image, vk::Format forma
     return image_view;
 }
 
-void boa::Renderer::create_swapchain() {
+void Renderer::create_swapchain() {
     SwapChainSupportDetails swapchain_support = query_swap_chain_support(m_physical_device);
 
     vk::SurfaceFormatKHR surface_format = choose_swap_surface_format(swapchain_support.formats);
@@ -750,7 +752,7 @@ void boa::Renderer::create_swapchain() {
     });
 }
 
-void boa::Renderer::create_commands() {
+void Renderer::create_commands() {
     uint32_t graphics_family_index = find_queue_families(m_physical_device).graphics_family.value();
 
     try {
@@ -777,7 +779,7 @@ void boa::Renderer::create_commands() {
     }
 }
 
-void boa::Renderer::create_default_renderpass() {
+void Renderer::create_default_renderpass() {
     vk::AttachmentDescription color_attachment{
         .format         = m_swapchain_format,
         .samples        = m_msaa_samples,
@@ -872,7 +874,7 @@ void boa::Renderer::create_default_renderpass() {
     });
 }
 
-void boa::Renderer::create_framebuffer() {
+void Renderer::create_framebuffer() {
     vk::FramebufferAttachmentImageInfo depth_attach{
         .usage              = vk::ImageUsageFlagBits::eDepthStencilAttachment,
         .width              = m_window_extent.width,
@@ -933,7 +935,7 @@ void boa::Renderer::create_framebuffer() {
     });
 }
 
-void boa::Renderer::create_sync_objects() {
+void Renderer::create_sync_objects() {
     try {
         // create fence for upload context (used for immediate commands)
         m_upload_context.upload_fence = m_device.get().createFence(vk::FenceCreateInfo{});
@@ -965,7 +967,7 @@ void boa::Renderer::create_sync_objects() {
     }
 }
 
-vk::ShaderModule boa::Renderer::load_shader(const char *path) {
+vk::ShaderModule Renderer::load_shader(const char *path) {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open())
         throw std::runtime_error("Failed to open shader file");
@@ -992,11 +994,11 @@ vk::ShaderModule boa::Renderer::load_shader(const char *path) {
     return shader_module;
 }
 
-boa::Renderer::PerFrame &boa::Renderer::current_frame() {
+Renderer::PerFrame &Renderer::current_frame() {
     return m_frames[m_frame % FRAMES_IN_FLIGHT];
 }
 
-boa::VmaBuffer boa::Renderer::create_buffer(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memory_usage) {
+VmaBuffer Renderer::create_buffer(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memory_usage) {
     vk::BufferCreateInfo buffer_info{
         .size   = size,
         .usage  = usage,
@@ -1010,7 +1012,7 @@ boa::VmaBuffer boa::Renderer::create_buffer(size_t size, vk::BufferUsageFlags us
     return buffer;
 }
 
-void boa::Renderer::create_descriptors() {
+void Renderer::create_descriptors() {
     std::vector<vk::DescriptorPoolSize> sizes = {
         { vk::DescriptorType::eUniformBuffer, 10 },
         { vk::DescriptorType::eSampler, 10 },
@@ -1114,7 +1116,7 @@ void boa::Renderer::create_descriptors() {
     });
 }
 
-void boa::Renderer::create_pipelines() {
+void Renderer::create_pipelines() {
     vk::ShaderModule untextured_frag = load_shader("shaders/untextured_frag.spv");
     vk::ShaderModule untextured_vert = load_shader("shaders/untextured_vert.spv");
     vk::ShaderModule textured_frag = load_shader("shaders/textured_frag.spv");
@@ -1204,7 +1206,7 @@ void boa::Renderer::create_pipelines() {
     m_device.get().destroyShaderModule(textured_vert);
 }
 
-void boa::Renderer::load_meshes() {
+void Renderer::load_meshes() {
     Mesh domino_crown;
     //Mesh bmw;
     Mesh minecraft;
@@ -1221,7 +1223,7 @@ void boa::Renderer::load_meshes() {
     m_meshes["minecraft"] = minecraft;
 }
 
-void boa::Renderer::load_textures() {
+void Renderer::load_textures() {
     Texture default_texture;
     default_texture.load_from_file(this, "textures/default.png");
     m_textures["default"] = default_texture;
@@ -1235,12 +1237,12 @@ void boa::Renderer::load_textures() {
     m_textures["minecraft"] = minecraft;
 }
 
-void boa::Renderer::upload_mesh(Mesh &mesh) {
+void Renderer::upload_mesh(Mesh &mesh) {
     upload_mesh_vertices(mesh);
     upload_mesh_indices(mesh);
 }
 
-void boa::Renderer::upload_mesh_vertices(Mesh &mesh) {
+void Renderer::upload_mesh_vertices(Mesh &mesh) {
     const size_t size = mesh.vertices.size() * sizeof(Vertex);
 
     VmaBuffer staging_buffer = create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -1265,7 +1267,7 @@ void boa::Renderer::upload_mesh_vertices(Mesh &mesh) {
     vmaDestroyBuffer(m_allocator, staging_buffer.buffer, staging_buffer.allocation);
 }
 
-void boa::Renderer::upload_mesh_indices(Mesh &mesh) {
+void Renderer::upload_mesh_indices(Mesh &mesh) {
     const size_t size = mesh.indices.size() * sizeof(uint32_t);
 
     VmaBuffer staging_buffer = create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -1290,7 +1292,7 @@ void boa::Renderer::upload_mesh_indices(Mesh &mesh) {
     vmaDestroyBuffer(m_allocator, staging_buffer.buffer, staging_buffer.allocation);
 }
 
-boa::Material *boa::Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name) {
+Material *Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name) {
     Material material;
     material.pipeline = pipeline;
     material.pipeline_layout = layout;
@@ -1298,7 +1300,7 @@ boa::Material *boa::Renderer::create_material(vk::Pipeline pipeline, vk::Pipelin
     return &m_materials[name];
 }
 
-boa::Material *boa::Renderer::get_material(const std::string &name) {
+Material *Renderer::get_material(const std::string &name) {
     auto it = m_materials.find(name);
     if (it == m_materials.end())
         return nullptr;
@@ -1306,7 +1308,7 @@ boa::Material *boa::Renderer::get_material(const std::string &name) {
         return &(*it).second;
 }
 
-boa::Mesh *boa::Renderer::get_mesh(const std::string &name) {
+Mesh *Renderer::get_mesh(const std::string &name) {
     auto it = m_meshes.find(name);
     if (it == m_meshes.end())
         return nullptr;
@@ -1314,7 +1316,7 @@ boa::Mesh *boa::Renderer::get_mesh(const std::string &name) {
         return &(*it).second;
 }
 
-void boa::Renderer::create_scene() {
+void Renderer::create_scene() {
     Texture minecraft_texture = m_textures["minecraft"];
     Texture domino_crown_texture = m_textures["domino crown"];
 
@@ -1391,7 +1393,7 @@ void boa::Renderer::create_scene() {
     m_models.push_back(minecraft);
 }
 
-void boa::Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function) {
+void Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function) {
     vk::CommandBufferAllocateInfo cmd_alloc_info = command_buffer_allocate_info(m_upload_context.command_pool, 1);
 
     vk::CommandBuffer cmd = m_device.get().allocateCommandBuffers(cmd_alloc_info)[0];
@@ -1422,7 +1424,7 @@ void boa::Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)>
     m_device.get().resetCommandPool(m_upload_context.command_pool);
 }
 
-void boa::Renderer::init_imgui() {
+void Renderer::init_imgui() {
     IMGUI_CHECKVERSION();
 
     vk::DescriptorPoolSize pool_sizes[] = {
@@ -1481,4 +1483,6 @@ void boa::Renderer::init_imgui() {
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
     });
+}
+
 }

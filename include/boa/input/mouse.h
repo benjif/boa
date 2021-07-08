@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include <bitset>
 
-namespace boa {
+namespace boa::input {
 
 class Mouse {
 public:

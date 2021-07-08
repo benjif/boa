@@ -4,7 +4,7 @@
 #include <bitset>
 #include <functional>
 
-namespace boa {
+namespace boa::input {
 
 class Keyboard {
 public:

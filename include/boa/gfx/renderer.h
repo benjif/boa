@@ -17,7 +17,7 @@
 #include <string>
 #include <functional>
 
-namespace boa {
+namespace boa::gfx {
 
 struct Material {
     vk::DescriptorSet texture_set{ VK_NULL_HANDLE };
@@ -40,8 +40,8 @@ public:
 
     struct WindowUserPointers {
         Renderer *renderer;
-        Keyboard *keyboard;
-        Mouse *mouse;
+        input::Keyboard *keyboard;
+        input::Mouse *mouse;
     };
 
     Renderer();
@@ -109,8 +109,8 @@ private:
 
     Window m_window{ INIT_WIDTH, INIT_HEIGHT, WINDOW_TITLE };
     WindowUserPointers m_user_pointers;
-    Keyboard m_keyboard;
-    Mouse m_mouse;
+    input::Keyboard m_keyboard;
+    input::Mouse m_mouse;
     Camera m_camera;
     DeletionQueue m_deletion_queue;
     UploadContext m_upload_context;

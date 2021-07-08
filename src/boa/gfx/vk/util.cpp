@@ -1,7 +1,9 @@
 #include <GLFW/glfw3.h>
 #include "boa/gfx/vk/util.h"
 
-bool boa::check_validation_layer_support(const std::vector<const char *> &layers) {
+namespace boa::gfx {
+
+bool check_validation_layer_support(const std::vector<const char *> &layers) {
     auto available_layers = vk::enumerateInstanceLayerProperties();
 
     for (const char *layer_name : layers) {
@@ -16,7 +18,7 @@ bool boa::check_validation_layer_support(const std::vector<const char *> &layers
     return true;
 }
 
-std::vector<const char *> boa::get_required_extensions(bool validation_enabled) {
+std::vector<const char *> get_required_extensions(bool validation_enabled) {
     uint32_t glfw_extension_count = 0;
     const char **glfw_extensions;
     glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
@@ -28,7 +30,7 @@ std::vector<const char *> boa::get_required_extensions(bool validation_enabled) 
     return extensions;
 }
 
-void boa::populate_debug_messenger_create_info(vk::DebugUtilsMessengerCreateInfoEXT &create_info, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback) {
+void populate_debug_messenger_create_info(vk::DebugUtilsMessengerCreateInfoEXT &create_info, PFN_vkDebugUtilsMessengerCallbackEXT debug_callback) {
     create_info = vk::DebugUtilsMessengerCreateInfoEXT{
         .flags              = {},
         .messageSeverity    = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
@@ -41,7 +43,7 @@ void boa::populate_debug_messenger_create_info(vk::DebugUtilsMessengerCreateInfo
     };
 }
 
-VkResult boa::create_debug_utils_messenger_ext(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *p_create_info,
+VkResult create_debug_utils_messenger_ext(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *p_create_info,
         const VkAllocationCallbacks *p_allocator, VkDebugUtilsMessengerEXT *p_debug_messenger) {
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 
@@ -52,7 +54,7 @@ VkResult boa::create_debug_utils_messenger_ext(VkInstance instance, const VkDebu
     }
 }
 
-void boa::destroy_debug_utils_messenger_ext(vk::Instance instance, vk::DebugUtilsMessengerEXT debug_messenger,
+void destroy_debug_utils_messenger_ext(vk::Instance instance, vk::DebugUtilsMessengerEXT debug_messenger,
         const VkAllocationCallbacks *p_allocator) {
     auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
     if (func != nullptr) {
@@ -60,7 +62,7 @@ void boa::destroy_debug_utils_messenger_ext(vk::Instance instance, vk::DebugUtil
     }
 }
 
-vk::SurfaceFormatKHR boa::choose_swap_surface_format(const std::vector<vk::SurfaceFormatKHR> &available_formats) {
+vk::SurfaceFormatKHR choose_swap_surface_format(const std::vector<vk::SurfaceFormatKHR> &available_formats) {
     for (const auto &available_format : available_formats) {
         if (available_format.format == vk::Format::eB8G8R8A8Srgb &&
                 available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
@@ -71,7 +73,7 @@ vk::SurfaceFormatKHR boa::choose_swap_surface_format(const std::vector<vk::Surfa
     return available_formats[0];
 }
 
-vk::PresentModeKHR boa::choose_swap_present_mode(const std::vector<vk::PresentModeKHR> &available_present_modes) {
+vk::PresentModeKHR choose_swap_present_mode(const std::vector<vk::PresentModeKHR> &available_present_modes) {
     for (const auto &mode : available_present_modes) {
         if (mode == vk::PresentModeKHR::eMailbox)
             return mode;
@@ -80,7 +82,7 @@ vk::PresentModeKHR boa::choose_swap_present_mode(const std::vector<vk::PresentMo
     return vk::PresentModeKHR::eFifo;
 }
 
-vk::Extent2D boa::choose_swap_extent(const vk::SurfaceCapabilitiesKHR &capabilities, boa::Window &window) {
+vk::Extent2D choose_swap_extent(const vk::SurfaceCapabilitiesKHR &capabilities, Window &window) {
     if (capabilities.currentExtent.width != UINT32_MAX) {
         return capabilities.currentExtent;
     } else {
@@ -101,7 +103,7 @@ vk::Extent2D boa::choose_swap_extent(const vk::SurfaceCapabilitiesKHR &capabilit
     }
 }
 
-vk::Format boa::find_supported_format(
+vk::Format find_supported_format(
     vk::PhysicalDevice physical_device,
     const std::vector<vk::Format> &candidates,
     vk::ImageTiling tiling,
@@ -121,7 +123,7 @@ vk::Format boa::find_supported_format(
     throw std::runtime_error("Failed to find supported format");
 }
 
-vk::Format boa::find_depth_format(vk::PhysicalDevice physical_device) {
+vk::Format find_depth_format(vk::PhysicalDevice physical_device) {
     return find_supported_format(
         physical_device,
         {
@@ -134,7 +136,7 @@ vk::Format boa::find_depth_format(vk::PhysicalDevice physical_device) {
     );
 }
 
-vk::Pipeline boa::PipelineContext::build(vk::Device device, vk::RenderPass renderpass) {
+vk::Pipeline PipelineContext::build(vk::Device device, vk::RenderPass renderpass) {
     vk::PipelineViewportStateCreateInfo viewport_state{
         .viewportCount  = 1,
         .pViewports     = nullptr,
@@ -184,4 +186,6 @@ vk::Pipeline boa::PipelineContext::build(vk::Device device, vk::RenderPass rende
     }
 
     return pipeline;
+}
+
 }

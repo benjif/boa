@@ -1,6 +1,8 @@
 #include "boa/gfx/window.h"
 
-boa::Window::Window(int w, int h, const char *name)
+namespace boa::gfx {
+
+Window::Window(int w, int h, const char *name)
     : m_width(w),
       m_height(h),
       m_window_name(name)
@@ -17,34 +19,34 @@ boa::Window::Window(int w, int h, const char *name)
         glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 }
 
-boa::Window::~Window() {
+Window::~Window() {
     glfwDestroyWindow(m_window);
     glfwTerminate();
 }
 
-GLFWwindow *boa::Window::get_glfw_window() {
+GLFWwindow *Window::get_glfw_window() {
     return m_window;
 }
 
-void boa::Window::poll_events() const {
+void Window::poll_events() const {
     glfwPollEvents();
 }
 
-void boa::Window::wait_events() const {
+void Window::wait_events() const {
     glfwWaitEvents();
 }
 
-bool boa::Window::should_close() const {
+bool Window::should_close() const {
     return glfwWindowShouldClose(m_window);
 }
 
-void boa::Window::set_cursor_disabled(bool hidden) {
+void Window::set_cursor_disabled(bool hidden) {
     glfwSetInputMode(m_window, GLFW_CURSOR, hidden ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
 
-void boa::Window::set_keyboard_callback(keyboard_callback_type callback) {
+void Window::set_keyboard_callback(keyboard_callback_type callback) {
     auto wrap_f = +[](GLFWwindow *window, int key, int scancode, int action, int mods) {
-        auto main_class = reinterpret_cast<boa::Window *>(glfwGetWindowUserPointer(window));
+        auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_keyboard_callback();
         auto user_p = main_class->get_window_user_pointer();
         callback(user_p, key, scancode, action, mods);
@@ -54,9 +56,9 @@ void boa::Window::set_keyboard_callback(keyboard_callback_type callback) {
     glfwSetKeyCallback(m_window, wrap_f);
 }
 
-void boa::Window::set_cursor_callback(cursor_callback_type callback) {
+void Window::set_cursor_callback(cursor_callback_type callback) {
     auto wrap_f = +[](GLFWwindow *window, double x, double y) {
-        auto main_class = reinterpret_cast<boa::Window *>(glfwGetWindowUserPointer(window));
+        auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_cursor_callback();
         auto user_p = main_class->get_window_user_pointer();
         callback(user_p, x, y);
@@ -66,9 +68,9 @@ void boa::Window::set_cursor_callback(cursor_callback_type callback) {
     glfwSetCursorPosCallback(m_window, wrap_f);
 }
 
-void boa::Window::set_framebuffer_size_callback(resize_callback_type callback) {
+void Window::set_framebuffer_size_callback(resize_callback_type callback) {
     auto wrap_f = +[](GLFWwindow *window, int w, int h) {
-        auto main_class = reinterpret_cast<boa::Window *>(glfwGetWindowUserPointer(window));
+        auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_framebuffer_size_callback();
         auto user_p = main_class->get_window_user_pointer();
         callback(user_p, w, h);
@@ -78,9 +80,9 @@ void boa::Window::set_framebuffer_size_callback(resize_callback_type callback) {
     glfwSetFramebufferSizeCallback(m_window, wrap_f);
 }
 
-void boa::Window::set_mouse_button_callback(mouse_button_callback_type callback) {
+void Window::set_mouse_button_callback(mouse_button_callback_type callback) {
     auto wrap_f = +[](GLFWwindow *window, int button, int action, int mods) {
-        auto main_class = reinterpret_cast<boa::Window *>(glfwGetWindowUserPointer(window));
+        auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_mouse_button_callback();
         auto user_p = main_class->get_window_user_pointer();
         callback(user_p, button, action, mods);
@@ -90,9 +92,9 @@ void boa::Window::set_mouse_button_callback(mouse_button_callback_type callback)
     glfwSetMouseButtonCallback(m_window, wrap_f);
 }
 
-void boa::Window::set_mouse_scroll_callback(mouse_scroll_callback_type callback) {
+void Window::set_mouse_scroll_callback(mouse_scroll_callback_type callback) {
     auto wrap_f = +[](GLFWwindow *window, double x_offset, double y_offset) {
-        auto main_class = reinterpret_cast<boa::Window *>(glfwGetWindowUserPointer(window));
+        auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_mouse_scroll_callback();
         auto user_p = main_class->get_window_user_pointer();
         callback(user_p, x_offset, y_offset);
@@ -102,44 +104,46 @@ void boa::Window::set_mouse_scroll_callback(mouse_scroll_callback_type callback)
     glfwSetScrollCallback(m_window, wrap_f);
 }
 
-void boa::Window::set_window_user_pointer(void *ptr) {
+void Window::set_window_user_pointer(void *ptr) {
     m_user_pointer = ptr;
 }
 
-bool boa::Window::get_cursor_disabled() const {
+bool Window::get_cursor_disabled() const {
     return glfwGetInputMode(m_window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
 }
 
-boa::Window::resize_callback_type boa::Window::get_framebuffer_size_callback() const {
+Window::resize_callback_type Window::get_framebuffer_size_callback() const {
     return m_size_callback;
 }
 
-boa::Window::keyboard_callback_type boa::Window::get_keyboard_callback() const {
+Window::keyboard_callback_type Window::get_keyboard_callback() const {
     return m_keyboard_callback;
 }
 
-boa::Window::cursor_callback_type boa::Window::get_cursor_callback() const {
+Window::cursor_callback_type Window::get_cursor_callback() const {
     return m_cursor_callback;
 }
 
-boa::Window::mouse_button_callback_type boa::Window::get_mouse_button_callback() const {
+Window::mouse_button_callback_type Window::get_mouse_button_callback() const {
     return m_mouse_button_callback;
 }
 
-boa::Window::mouse_scroll_callback_type boa::Window::get_mouse_scroll_callback() const {
+Window::mouse_scroll_callback_type Window::get_mouse_scroll_callback() const {
     return m_mouse_scroll_callback;
 }
 
-void *boa::Window::get_window_user_pointer() const {
+void *Window::get_window_user_pointer() const {
     return m_user_pointer;
 }
 
-VkResult boa::Window::create_window_surface(VkInstance instance, VkSurfaceKHR *surface) {
+VkResult Window::create_window_surface(VkInstance instance, VkSurfaceKHR *surface) {
     return glfwCreateWindowSurface(instance, m_window, nullptr, surface);
 }
 
-void boa::Window::get_framebuffer_size(int &w, int &h) {
+void Window::get_framebuffer_size(int &w, int &h) {
     glfwGetFramebufferSize(m_window, &m_width, &m_height);
     w = m_width;
     h = m_height;
+}
+
 }

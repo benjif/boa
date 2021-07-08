@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <vulkan/vulkan.hpp>
 
-namespace boa {
+namespace boa::gfx {
 
 class Renderer;
 

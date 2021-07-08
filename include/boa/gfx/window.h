@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <string>
 
-namespace boa {
+namespace boa::gfx {
 
 class Window {
 public:

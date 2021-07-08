@@ -4,7 +4,7 @@
 #include <vulkan/vulkan.hpp>
 #include "vk_mem_alloc.h"
 
-namespace boa {
+namespace boa::gfx {
 
 struct VmaBuffer {
     vk::Buffer buffer;

@@ -9,6 +9,8 @@
 #include <stack>
 #include <vector>
 
+namespace boa::gfx {
+
 enum class AttributeType {
     Normal,
     Position,
@@ -33,7 +35,7 @@ static const std::unordered_map<std::string, AttributeType> attribute_types = {
     { "WEIGHTS_0",  AttributeType::Weights0     },
 };
 
-void boa::Mesh::load_from_gltf_file(const char *path) {
+void Mesh::load_from_gltf_file(const char *path) {
     tinygltf::TinyGLTF loader;
     tinygltf::Model model;
     std::string err, warn;
@@ -193,7 +195,7 @@ void boa::Mesh::load_from_gltf_file(const char *path) {
     }
 }
 
-void boa::Mesh::load_from_obj_file(const char *path) {
+void Mesh::load_from_obj_file(const char *path) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -238,4 +240,6 @@ void boa::Mesh::load_from_obj_file(const char *path) {
             indices.push_back(unique_vertices[vertex]);
         }
     }
+}
+
 }

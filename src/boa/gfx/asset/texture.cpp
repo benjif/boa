@@ -8,9 +8,9 @@
 #include "vk_mem_alloc.h"
 #include <algorithm>
 
-#include "fmt/format.h"
+namespace boa::gfx {
 
-void boa::Texture::load_from_file(Renderer *renderer, const char *path, bool mipmap) {
+void Texture::load_from_file(Renderer *renderer, const char *path, bool mipmap) {
     if (!renderer)
         throw std::runtime_error("Attempt to load texture with null renderer pointer");
 
@@ -235,4 +235,6 @@ void boa::Texture::load_from_file(Renderer *renderer, const char *path, bool mip
     image = new_image;
     image_view = new_image_view;
     mip_levels = image_mip_levels;
+}
+
 }

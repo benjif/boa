@@ -6,7 +6,7 @@
 #include <glm/gtx/hash.hpp>
 #include <vector>
 
-namespace boa {
+namespace boa::gfx {
 
 struct Vertex {
     glm::vec3 position, normal;
@@ -72,8 +72,8 @@ struct Mesh {
 
 namespace std {
     template<typename T> struct hash;
-    template<> struct hash<boa::Vertex> {
-        size_t operator()(const boa::Vertex &vertex) const {
+    template<> struct hash<boa::gfx::Vertex> {
+        size_t operator()(const boa::gfx::Vertex &vertex) const {
             return ((hash<glm::vec3>()(vertex.position) ^
                     (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^
                     (hash<glm::vec2>()(vertex.texture_coord0) << 1);

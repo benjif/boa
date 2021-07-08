@@ -3,7 +3,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace boa {
+namespace boa::gfx {
 
 vk::CommandPoolCreateInfo command_pool_create_info(uint32_t queue_family_index, vk::CommandPoolCreateFlags flags = {});
 vk::CommandBufferAllocateInfo command_buffer_allocate_info(vk::CommandPool pool, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary);
