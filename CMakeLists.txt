@@ -8,20 +8,21 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(Vulkan REQUIRED)
+find_package(fmt REQUIRED)
 #find_package(GLFW REQUIRED)
 
 file(GLOB SOURCES
     lib/imgui/*.cpp
     lib/imgui/backends/imgui_impl_glfw.cpp
     lib/imgui/backends/imgui_impl_vulkan.cpp
-    src/*.cpp
-    src/boa/*.cpp
-    src/boa/input/*.cpp
-    src/boa/gfx/*.cpp
-    src/boa/gfx/asset/*.cpp
-    src/boa/gfx/asset/obj/*.cpp
-    src/boa/gfx/asset/gltf/*.cpp
-    src/boa/gfx/vk/*.cpp
+    src/main.cpp
+    src/boa/gfx/scene.cpp
+    #src/*.cpp
+    #src/boa/*.cpp
+    #src/boa/input/*.cpp
+    #src/boa/gfx/*.cpp
+    #src/boa/gfx/asset/*.cpp
+    #src/boa/gfx/vk/*.cpp
 )
 
 add_executable(boa ${SOURCES})
@@ -39,7 +40,6 @@ add_definitions(
     #-DSTB_IMAGE_IMPLEMENTATION
     #-DSTB_IMAGE_WRITE_IMPLEMENTATION
     -DTINYOBJLOADER_IMPLEMENTATION
-    -DFMT_HEADER_ONLY
 )
 
 set(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
@@ -62,9 +62,9 @@ if(WIN32)
         PUBLIC ${Vulkan_INCLUDE_DIRS}
         PUBLIC "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/lib-mingw-w64"
     )
-    message(STATUS ${Vulkan_INCLUDE_DIRS})
     target_link_libraries(boa
         ${Vulkan_LIBRARIES}
+        fmt::fmt
         -lglfw3
         -lgdi32
         -limm32
@@ -73,6 +73,7 @@ else()
     target_link_libraries(boa
         ${Vulkan_LIBRARIES}
         -lglfw3
+        -lfmt
         -lX11
         -lXxf86vm
         -lpthread

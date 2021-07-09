@@ -1,6 +1,7 @@
 #include <iostream>
 #include "boa/gfx/renderer.h"
 #include "boa/input/mouse.h"
+#include "GLFW/glfw3.h"
 
 namespace boa::input {
 

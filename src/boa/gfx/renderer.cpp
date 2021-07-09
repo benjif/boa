@@ -4,7 +4,8 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
-#include "fmt/format.h"
+#include "GLFW/glfw3.h"
+#include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <set>
 #include <unordered_map>
@@ -38,7 +39,7 @@ Renderer::Renderer() {
     create_scene();
 
     auto boa_end_time = std::chrono::high_resolution_clock::now();
-    fmt::print("It took {} seconds for Boa to startup\n",
+    LOG_INFO("It took {} seconds for Boa to startup\n",
         std::chrono::duration<float, std::chrono::seconds::period>(boa_end_time - boa_start_time).count());
 }
 
@@ -52,7 +53,7 @@ void Renderer::run() {
         current_time = std::chrono::high_resolution_clock::now();
         float time_change
             = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
-        //fmt::print("Framerate: {}\n", 1.00 / time_change);
+        //LOG_INFO("Framerate: {}\n", 1.0f / time_change);
         last_time = current_time;
 
         input_update(time_change);
@@ -364,7 +365,7 @@ void Renderer::create_instance() {
         throw std::runtime_error("Validation layers unavailable");
 
     vk::ApplicationInfo app_info{
-        .pApplicationName   = "Hello Triangle",
+        .pApplicationName   = "Boa Application",
         .applicationVersion = 1,
         .pEngineName        = "Boa",
         .engineVersion      = 1,
@@ -430,8 +431,23 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Renderer::debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
     VkDebugUtilsMessageTypeFlagsEXT message_type,
     const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
-    void *p_user_data) {
-    fmt::print(stderr, "Validation layer: {}\n", p_callback_data->pMessage);
+    void *p_user_data
+) {
+    switch (message_severity) {
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+        LOG_INFO("(Validation) {}", p_callback_data->pMessage);
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+        LOG_WARN("(Validation) {}", p_callback_data->pMessage);
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+        LOG_FAIL("(Validation) {}", p_callback_data->pMessage);
+        break;
+    default:
+        break;
+    }
+
     return VK_FALSE;
 }
 

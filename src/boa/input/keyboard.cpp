@@ -1,7 +1,6 @@
-#include <GLFW/glfw3.h>
+#include "GLFW/glfw3.h"
 #include "boa/gfx/renderer.h"
 #include "boa/input/keyboard.h"
-#include "fmt/format.h"
 
 namespace boa::input {
 

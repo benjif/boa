@@ -1,4 +1,5 @@
 #include "boa/gfx/window.h"
+#include "GLFW/glfw3.h"
 
 namespace boa::gfx {
 

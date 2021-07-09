@@ -1,10 +1,17 @@
-#ifndef BOA_GFX_MESH_H
-#define BOA_GFX_MESH_H
+#ifndef BOA_GFX_SCENE_H
+#define BOA_GFX_SCENE_H
 
-#include "boa/gfx/vk/types.h"
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
+#include "boa/macros.h"
+#include "boa/gfx/asset/gltf.h"
+#include "glm/glm.hpp"
+#include <vulkan/vulkan.hpp>
 #include <vector>
+#include <optional>
+
+namespace tinygltf {
+class Model;
+class Node;
+}
 
 namespace boa::gfx {
 
@@ -59,27 +66,47 @@ struct Vertex {
     }
 };
 
-struct Mesh {
-    void load_from_gltf_file(const char *path);
-    void load_from_obj_file(const char *path);
+class Scene {
+    REMOVE_COPY_AND_ASSIGN(Scene);
+public:
+    Scene() {}
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    VmaBuffer vertex_buffer;
-    VmaBuffer index_buffer;
+    void add_from_gltf_file(const char *path);
+    void debug_print() const;
+
+private:
+    struct Primitive {
+        size_t material;
+        std::vector<size_t> indices;
+    };
+
+    struct Texture {
+    };
+
+    struct Mesh {
+        size_t material;
+        glm::vec3 min, max;
+        std::vector<size_t> primitives;
+    };
+
+    struct Node {
+        size_t index;
+        std::optional<size_t> parent;
+        std::optional<size_t> mesh;
+        std::vector<size_t> children;
+    };
+
+    void debug_print_node(const Node &node) const;
+
+    size_t add_nodes(tinygltf::Model &model, std::optional<size_t> parent, tinygltf::Node &node);
+
+    std::vector<Node> m_nodes;
+    std::vector<Mesh> m_meshes;
+    std::vector<Primitive> m_primitives;
+
+    std::vector<Vertex> m_vertices;
 };
 
-}
-
-namespace std {
-    template<typename T> struct hash;
-    template<> struct hash<boa::gfx::Vertex> {
-        size_t operator()(const boa::gfx::Vertex &vertex) const {
-            return ((hash<glm::vec3>()(vertex.position) ^
-                    (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^
-                    (hash<glm::vec2>()(vertex.texture_coord0) << 1);
-        }
-    };
 }
 
 #endif

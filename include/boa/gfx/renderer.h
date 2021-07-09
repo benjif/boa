@@ -2,11 +2,12 @@
 #define BOA_GFX_RENDERER_H
 
 #include "vk_mem_alloc.h"
+#include "boa/macros.h"
 #include "boa/deletion_queue.h"
 #include "boa/gfx/window.h"
 #include "boa/gfx/vk/util.h"
 #include "boa/gfx/vk/types.h"
-#include "boa/gfx/asset/obj/mesh.h"
+#include "boa/gfx/asset/mesh.h"
 #include "boa/gfx/asset/texture.h"
 #include "boa/gfx/camera.h"
 #include "boa/input/keyboard.h"
@@ -33,6 +34,7 @@ struct Model {
 };
 
 class Renderer {
+    REMOVE_COPY_AND_ASSIGN(Renderer);
 public:
     static constexpr uint32_t INIT_WIDTH = 1280;
     static constexpr uint32_t INIT_HEIGHT = 960;

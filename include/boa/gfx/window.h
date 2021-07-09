@@ -1,13 +1,16 @@
 #ifndef BOA_GFX_WINDOW_H
 #define BOA_GFX_WINDOW_H
 
+#include "boa/macros.h"
 #include <vulkan/vulkan.hpp>
-#include <GLFW/glfw3.h>
 #include <string>
+
+struct GLFWwindow;
 
 namespace boa::gfx {
 
 class Window {
+    REMOVE_COPY_AND_ASSIGN(Window);
 public:
     typedef void ((*resize_callback_type)(void *user_p, int w, int h));
     typedef void ((*keyboard_callback_type)(void *user_p, int key, int scancode, int action, int mods));
