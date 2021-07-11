@@ -1,37 +1,22 @@
 #ifndef BOA_GFX_RENDERER_H
 #define BOA_GFX_RENDERER_H
 
-#include "vk_mem_alloc.h"
-#include "boa/macros.h"
 #include "boa/deletion_queue.h"
 #include "boa/gfx/window.h"
 #include "boa/gfx/vk/util.h"
 #include "boa/gfx/vk/types.h"
-#include "boa/gfx/asset/mesh.h"
-#include "boa/gfx/asset/texture.h"
+#include "boa/gfx/asset/model.h"
+#include "boa/gfx/asset/vkasset.h"
+#include "boa/macros.h"
 #include "boa/gfx/camera.h"
 #include "boa/input/keyboard.h"
 #include "boa/input/mouse.h"
-#include <glm/gtx/transform.hpp>
-#include <glm/glm.hpp>
+#include "glm/gtx/transform.hpp"
 #include <optional>
 #include <string>
 #include <functional>
 
 namespace boa::gfx {
-
-struct Material {
-    vk::DescriptorSet texture_set{ VK_NULL_HANDLE };
-    vk::Pipeline pipeline;
-    vk::PipelineLayout pipeline_layout;
-};
-
-struct Model {
-    // TODO: ensure mesh and material are not null
-    Mesh *mesh{ nullptr };
-    Material *material{ nullptr };
-    glm::mat4 transform_matrix;
-};
 
 class Renderer {
     REMOVE_COPY_AND_ASSIGN(Renderer);
@@ -47,7 +32,10 @@ public:
     };
 
     Renderer();
+    ~Renderer();
     void run();
+
+    void load_model(const Model &model, const std::string &name);
 
 private:
     const std::vector<const char *> validation_layers = {
@@ -153,22 +141,20 @@ private:
     VmaImage m_msaa_image;
     vk::ImageView m_msaa_image_view;
 
-    std::vector<Model> m_models;
-    std::unordered_map<std::string, Material> m_materials;
-    std::unordered_map<std::string, Mesh> m_meshes;
-    std::unordered_map<std::string, Texture> m_textures;
+    std::vector<VkModel> m_models;
+    std::unordered_map<std::string, VkMaterial> m_materials;
+    std::unordered_map<std::string, VkTexture> m_textures;
 
     static void framebuffer_size_callback(void *user_ptr_v, int w, int h);
 
-    Material *create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name);
-    Material *get_material(const std::string &name);
-    Mesh *get_mesh(const std::string &name);
+    VkMaterial *create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name);
+    VkMaterial *get_material(const std::string &name);
 
     PerFrame &current_frame();
 
     void input_update(float time_change);
     void draw_frame();
-    void draw_objects(vk::CommandBuffer cmd, Model *first, size_t count);
+    void draw_objects(vk::CommandBuffer cmd);
 
     void init_window_user_pointers();
     void init_window();
@@ -189,13 +175,6 @@ private:
     void create_sync_objects();
     void create_pipelines();
     void create_descriptors();
-    void create_scene();
-
-    void load_meshes();
-    void load_textures();
-    void upload_mesh_vertices(Mesh &mesh);
-    void upload_mesh_indices(Mesh &mesh);
-    void upload_mesh(Mesh &mesh);
 
     void immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function);
 
@@ -217,7 +196,8 @@ private:
         const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
         void *p_user_data);
 
-    friend class Texture;
+    friend class VkModel;
+    friend class VkTexture;
 };
 
 }

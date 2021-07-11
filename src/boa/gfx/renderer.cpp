@@ -1,11 +1,11 @@
 #define VMA_IMPLEMENTATION
+#include "boa/iteration.h"
 #include "boa/gfx/renderer.h"
 #include "boa/gfx/vk/initializers.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
 #include "GLFW/glfw3.h"
-#include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <set>
 #include <unordered_map>
@@ -34,13 +34,14 @@ Renderer::Renderer() {
     create_descriptors();
     create_pipelines();
     init_imgui();
-    load_meshes();
-    load_textures();
-    create_scene();
 
     auto boa_end_time = std::chrono::high_resolution_clock::now();
-    LOG_INFO("It took {} seconds for Boa to startup\n",
+    LOG_INFO("It took {} seconds for Boa to initialize\n",
         std::chrono::duration<float, std::chrono::seconds::period>(boa_end_time - boa_start_time).count());
+}
+
+Renderer::~Renderer() {
+    cleanup();
 }
 
 void Renderer::run() {
@@ -74,7 +75,6 @@ void Renderer::run() {
     }
 
     m_device.get().waitIdle();
-    cleanup();
 }
 
 void Renderer::input_update(float time_change) {
@@ -98,8 +98,8 @@ void Renderer::input_update(float time_change) {
         glm::dvec2 cursor_change = m_mouse.last_movement();
         m_camera.update_target(cursor_change);
 
-        //LOG_INFO("Camera pitch: {}, Camera yaw: {}\n", camera.get_pitch(), camera.get_yaw());
-        //LOG_INFO("Camera target: ({}, {}, {})\n", camera.get_position().x, camera.get_position().y, camera.get_position().z);
+        LOG_INFO("Camera pitch: {}, Camera yaw: {}", m_camera.get_pitch(), m_camera.get_yaw());
+        LOG_INFO("Camera position: ({}, {}, {})", m_camera.get_position().x, m_camera.get_position().y, m_camera.get_position().z);
     }
 }
 
@@ -245,7 +245,7 @@ void Renderer::draw_frame() {
     frame_cmd.setViewport(0, viewport);
     frame_cmd.setScissor(0, scissor);
 
-    draw_objects(frame_cmd, m_models.data(), m_models.size());
+    draw_objects(frame_cmd);
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame_cmd);
 
     // END DRAW COMMANDS
@@ -293,7 +293,7 @@ void Renderer::draw_frame() {
     m_frame++;
 }
 
-void Renderer::draw_objects(vk::CommandBuffer cmd, Model *first, size_t count) {
+void Renderer::draw_objects(vk::CommandBuffer cmd) {
     Transformations transforms{
         .view = glm::lookAt(
             m_camera.get_position(),
@@ -316,47 +316,43 @@ void Renderer::draw_objects(vk::CommandBuffer cmd, Model *first, size_t count) {
     memcpy(data, &transforms, sizeof(Transformations));
     vmaUnmapMemory(m_allocator, current_frame().transformations.allocation);
 
-    Mesh *last_mesh = nullptr;
-    Material *last_material = nullptr;
-    for (size_t i = 0; i < count; i++) {
-        Model &model = first[i];
+    VkPrimitive *last_primitive = nullptr;
+    VkMaterial *last_material = nullptr;
+    for (const auto &vk_model : m_models) {
+        for (const auto &vk_primitive : vk_model.primitives) {
+            if (vk_primitive.material != last_material) {
+                cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, vk_primitive.material->pipeline);
+                last_material = vk_primitive.material;
 
-        if (model.material != last_material) {
-            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, model.material->pipeline);
-            last_material = model.material;
-
-            cmd.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                model.material->pipeline_layout,
-                0,
-                current_frame().parent_set,
-                nullptr);
-
-            if ((VkDescriptorSet)model.material->texture_set != VK_NULL_HANDLE) {
                 cmd.bindDescriptorSets(
                     vk::PipelineBindPoint::eGraphics,
-                    model.material->pipeline_layout,
-                    1,
-                    model.material->texture_set,
+                    vk_primitive.material->pipeline_layout,
+                    0,
+                    current_frame().parent_set,
                     nullptr);
+
+                if ((VkDescriptorSet)vk_primitive.material->texture_set != VK_NULL_HANDLE) {
+                    cmd.bindDescriptorSets(
+                        vk::PipelineBindPoint::eGraphics,
+                        vk_primitive.material->pipeline_layout,
+                        1,
+                        vk_primitive.material->texture_set,
+                        nullptr);
+                }
             }
-        }
 
-        glm::mat4 model_view_projection = transforms.view_projection * model.transform_matrix;
-        PushConstants push_constants = { .model_view_projection = model_view_projection };
+            glm::mat4 model_view_projection = transforms.view_projection * vk_primitive.transform_matrix;
+            PushConstants push_constants = { .model_view_projection = model_view_projection };
 
-        cmd.pushConstants(model.material->pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
+            cmd.pushConstants(vk_primitive.material->pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
-        if (model.mesh != last_mesh) {
-            vk::Buffer vertex_buffers[] = { model.mesh->vertex_buffer.buffer };
+            vk::Buffer vertex_buffers[] = { vk_model.vertex_buffer.buffer };
             vk::DeviceSize offsets[] = { 0 };
             cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
-            cmd.bindIndexBuffer(model.mesh->index_buffer.buffer, 0, vk::IndexType::eUint32);
+            cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
 
-            last_mesh = model.mesh;
+            cmd.drawIndexed(vk_primitive.index_count, 1, 0, vk_primitive.vertex_offset, 0);
         }
-
-        cmd.drawIndexed(static_cast<uint32_t>(model.mesh->indices.size()), 1, 0, 0, 0);
     }
 }
 
@@ -1222,102 +1218,15 @@ void Renderer::create_pipelines() {
     m_device.get().destroyShaderModule(textured_vert);
 }
 
-void Renderer::load_meshes() {
-    Mesh domino_crown;
-    //domino_crown.load_from_obj_file("models/domino_crown.obj");
-    domino_crown.load_from_gltf_file("models/domino_crown.gltf");
-    upload_mesh(domino_crown);
-    m_meshes["domino crown"] = domino_crown;
-
-    Mesh box_interleaved;
-    box_interleaved.load_from_gltf_file("models/BoxInterleaved.gltf");
-    upload_mesh(box_interleaved);
-    m_meshes["box interleaved"] = box_interleaved;
-
-    //Mesh minecraft;
-    //minecraft.load_from_gltf_file("models/minecraft.gltf");
-    //upload_mesh(minecraft);
-    //m_meshes["minecraft"] = minecraft;
-}
-
-void Renderer::load_textures() {
-    Texture default_texture;
-    default_texture.load_from_file(this, "textures/default.png");
-    m_textures["default"] = default_texture;
-
-    Texture domino_crown;
-    domino_crown.load_from_file(this, "textures/domino_crown.png", true);
-    m_textures["domino crown"] = domino_crown;
-
-    /*Texture minecraft;
-    minecraft.load_from_file(this, "textures/minecraft-RGBA.png", true);
-    m_textures["minecraft"] = minecraft;*/
-}
-
-void Renderer::upload_mesh(Mesh &mesh) {
-    upload_mesh_vertices(mesh);
-    upload_mesh_indices(mesh);
-}
-
-void Renderer::upload_mesh_vertices(Mesh &mesh) {
-    const size_t size = mesh.vertices.size() * sizeof(Vertex);
-
-    VmaBuffer staging_buffer = create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
-
-    void *data;
-    vmaMapMemory(m_allocator, staging_buffer.allocation, &data);
-    memcpy(data, mesh.vertices.data(), size);
-    vmaUnmapMemory(m_allocator, staging_buffer.allocation);
-
-    mesh.vertex_buffer = create_buffer(size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-        VMA_MEMORY_USAGE_GPU_ONLY);
-
-    immediate_command([=](vk::CommandBuffer cmd) {
-        vk::BufferCopy copy{ .srcOffset = 0, .dstOffset = 0, .size = size };
-        cmd.copyBuffer(staging_buffer.buffer, mesh.vertex_buffer.buffer, copy);
-    });
-
-    m_deletion_queue.enqueue([=]() {
-        vmaDestroyBuffer(m_allocator, mesh.vertex_buffer.buffer, mesh.vertex_buffer.allocation);
-    });
-
-    vmaDestroyBuffer(m_allocator, staging_buffer.buffer, staging_buffer.allocation);
-}
-
-void Renderer::upload_mesh_indices(Mesh &mesh) {
-    const size_t size = mesh.indices.size() * sizeof(uint32_t);
-
-    VmaBuffer staging_buffer = create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
-
-    void *data;
-    vmaMapMemory(m_allocator, staging_buffer.allocation, &data);
-    memcpy(data, mesh.indices.data(), size);
-    vmaUnmapMemory(m_allocator, staging_buffer.allocation);
-
-    mesh.index_buffer = create_buffer(size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-        VMA_MEMORY_USAGE_GPU_ONLY);
-
-    immediate_command([=](vk::CommandBuffer cmd) {
-        vk::BufferCopy copy{ .srcOffset = 0, .dstOffset = 0, .size = size };
-        cmd.copyBuffer(staging_buffer.buffer, mesh.index_buffer.buffer, copy);
-    });
-
-    m_deletion_queue.enqueue([=]() {
-        vmaDestroyBuffer(m_allocator, mesh.index_buffer.buffer, mesh.index_buffer.allocation);
-    });
-
-    vmaDestroyBuffer(m_allocator, staging_buffer.buffer, staging_buffer.allocation);
-}
-
-Material *Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name) {
-    Material material;
+VkMaterial *Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name) {
+    VkMaterial material;
     material.pipeline = pipeline;
     material.pipeline_layout = layout;
     m_materials[name] = material;
     return &m_materials[name];
 }
 
-Material *Renderer::get_material(const std::string &name) {
+VkMaterial *Renderer::get_material(const std::string &name) {
     auto it = m_materials.find(name);
     if (it == m_materials.end())
         return nullptr;
@@ -1325,89 +1234,17 @@ Material *Renderer::get_material(const std::string &name) {
         return &(*it).second;
 }
 
-Mesh *Renderer::get_mesh(const std::string &name) {
-    auto it = m_meshes.find(name);
-    if (it == m_meshes.end())
-        return nullptr;
-    else
-        return &(*it).second;
-}
+void Renderer::load_model(const Model &model, const std::string &name) {
+    VkModel new_model(*this, name, model);
 
-void Renderer::create_scene() {
-    //Texture minecraft_texture = m_textures["minecraft"];
-    Texture domino_crown_texture = m_textures["domino crown"];
-
-    // TODO: move sampler stuff elsewhere
-    vk::SamplerCreateInfo sampler_info = sampler_create_info(vk::Filter::eLinear);
-    sampler_info.setMipmapMode(vk::SamplerMipmapMode::eLinear)
-        .setMaxLod(domino_crown_texture.mip_levels)
-        .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-        .setAnisotropyEnable(true)
-        .setMaxAnisotropy(m_device_properties.limits.maxSamplerAnisotropy);
-
-    vk::Sampler sampler;
-    try {
-        sampler = m_device.get().createSampler(sampler_info);
-    } catch (const vk::SystemError &err) {
-        throw std::runtime_error("Failed to create sampler");
-    }
-
+    // we have to do this here because m_models (std::vector)
+    // will use the copy constructor during resizing
     m_deletion_queue.enqueue([=]() {
-        m_device.get().destroySampler(sampler);
+        vmaDestroyBuffer(m_allocator, new_model.vertex_buffer.buffer,
+            new_model.vertex_buffer.allocation);
     });
 
-    Material *textured = get_material("textured");
-    //create_material(textured->pipeline, textured->pipeline_layout, "textured minecraft");
-    //Material *textured_minecraft = get_material("textured minecraft");
-
-    vk::DescriptorSetAllocateInfo alloc_info{
-        .descriptorPool     = m_descriptor_pool,
-        .descriptorSetCount = 1,
-        .pSetLayouts        = &m_texture_descriptor_set_layout,
-    };
-
-    // TODO separate into create_materials()
-    try {
-        textured->texture_set = m_device.get().allocateDescriptorSets(alloc_info)[0];
-        //textured_minecraft->texture_set = m_device.get().allocateDescriptorSets(alloc_info)[0];
-    } catch (const vk::SystemError &err) {
-        throw std::runtime_error("Failed to allocate descriptor set");
-    }
-
-    vk::DescriptorImageInfo image_buffer_info{
-        .sampler        = sampler,
-        .imageView      = m_textures["domino crown"].image_view,
-        .imageLayout    = vk::ImageLayout::eShaderReadOnlyOptimal,
-    };
-
-    vk::WriteDescriptorSet t1 = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
-        textured->texture_set, &image_buffer_info, 0);
-    m_device.get().updateDescriptorSets(t1, 0);
-
-    /*image_buffer_info.imageView = m_textures["minecraft"].image_view;
-
-    vk::WriteDescriptorSet t2 = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
-        textured_minecraft->texture_set, &image_buffer_info, 0);
-    m_device.get().updateDescriptorSets(t2, 0);*/
-
-    Model domino_crown;
-    domino_crown.mesh = get_mesh("domino crown");
-    domino_crown.material = get_material("textured");
-    domino_crown.transform_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.0f, -2.0f));
-
-    Model box_interleaved;
-    box_interleaved.mesh = get_mesh("box interleaved");
-    box_interleaved.material = get_material("untextured");
-    box_interleaved.transform_matrix = glm::scale(glm::vec3(0.2, 0.2, 0.2));
-
-    /*Model minecraft;
-    minecraft.mesh = get_mesh("minecraft");
-    minecraft.material = get_material("textured minecraft");
-    minecraft.transform_matrix = glm::scale(glm::vec3(0.1, 0.1, 0.1));*/
-
-    m_models.push_back(domino_crown);
-    m_models.push_back(box_interleaved);
-    //m_models.push_back(minecraft);
+    m_models.push_back(std::move(new_model));
 }
 
 void Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function) {

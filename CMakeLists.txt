@@ -9,20 +9,17 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(Vulkan REQUIRED)
 find_package(fmt REQUIRED)
-#find_package(GLFW REQUIRED)
 
 file(GLOB SOURCES
     lib/imgui/*.cpp
     lib/imgui/backends/imgui_impl_glfw.cpp
     lib/imgui/backends/imgui_impl_vulkan.cpp
-    src/main.cpp
-    src/boa/gfx/scene.cpp
-    #src/*.cpp
-    #src/boa/*.cpp
-    #src/boa/input/*.cpp
-    #src/boa/gfx/*.cpp
-    #src/boa/gfx/asset/*.cpp
-    #src/boa/gfx/vk/*.cpp
+    src/*.cpp
+    src/boa/*.cpp
+    src/boa/input/*.cpp
+    src/boa/gfx/*.cpp
+    src/boa/gfx/vk/*.cpp
+    src/boa/gfx/asset/*.cpp
 )
 
 add_executable(boa ${SOURCES})
@@ -33,12 +30,6 @@ add_definitions(
     -DGLM_FORCE_RADIANS
     -DGLM_FORCE_DEPTH_ZERO_TO_ONE
     -DGLM_ENABLE_EXPERIMENTAL
-    #-DTINYGLTF_IMPLEMENTATION
-    #-DTINYGTLF_NO_EXTERNAL_IMAGE
-    #-DTINYGTLF_NO_INCLUDE_STB_IMAGE
-    #-DTINYGTLF_NO_INCLUDE_STB_IMAGE_WRITE
-    #-DSTB_IMAGE_IMPLEMENTATION
-    #-DSTB_IMAGE_WRITE_IMPLEMENTATION
     -DTINYOBJLOADER_IMPLEMENTATION
 )
 
@@ -72,8 +63,8 @@ if(WIN32)
 else()
     target_link_libraries(boa
         ${Vulkan_LIBRARIES}
+        fmt::fmt
         -lglfw3
-        -lfmt
         -lX11
         -lXxf86vm
         -lpthread
