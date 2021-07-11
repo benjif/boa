@@ -195,6 +195,8 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
 }
 
 void Model::open_gltf_file(const char *path) {
+    LOG_INFO("(glTF) Opening file '{}'", path);
+
     if (m_initialized)
         return;
     std::string err, warn;
@@ -204,16 +206,16 @@ void Model::open_gltf_file(const char *path) {
         throw std::runtime_error("Failed to load gltf");
 
     if (m_model.scenes.empty()) {
-        LOG_WARN("Attempted to add from glTF file without scenes");
+        LOG_WARN("(glTF) Attempted to add from glTF file without a scene");
         return;
     } else if (m_model.scenes.size() > 1) {
-        LOG_WARN("Added from glTF file with more than one scene; only using default.");
+        LOG_WARN("(glTF) Added from glTF file with more than one scene; only using default.");
     }
 
     const auto &scene = m_model.scenes[m_model.defaultScene];
 
     if (scene.nodes.size() == 0) {
-        LOG_WARN("Attempted to add from glTF file without nodes");
+        LOG_WARN("(glTF) Attempted to add from glTF file without nodes");
         return;
     }
 
@@ -286,7 +288,7 @@ void Model::open_gltf_file(const char *path) {
 }
 
 void Model::debug_print_node(const Node &node) const {
-    LOG_INFO("NODE: ");
+    LOG_INFO("(glTF) NODE: ");
     if (node.mesh.has_value()) {
         LOG_INFO("  MESH #{}: ", node.mesh.value());
         const auto &mesh = m_meshes.at(node.mesh.value());
@@ -309,7 +311,7 @@ void Model::debug_print_node(const Node &node) const {
 }
 
 void Model::debug_print() const {
-    LOG_INFO("Size of nodes: {}", m_nodes.size());
+    LOG_INFO("(glTF) Size of nodes: {}", m_nodes.size());
     debug_print_node(m_nodes[0]);
 }
 
@@ -327,6 +329,10 @@ size_t Model::get_texture_count() const {
 
 size_t Model::get_sampler_count() const {
     return m_samplers.size();
+}
+
+size_t Model::get_image_count() const {
+    return m_images.size();
 }
 
 const Model::Node &Model::get_node(size_t index) const {
@@ -390,6 +396,16 @@ void Model::for_each_material(std::function<Iteration(const Material &)> callbac
 void Model::for_each_sampler(std::function<Iteration(const Sampler &)> callback) const {
     for (const auto &sampler : m_samplers) {
         auto decision = callback(sampler);
+        if (decision == Iteration::Break)
+            break;
+        else if (decision == Iteration::Continue)
+            continue;
+    }
+}
+
+void Model::for_each_image(std::function<Iteration(const Image &)> callback) const {
+    for (const auto &image : m_images) {
+        auto decision = callback(image);
         if (decision == Iteration::Break)
             break;
         else if (decision == Iteration::Continue)

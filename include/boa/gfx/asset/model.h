@@ -140,6 +140,7 @@ public:
     size_t get_primitive_count() const;
     size_t get_texture_count() const;
     size_t get_sampler_count() const;
+    size_t get_image_count() const;
 
     const Node &get_node(size_t index) const;
     const Primitive &get_primitive(size_t index) const;
@@ -153,6 +154,7 @@ public:
     void for_each_primitive(std::function<Iteration(const Primitive &)> callback) const;
     void for_each_material(std::function<Iteration(const Material &)> callback) const;
     void for_each_sampler(std::function<Iteration(const Sampler &)> callback) const;
+    void for_each_image(std::function<Iteration(const Image &)> callback) const;
 
 private:
     bool m_initialized{ false };

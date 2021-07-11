@@ -3,6 +3,8 @@
 #include "boa/gfx/renderer.h"
 
 int main(int argc, char **argv) {
+    LOG_INFO("(Global) Started");
+
     boa::gfx::Model model;
     model.open_gltf_file("models/cube/Cube.gltf");
     //model.debug_print();
@@ -15,5 +17,6 @@ int main(int argc, char **argv) {
     renderer.load_model(model2, "domino_crown");
     renderer.run();
 
+    LOG_INFO("(Global) Exiting");
     return 0;
 }

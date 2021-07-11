@@ -36,7 +36,7 @@ Renderer::Renderer() {
     init_imgui();
 
     auto boa_end_time = std::chrono::high_resolution_clock::now();
-    LOG_INFO("It took {} seconds for Boa to initialize\n",
+    LOG_INFO("(Renderer) It took {} seconds for Boa's renderer to initialize",
         std::chrono::duration<float, std::chrono::seconds::period>(boa_end_time - boa_start_time).count());
 }
 
@@ -54,7 +54,7 @@ void Renderer::run() {
         current_time = std::chrono::high_resolution_clock::now();
         float time_change
             = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
-        //LOG_INFO("Framerate: {}\n", 1.0f / time_change);
+        //LOG_INFO("(Renderer) Framerate: {}\n", 1.0f / time_change);
         last_time = current_time;
 
         input_update(time_change);
@@ -79,7 +79,7 @@ void Renderer::run() {
 
 void Renderer::input_update(float time_change) {
     time_change *= 60.0f;
-    //LOG_INFO("Time change: {}\n", time_change);
+    //LOG_INFO("(Renderer) Time change: {}\n", time_change);
 
     Camera::DirectionFlags directions{};
 
@@ -98,8 +98,8 @@ void Renderer::input_update(float time_change) {
         glm::dvec2 cursor_change = m_mouse.last_movement();
         m_camera.update_target(cursor_change);
 
-        LOG_INFO("Camera pitch: {}, Camera yaw: {}", m_camera.get_pitch(), m_camera.get_yaw());
-        LOG_INFO("Camera position: ({}, {}, {})", m_camera.get_position().x, m_camera.get_position().y, m_camera.get_position().z);
+        LOG_INFO("(Renderer) Camera pitch: {}, Camera yaw: {}", m_camera.get_pitch(), m_camera.get_yaw());
+        LOG_INFO("(Renderer) Camera position: ({}, {}, {})", m_camera.get_position().x, m_camera.get_position().y, m_camera.get_position().z);
     }
 }
 
@@ -796,6 +796,7 @@ void Renderer::create_default_renderpass() {
         .format         = m_swapchain_format,
         .samples        = m_msaa_samples,
         .loadOp         = vk::AttachmentLoadOp::eClear,
+        //.storeOp        = vk::AttachmentStoreOp::eDontCare,
         .storeOp        = vk::AttachmentStoreOp::eStore,
         .stencilLoadOp  = vk::AttachmentLoadOp::eDontCare,
         .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,

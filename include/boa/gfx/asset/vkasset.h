@@ -19,10 +19,14 @@ struct VkMaterial {
 
 struct VkTexture {
     VkTexture(Renderer &renderer, const Model::Image &model_image, bool mipmap = true);
+    VkTexture(Renderer &renderer, const char *path, bool mipmap = true);
 
     VmaImage image;
     vk::ImageView image_view;
     uint32_t mip_levels;
+
+private:
+    void init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data, bool mipmap);
 };
 
 struct VkPrimitive {
@@ -34,18 +38,22 @@ struct VkPrimitive {
 };
 
 struct VkModel {
-    VkModel(Renderer &renderer, const std::string &model_name, const Model &model);
+    VkModel(Renderer &renderer, const std::string &model_name, const Model &model_model);
 
     std::string name;
-    std::vector<VkPrimitive> primitives;
-    std::vector<VkTexture> textures;
     std::vector<vk::Sampler> samplers;
+    std::vector<VkTexture> textures;
+    std::vector<VkPrimitive> primitives;
     VmaBuffer vertex_buffer;
 
 private:
+    vk::DescriptorSet texture_descriptor_set;
+
     Renderer &renderer;
+    const Model &model;
 
     void add_sampler(const Model::Sampler &sampler);
+    void add_from_node(const Model::Node &node);
 
     void upload_primitive_indices(VkPrimitive &vk_primitive,
         const Model::Primitive &primitive);

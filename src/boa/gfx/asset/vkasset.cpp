@@ -3,34 +3,86 @@
 #include "boa/gfx/asset/model.h"
 #include "boa/gfx/asset/vkasset.h"
 #include "boa/gfx/vk/initializers.h"
+#include "stb_image.h"
 
 namespace boa::gfx {
 
+VkModel::VkModel(Renderer &renderer, const std::string &model_name, const Model &model_model)
+    : name(std::move(model_name)),
+      renderer(renderer),
+      model(model_model)
+{
+    LOG_INFO("(Asset) Loading model '{}'", name);
+
+    primitives.reserve(model.get_primitive_count());
+    textures.reserve(model.get_texture_count());
+    samplers.reserve(model.get_sampler_count());
+
+    size_t image_count = model.get_image_count();
+
+    vk::DescriptorSetAllocateInfo alloc_info{
+        .descriptorPool         = renderer.m_descriptor_pool,
+        .descriptorSetCount     = 1,
+        .pSetLayouts            = &renderer.m_texture_descriptor_set_layout,
+    };
+
+    try {
+        texture_descriptor_set = renderer.m_device.get().allocateDescriptorSets(alloc_info)[0];
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to allocate descriptor sets");
+    }
+
+    model.for_each_sampler([&](const auto &sampler) {
+        add_sampler(sampler);
+        return Iteration::Continue;
+    });
+
+    model.for_each_node([&](const auto &node) {
+        add_from_node(node);
+        return Iteration::Continue;
+    });
+
+    upload_model_vertices(model);
+}
+
+static inline vk::Filter tinygltf_to_vulkan_filter(int gltf) {
+    switch (gltf) {
+    case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
+    case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
+    case TINYGLTF_TEXTURE_FILTER_LINEAR:
+        return vk::Filter::eLinear;
+    case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR:
+    case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST:
+    case TINYGLTF_TEXTURE_FILTER_NEAREST:
+        return vk::Filter::eNearest;
+    default:
+        return vk::Filter::eLinear;
+    }
+}
+
+static inline vk::SamplerAddressMode tinygltf_to_vulkan_address_mode(int gltf) {
+    switch (gltf) {
+    case TINYGLTF_TEXTURE_WRAP_REPEAT:
+        return vk::SamplerAddressMode::eRepeat;
+    case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
+        return vk::SamplerAddressMode::eClampToEdge;
+    case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
+        return vk::SamplerAddressMode::eMirroredRepeat;
+    default:
+        return vk::SamplerAddressMode::eRepeat;
+    }
+}
+
 void VkModel::add_sampler(const Model::Sampler &sampler) {
-    vk::SamplerCreateInfo sampler_info = sampler_create_info(vk::Filter::eLinear);
-    // TODO: write conversion arrays or maps for TINYGLTF flags => vulkan flags
-    if (sampler.min_filter == TINYGLTF_TEXTURE_FILTER_NEAREST)
-        sampler_info.minFilter = vk::Filter::eNearest;
-    else
-        sampler_info.minFilter = vk::Filter::eLinear;
-
-    if (sampler.mag_filter == TINYGLTF_TEXTURE_FILTER_NEAREST)
-        sampler_info.magFilter = vk::Filter::eNearest;
-    else
-        sampler_info.magFilter = vk::Filter::eLinear;
-
-    if (sampler.wrap_s_mode == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE)
-        sampler_info.addressModeU = vk::SamplerAddressMode::eClampToEdge;
-    else
-        sampler_info.addressModeU = vk::SamplerAddressMode::eRepeat;
-
-    if (sampler.wrap_t_mode == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE)
-        sampler_info.addressModeV = vk::SamplerAddressMode::eClampToEdge;
-    else
-        sampler_info.addressModeV = vk::SamplerAddressMode::eRepeat;
-
-    sampler_info.anisotropyEnable = true;
-    sampler_info.maxAnisotropy = renderer.m_device_properties.limits.maxSamplerAnisotropy;
+    vk::SamplerCreateInfo sampler_info{
+        .magFilter          = tinygltf_to_vulkan_filter(sampler.mag_filter),
+        .minFilter          = tinygltf_to_vulkan_filter(sampler.min_filter),
+        .mipmapMode         = vk::SamplerMipmapMode::eLinear,
+        .addressModeU       = tinygltf_to_vulkan_address_mode(sampler.wrap_s_mode),
+        .addressModeV       = tinygltf_to_vulkan_address_mode(sampler.wrap_t_mode),
+        .anisotropyEnable   = true,
+        .maxAnisotropy      = renderer.m_device_properties.limits.maxSamplerAnisotropy,
+    };
 
     vk::Sampler new_sampler;
     try {
@@ -46,107 +98,82 @@ void VkModel::add_sampler(const Model::Sampler &sampler) {
     });
 }
 
-VkModel::VkModel(Renderer &renderer, const std::string &model_name, const Model &model)
-    : name(std::move(model_name)), renderer(renderer)
-{
-    primitives.reserve(model.get_primitive_count());
-    textures.reserve(model.get_texture_count());
-    samplers.reserve(model.get_sampler_count());
+void VkModel::add_from_node(const Model::Node &node) {
+    glm::mat4 transform;
 
-    model.for_each_sampler([&](const auto &sampler) {
-        add_sampler(sampler);
-        return Iteration::Continue;
-    });
+    if (node.mesh.has_value()) {
+        const auto &mesh = model.get_mesh(node.mesh.value());
+        for (size_t primitive_idx : mesh.primitives) {
+            const auto &primitive = model.get_primitive(primitive_idx);
+            VkPrimitive new_vk_primitive;
+            new_vk_primitive.material = renderer.get_material("untextured");
 
-    model.for_each_node([&](const auto &node) {
-        glm::mat4 transform;
+            if (primitive.material.has_value()) {
+                const auto &material = model.get_material(primitive.material.value());
+                if (material.metallic_roughness.base_color_texture.has_value()) {
+                    const auto &base_texture = model.get_texture(material.metallic_roughness.base_color_texture.value());
+                    if (base_texture.sampler.has_value() && base_texture.source.has_value()) {
+                        const auto &sampler = model.get_sampler(base_texture.sampler.value());
+                        const auto &image = model.get_image(base_texture.source.value());
 
-        if (node.mesh.has_value()) {
-            const auto &mesh = model.get_mesh(node.mesh.value());
-            for (size_t primitive_idx : mesh.primitives) {
-                const auto &primitive = model.get_primitive(primitive_idx);
-                VkPrimitive new_vk_primitive;
-                new_vk_primitive.material = renderer.get_material("untextured");
+                        VkTexture new_texture(renderer, image);
+                        textures.push_back(std::move(new_texture));
 
-                if (primitive.material.has_value()) {
-                    const auto &material = model.get_material(primitive.material.value());
-                    if (material.metallic_roughness.base_color_texture.has_value()) {
-                        const auto &base_texture = model.get_texture(material.metallic_roughness.base_color_texture.value());
-                        if (base_texture.sampler.has_value() && base_texture.source.has_value()) {
-                            const auto &sampler = model.get_sampler(base_texture.sampler.value());
-                            const auto &image = model.get_image(base_texture.source.value());
+                        VkMaterial *textured = renderer.get_material("textured");
+                        VkMaterial *new_textured = renderer.create_material(textured->pipeline, textured->pipeline_layout,
+                            fmt::format("textured_{}_{}", name, primitive_idx));
 
-                            textures.emplace_back(renderer, image);
+                        LOG_INFO("(Asset) Creating new material 'textured_{}_{}'", name, primitive_idx);
 
-                            VkMaterial *textured = renderer.get_material("textured");
-                            VkMaterial *new_textured = renderer.create_material(textured->pipeline, textured->pipeline_layout,
-                                fmt::format("textured_{}_{}", name, primitive_idx));
+                        new_textured->texture_set = texture_descriptor_set;
 
-                            // TODO: allocate all descriptor sets at once
-                            vk::DescriptorSetAllocateInfo alloc_info{
-                                .descriptorPool         = renderer.m_descriptor_pool,
-                                .descriptorSetCount     = 1,
-                                .pSetLayouts            = &renderer.m_texture_descriptor_set_layout,
-                            };
+                        vk::DescriptorImageInfo image_buffer_info{
+                            .sampler        = samplers[base_texture.sampler.value()],
+                            .imageView      = textures.back().image_view,
+                            .imageLayout    = vk::ImageLayout::eShaderReadOnlyOptimal,
+                        };
 
-                            try {
-                                new_textured->texture_set = renderer.m_device.get().allocateDescriptorSets(alloc_info)[0];
-                            } catch (const vk::SystemError &err) {
-                                throw std::runtime_error("Failed to allocate descriptor set");
-                            }
+                        vk::WriteDescriptorSet write = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
+                            new_textured->texture_set, &image_buffer_info, 0);
+                        renderer.m_device.get().updateDescriptorSets(write, 0);
 
-                            vk::DescriptorImageInfo image_buffer_info{
-                                .sampler        = samplers[base_texture.sampler.value()],
-                                .imageView      = textures.back().image_view,
-                                .imageLayout    = vk::ImageLayout::eShaderReadOnlyOptimal,
-                            };
-
-                            vk::WriteDescriptorSet write = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
-                                new_textured->texture_set, &image_buffer_info, 0);
-                            renderer.m_device.get().updateDescriptorSets(write, 0);
-
-                            new_vk_primitive.material = new_textured;
-                        }
+                        new_vk_primitive.material = new_textured;
                     }
                 }
-
-                new_vk_primitive.index_count = primitive.indices.size();
-                new_vk_primitive.vertex_offset = primitive.vertex_offset;
-                new_vk_primitive.transform_matrix = node.matrix;
-
-                upload_primitive_indices(new_vk_primitive, primitive);
-
-                primitives.push_back(std::move(new_vk_primitive));
             }
+
+            new_vk_primitive.index_count = primitive.indices.size();
+            new_vk_primitive.vertex_offset = primitive.vertex_offset;
+            new_vk_primitive.transform_matrix = node.matrix;
+
+            upload_primitive_indices(new_vk_primitive, primitive);
+
+            primitives.push_back(std::move(new_vk_primitive));
         }
-
-        return Iteration::Continue;
-    });
-
-    upload_model_vertices(model);
+    }
 }
 
-VkTexture::VkTexture(Renderer &renderer, const Model::Image &model_image, bool mipmap) {
+void VkTexture::init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data, bool mipmap) {
     uint32_t image_mip_levels = 1;
     if (mipmap) {
         if (!(renderer.m_device_format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
             throw std::runtime_error("Requested mipmapping when the physical device doesn't support linear filtering");
-        image_mip_levels = static_cast<uint32_t>(std::floor(std::log2(std::max(model_image.width, model_image.height)))) + 1;
+        image_mip_levels = static_cast<uint32_t>(std::floor(std::log2(std::max(w, h)))) + 1;
     }
 
-    vk::DeviceSize image_size = model_image.width * model_image.height * 4;
+    vk::DeviceSize image_size = w * h * 4;
 
     VmaBuffer staging_buffer = renderer.create_buffer(image_size, vk::BufferUsageFlagBits::eTransferSrc,
         VMA_MEMORY_USAGE_CPU_ONLY);
 
     void *data;
     vmaMapMemory(renderer.m_allocator, staging_buffer.allocation, &data);
-    memcpy(data, (void *)model_image.data, (size_t)image_size);
+    memcpy(data, (void *)img_data, (size_t)image_size);
     vmaUnmapMemory(renderer.m_allocator, staging_buffer.allocation);
 
     vk::Extent3D image_extent{
-        .width  = model_image.width,
-        .height = model_image.height,
+        .width  = w,
+        .height = h,
         .depth  = 1,
     };
 
@@ -200,8 +227,8 @@ VkTexture::VkTexture(Renderer &renderer, const Model::Image &model_image, bool m
                 .layerCount     = 1,
             },
             .imageExtent        = {
-                .width          = model_image.width,
-                .height         = model_image.height,
+                .width          = w,
+                .height         = h,
                 .depth          = 1,
             },
         };
@@ -223,7 +250,7 @@ VkTexture::VkTexture(Renderer &renderer, const Model::Image &model_image, bool m
                 .subresourceRange       = mipmap_range,
             };
 
-            int32_t mip_w = model_image.width, mip_h = model_image.height;
+            int32_t mip_w = w, mip_h = h;
             for (uint32_t i = 1; i < image_mip_levels; i++) {
                 mipmap_barrier.subresourceRange.baseMipLevel = i - 1;
                 mipmap_barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
@@ -341,6 +368,19 @@ VkTexture::VkTexture(Renderer &renderer, const Model::Image &model_image, bool m
     image = new_image;
     image_view = new_image_view;
     mip_levels = image_mip_levels;
+}
+
+VkTexture::VkTexture(Renderer &renderer, const char *path, bool mipmap) {
+    int w, h, channels;
+    stbi_uc *pixels = stbi_load(path, &w, &h, &channels, STBI_rgb_alpha);
+    if (!pixels)
+        throw std::runtime_error("Failed to load texture file");
+
+    init(std::forward<Renderer &>(renderer), w, h, pixels, mipmap);
+}
+
+VkTexture::VkTexture(Renderer &renderer, const Model::Image &model_image, bool mipmap) {
+    init(std::forward<Renderer &>(renderer), model_image.width, model_image.height, model_image.data, mipmap);
 }
 
 void VkModel::upload_primitive_indices(VkPrimitive &vk_primitive, const Model::Primitive &primitive) {
