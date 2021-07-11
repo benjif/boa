@@ -4,71 +4,13 @@
 #include "boa/macros.h"
 #include "boa/iteration.h"
 #include "boa/gfx/asset/gltf.h"
-#include "glm/glm.hpp"
+#include "boa/gfx/asset/linear_types.h"
 #include "tiny_gltf.h"
-#include <vulkan/vulkan.hpp>
 #include <vector>
 #include <optional>
 #include <functional>
 
 namespace boa::gfx {
-
-// TODO: move elsewhere
-struct Vertex {
-    glm::vec3 position, normal;
-    glm::vec4 color0;
-    glm::vec2 texture_coord0, texture_coord1;
-
-    // others?
-    // tangent, joint0, weights0
-
-    static vk::VertexInputBindingDescription get_binding_description() {
-        return {
-            .binding = 0,
-            .stride = sizeof(Vertex),
-            .inputRate = vk::VertexInputRate::eVertex,
-        };
-    }
-
-    static std::array<vk::VertexInputAttributeDescription, 5> get_attribute_descriptions() {
-        return std::array<vk::VertexInputAttributeDescription, 5>{
-            vk::VertexInputAttributeDescription{
-                .location   = 0,
-                .binding    = 0,
-                .format     = vk::Format::eR32G32B32Sfloat,
-                .offset     = offsetof(Vertex, position),
-            },
-            vk::VertexInputAttributeDescription{
-                .location   = 1,
-                .binding    = 0,
-                .format     = vk::Format::eR32G32B32Sfloat,
-                .offset     = offsetof(Vertex, normal),
-            },
-            vk::VertexInputAttributeDescription{
-                .location   = 2,
-                .binding    = 0,
-                .format     = vk::Format::eR32G32B32A32Sfloat,
-                .offset     = offsetof(Vertex, color0),
-            },
-            vk::VertexInputAttributeDescription{
-                .location   = 3,
-                .binding    = 0,
-                .format     = vk::Format::eR32G32Sfloat,
-                .offset     = offsetof(Vertex, texture_coord0),
-            },
-            vk::VertexInputAttributeDescription{
-                .location   = 4,
-                .binding    = 0,
-                .format     = vk::Format::eR32G32Sfloat,
-                .offset     = offsetof(Vertex, texture_coord1),
-            },
-        };
-    }
-
-    bool operator==(const Vertex &other) const {
-        return position == other.position && normal == other.normal && texture_coord0 == other.texture_coord0;
-    }
-};
 
 class Model {
     REMOVE_COPY_AND_ASSIGN(Model);
@@ -86,6 +28,7 @@ public:
     };
 
     struct Primitive {
+        Box bounding_box;
         size_t vertex_offset;
         std::optional<size_t> material;
         std::vector<uint32_t> indices;
@@ -121,7 +64,7 @@ public:
     };
 
     struct Mesh {
-        glm::vec3 min, max; // TODO
+        //glm::vec3 min, max; // TODO
         std::vector<size_t> primitives;
     };
 

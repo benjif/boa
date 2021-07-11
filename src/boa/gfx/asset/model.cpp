@@ -64,8 +64,6 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
                 break;
             }
 
-            m_primitives.push_back(std::move(new_primitive));
-
             const float *data_normal = nullptr,
                         *data_position = nullptr,
                         *data_tangent = nullptr,
@@ -152,6 +150,12 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
 
             if (!data_position)
                 throw std::runtime_error("glTF primitive must have a position attribute");
+            if (position_accessor.minValues.size() != 3 || position_accessor.maxValues.size() != 3)
+                throw std::runtime_error("Position accessor doesn't contain min or max values");
+
+            new_primitive.bounding_box.min = glm::make_vec3<double>(position_accessor.minValues.data());
+            new_primitive.bounding_box.max = glm::make_vec3<double>(position_accessor.maxValues.data());
+            m_primitives.push_back(std::move(new_primitive));
 
             for (size_t i = 0; i < position_accessor.count; i++) {
                 Vertex vertex{};
@@ -299,8 +303,8 @@ void Model::debug_print_node(const Node &node) const {
             if (primitive.material.has_value())
                 LOG_INFO("      HAS MATERIAL: #{}", primitive.material.value());
             for (size_t index : primitive.indices) {
-                const auto &pos = m_vertices.at(index).position;
-                LOG_INFO("          VERTEX @ INDEX {}: ({: f}, {: f}, {: f})", index, pos.x, pos.y, pos.z);
+                const auto &vert = m_vertices.at(index);
+                LOG_INFO("          VERTEX @ INDEX {}: {}", index, vert);
             }
         }
     }
