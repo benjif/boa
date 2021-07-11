@@ -8,11 +8,11 @@ int main(int argc, char **argv) {
     //model.debug_print();
 
     boa::gfx::Model model2;
-    model2.open_gltf_file("models/BoxInterleaved.gltf");
+    model2.open_gltf_file("models/domino_crown.gltf");
 
     boa::gfx::Renderer renderer;
     renderer.load_model(model, "cube");
-    renderer.load_model(model2, "box_interleaved");
+    renderer.load_model(model2, "domino_crown");
     renderer.run();
 
     return 0;

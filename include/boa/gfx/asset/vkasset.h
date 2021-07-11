@@ -34,7 +34,7 @@ struct VkPrimitive {
 };
 
 struct VkModel {
-    VkModel(Renderer &renderer, std::string name, const Model &model);
+    VkModel(Renderer &renderer, const std::string &model_name, const Model &model);
 
     std::string name;
     std::vector<VkPrimitive> primitives;

@@ -46,8 +46,8 @@ void VkModel::add_sampler(const Model::Sampler &sampler) {
     });
 }
 
-VkModel::VkModel(Renderer &renderer, std::string name, const Model &model)
-    : name(std::move(name)), renderer(renderer)
+VkModel::VkModel(Renderer &renderer, const std::string &model_name, const Model &model)
+    : name(std::move(model_name)), renderer(renderer)
 {
     primitives.reserve(model.get_primitive_count());
     textures.reserve(model.get_texture_count());
@@ -79,9 +79,10 @@ VkModel::VkModel(Renderer &renderer, std::string name, const Model &model)
                             textures.emplace_back(renderer, image);
 
                             VkMaterial *textured = renderer.get_material("textured");
-                            VkMaterial *new_textured = renderer.create_material(textured->pipeline, textured->pipeline_layout, fmt::format("textured_{}_{}",
-                                name, primitive_idx));
+                            VkMaterial *new_textured = renderer.create_material(textured->pipeline, textured->pipeline_layout,
+                                fmt::format("textured_{}_{}", name, primitive_idx));
 
+                            // TODO: allocate all descriptor sets at once
                             vk::DescriptorSetAllocateInfo alloc_info{
                                 .descriptorPool         = renderer.m_descriptor_pool,
                                 .descriptorSetCount     = 1,
