@@ -228,7 +228,7 @@ void Model::open_gltf_file(const char *path) {
 
     for (const auto &material : m_model.materials) {
         Material new_material;
-        new_material.metallic_roughness = {
+        new_material.metallic_roughness = Material::MetallicRoughness{
             .metallic_factor    = material.pbrMetallicRoughness.metallicFactor,
             .roughness_factor   = material.pbrMetallicRoughness.roughnessFactor,
         };

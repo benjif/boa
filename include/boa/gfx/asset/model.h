@@ -103,7 +103,7 @@ public:
             Blend,
         };
 
-        struct {
+        struct MetallicRoughness {
             std::array<double, 4> base_color_factor{ 1.0f, 1.0f, 1.0f, 1.0f };
             double metallic_factor{ 1.0f };
             double roughness_factor{ 1.0f };
