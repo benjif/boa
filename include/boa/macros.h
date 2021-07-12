@@ -3,6 +3,10 @@
 
 #include <fmt/color.h>
 
+constexpr uint32_t KiB = 1024;
+constexpr uint32_t MiB = KiB * KiB;
+constexpr uint32_t GiB = MiB * KiB;
+
 #define REMOVE_COPY_AND_ASSIGN(Class)           \
     Class(Class &) = delete;                    \
     Class &operator=(const Class &) = delete;

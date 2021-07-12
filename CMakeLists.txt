@@ -17,6 +17,7 @@ file(GLOB SOURCES
     src/*.cpp
     src/boa/*.cpp
     src/boa/input/*.cpp
+    src/boa/ecs/*.cpp
     src/boa/gfx/*.cpp
     src/boa/gfx/vk/*.cpp
     src/boa/gfx/asset/*.cpp

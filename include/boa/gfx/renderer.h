@@ -35,8 +35,7 @@ public:
     ~Renderer();
     void run();
 
-    // TODO: return handle for models
-    void load_model(const Model &model, const std::string &name);
+    uint32_t load_model(const Model &model, const std::string &name);
 
 private:
     const std::vector<const char *> validation_layers = {

@@ -1,12 +1,12 @@
 #define VMA_IMPLEMENTATION
 #include "boa/iteration.h"
+#include "boa/ecs/entity.h"
 #include "boa/gfx/renderer.h"
 #include "boa/gfx/vk/initializers.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
 #include "GLFW/glfw3.h"
-#include <glm/gtc/matrix_transform.hpp>
 #include <set>
 #include <unordered_map>
 #include <fstream>
@@ -318,9 +318,62 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
     memcpy(data, &transforms, sizeof(Transformations));
     vmaUnmapMemory(m_allocator, current_frame().transformations.allocation);
 
+    auto &entity_group = boa::ecs::EntityGroup::get();
+
     VkPrimitive *last_primitive = nullptr;
     VkMaterial *last_material = nullptr;
-    for (const auto &vk_model : m_models) {
+    // TODO: instanced rendering (entities that share the same Model)
+    entity_group.for_each_entity_with_component<boa::ecs::Model>([&](auto &e_id) {
+        uint32_t model_id = entity_group.get_component<boa::ecs::Model>(e_id).id;
+        auto &vk_model = m_models[model_id];
+
+        glm::mat4 entity_transform_matrix{ 1.0f };
+        if (entity_group.has_component<boa::ecs::Transform>(e_id))
+            entity_transform_matrix = entity_group.get_component<boa::ecs::Transform>(e_id).transform_matrix;
+
+        for (const auto &vk_primitive : vk_model.primitives) {
+            if (!m_frustum.is_sphere_within(vk_primitive.bounding_sphere))
+                continue;
+
+            if (vk_primitive.material != last_material) {
+                cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, vk_primitive.material->pipeline);
+                last_material = vk_primitive.material;
+
+                cmd.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    vk_primitive.material->pipeline_layout,
+                    0,
+                    current_frame().parent_set,
+                    nullptr);
+
+                if ((VkDescriptorSet)vk_primitive.material->texture_set != VK_NULL_HANDLE) {
+                    cmd.bindDescriptorSets(
+                        vk::PipelineBindPoint::eGraphics,
+                        vk_primitive.material->pipeline_layout,
+                        1,
+                        vk_primitive.material->texture_set,
+                        nullptr);
+                }
+            }
+
+            glm::mat4 model_view_projection = transforms.view_projection * vk_primitive.transform_matrix * entity_transform_matrix;
+            PushConstants push_constants = { .model_view_projection = model_view_projection };
+
+            cmd.pushConstants(vk_primitive.material->pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
+
+            vk::Buffer vertex_buffers[] = { vk_model.vertex_buffer.buffer };
+            vk::DeviceSize offsets[] = { 0 };
+            cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
+            cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
+
+            LOG_INFO("(Renderer) {} Drawing model '{}'", m_frame, vk_model.name);
+            cmd.drawIndexed(vk_primitive.index_count, 1, 0, vk_primitive.vertex_offset, 0);
+        }
+
+        return Iteration::Continue;
+    });
+
+    /*for (const auto &vk_model : m_models) {
         for (const auto &vk_primitive : vk_model.primitives) {
             if (!m_frustum.is_sphere_within(vk_primitive.bounding_sphere))
                 continue;
@@ -360,7 +413,7 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
             LOG_INFO("(Renderer) {} Drawing model '{}'", m_frame, vk_model.name);
             cmd.drawIndexed(vk_primitive.index_count, 1, 0, vk_primitive.vertex_offset, 0);
         }
-    }
+    }*/
 }
 
 void Renderer::create_instance() {
@@ -1242,7 +1295,7 @@ VkMaterial *Renderer::get_material(const std::string &name) {
         return &(*it).second;
 }
 
-void Renderer::load_model(const Model &model, const std::string &name) {
+uint32_t Renderer::load_model(const Model &model, const std::string &name) {
     VkModel new_model(*this, name, model);
 
     // we have to do this here because m_models (std::vector)
@@ -1253,6 +1306,8 @@ void Renderer::load_model(const Model &model, const std::string &name) {
     });
 
     m_models.push_back(std::move(new_model));
+
+    return m_models.size() - 1;
 }
 
 void Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function) {

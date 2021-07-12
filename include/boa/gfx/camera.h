@@ -1,7 +1,7 @@
 #ifndef BOA_GFX_CAMERA_H
 #define BOA_GFX_CAMERA_H
 
-#include <glm/glm.hpp>
+#include "glm/glm.hpp"
 
 namespace boa::gfx {
 
