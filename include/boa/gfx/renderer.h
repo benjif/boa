@@ -35,6 +35,7 @@ public:
     ~Renderer();
     void run();
 
+    // TODO: return handle for models
     void load_model(const Model &model, const std::string &name);
 
 private:
@@ -99,9 +100,12 @@ private:
 
     Window m_window{ INIT_WIDTH, INIT_HEIGHT, WINDOW_TITLE };
     WindowUserPointers m_user_pointers;
+
+    // TODO: move input and camera stuff outside of renderer class
     input::Keyboard m_keyboard;
     input::Mouse m_mouse;
     Camera m_camera;
+
     DeletionQueue m_deletion_queue;
     UploadContext m_upload_context;
 

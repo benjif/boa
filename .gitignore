@@ -6,4 +6,5 @@ imgui.ini
 lib/imgui/examples
 lib/imgui/docs
 models/minecraft*
+models/sponza
 textures/minecraft*

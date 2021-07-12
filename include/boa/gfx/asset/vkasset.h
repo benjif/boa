@@ -3,6 +3,7 @@
 
 #include "vk_mem_alloc.h"
 #include "glm/glm.hpp"
+//#include "glm/gtc/quaternion.hpp"
 #include <stdint.h>
 #include <vulkan/vulkan.hpp>
 
@@ -33,7 +34,9 @@ struct VkPrimitive {
     uint32_t index_count;
     uint32_t vertex_offset;
     VmaBuffer index_buffer;
+
     VkMaterial *material{ nullptr };
+
     Sphere bounding_sphere;
     glm::mat4 transform_matrix;
 };
@@ -46,6 +49,11 @@ struct VkModel {
     std::vector<VkTexture> textures;
     std::vector<VkPrimitive> primitives;
     VmaBuffer vertex_buffer;
+
+    glm::mat4 transform_matrix{ 1.0f };
+    /*glm::vec3 translation{ 0.0f, 0.0f, 0.0f };
+    glm::quat orientation{ 0.0f, 0.0f, 0.0f, 0.0f };
+    glm::vec3 scale{ 1.0f, 1.0f, 1.0f };*/
 
 private:
     vk::DescriptorSet texture_descriptor_set;

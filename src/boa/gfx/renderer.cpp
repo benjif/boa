@@ -346,7 +346,8 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
                 }
             }
 
-            glm::mat4 model_view_projection = transforms.view_projection * vk_primitive.transform_matrix;
+            glm::mat4 model_view_projection = transforms.view_projection * vk_primitive.transform_matrix
+                * vk_model.transform_matrix;
             PushConstants push_constants = { .model_view_projection = model_view_projection };
 
             cmd.pushConstants(vk_primitive.material->pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
