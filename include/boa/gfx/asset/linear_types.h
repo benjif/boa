@@ -68,7 +68,45 @@ struct Box {
     glm::dvec3 min, max;
 };
 
+struct Sphere {
+    static Sphere bounding_sphere_from_bounding_box(const Box &box);
+    glm::vec3 center;
+    float radius;
+};
+
+struct Frustum {
+    void update(glm::mat4 projection);
+    bool is_sphere_within(const Sphere &sphere) const;
+    bool is_box_within(const Box &box) const;
+
+    std::array<glm::vec4, 6> planes;
+};
+
 }
+
+template <> struct fmt::formatter<glm::vec3> {
+    constexpr auto parse(format_parse_context &ctx) {
+        auto it = ctx.begin();
+        return ctx.begin();
+    }
+
+    template <typename FormatContext>
+    auto format(const glm::vec3 &v, FormatContext &ctx) {
+        return fmt::format_to(ctx.out(), "({: f}, {: f}, {: f})", v.x, v.y, v.z);
+    }
+};
+
+template <> struct fmt::formatter<glm::vec4> {
+    constexpr auto parse(format_parse_context &ctx) {
+        auto it = ctx.begin();
+        return ctx.begin();
+    }
+
+    template <typename FormatContext>
+    auto format(const glm::vec4 &v, FormatContext &ctx) {
+        return fmt::format_to(ctx.out(), "({: f}, {: f}, {: f}, {: f})", v.x, v.y, v.z, v.w);
+    }
+};
 
 template <> struct fmt::formatter<boa::gfx::Vertex> {
     constexpr auto parse(format_parse_context &ctx) {
@@ -78,7 +116,7 @@ template <> struct fmt::formatter<boa::gfx::Vertex> {
 
     template <typename FormatContext>
     auto format(const boa::gfx::Vertex &v, FormatContext &ctx) {
-        return fmt::format_to(ctx.out(), "({: f}, {: f}, {: f})", v.position.x, v.position.y, v.position.z);
+        return fmt::format_to(ctx.out(), "{}", v.position);
     }
 };
 

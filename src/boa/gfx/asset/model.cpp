@@ -155,6 +155,7 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
 
             new_primitive.bounding_box.min = glm::make_vec3<double>(position_accessor.minValues.data());
             new_primitive.bounding_box.max = glm::make_vec3<double>(position_accessor.maxValues.data());
+            new_primitive.bounding_sphere = Sphere::bounding_sphere_from_bounding_box(new_primitive.bounding_box);
             m_primitives.push_back(std::move(new_primitive));
 
             for (size_t i = 0; i < position_accessor.count; i++) {

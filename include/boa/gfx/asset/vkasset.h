@@ -34,7 +34,7 @@ struct VkPrimitive {
     uint32_t vertex_offset;
     VmaBuffer index_buffer;
     VkMaterial *material{ nullptr };
-    Box bounding_box;
+    Sphere bounding_sphere;
     glm::mat4 transform_matrix;
 };
 

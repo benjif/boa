@@ -119,11 +119,11 @@ void VkModel::add_from_node(const Model::Node &node) {
                         VkTexture new_texture(renderer, image);
                         textures.push_back(std::move(new_texture));
 
+                        LOG_INFO("(Asset) Creating new material 'textured_{}_{}'", name, primitive_idx);
+
                         VkMaterial *textured = renderer.get_material("textured");
                         VkMaterial *new_textured = renderer.create_material(textured->pipeline, textured->pipeline_layout,
                             fmt::format("textured_{}_{}", name, primitive_idx));
-
-                        LOG_INFO("(Asset) Creating new material 'textured_{}_{}'", name, primitive_idx);
 
                         new_textured->texture_set = texture_descriptor_set;
 
@@ -144,7 +144,7 @@ void VkModel::add_from_node(const Model::Node &node) {
 
             new_vk_primitive.index_count = primitive.indices.size();
             new_vk_primitive.vertex_offset = primitive.vertex_offset;
-            new_vk_primitive.bounding_box = primitive.bounding_box;
+            new_vk_primitive.bounding_sphere = primitive.bounding_sphere;
 
             new_vk_primitive.transform_matrix = node.matrix;
 

@@ -141,6 +141,7 @@ private:
     VmaImage m_msaa_image;
     vk::ImageView m_msaa_image_view;
 
+    Frustum m_frustum;
     std::vector<VkModel> m_models;
     std::unordered_map<std::string, VkMaterial> m_materials;
     std::unordered_map<std::string, VkTexture> m_textures;
@@ -154,7 +155,7 @@ private:
 
     void input_update(float time_change);
     void draw_frame();
-    void draw_objects(vk::CommandBuffer cmd);
+    void draw_models(vk::CommandBuffer cmd);
 
     void init_window_user_pointers();
     void init_window();

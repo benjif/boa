@@ -98,8 +98,8 @@ void Renderer::input_update(float time_change) {
         glm::dvec2 cursor_change = m_mouse.last_movement();
         m_camera.update_target(cursor_change);
 
-        LOG_INFO("(Renderer) Camera pitch: {}, Camera yaw: {}", m_camera.get_pitch(), m_camera.get_yaw());
-        LOG_INFO("(Renderer) Camera position: ({}, {}, {})", m_camera.get_position().x, m_camera.get_position().y, m_camera.get_position().z);
+        //LOG_INFO("(Renderer) Camera pitch: {}, Camera yaw: {}", m_camera.get_pitch(), m_camera.get_yaw());
+        //LOG_INFO("(Renderer) Camera position: ({}, {}, {})", m_camera.get_position().x, m_camera.get_position().y, m_camera.get_position().z);
     }
 }
 
@@ -245,7 +245,7 @@ void Renderer::draw_frame() {
     frame_cmd.setViewport(0, viewport);
     frame_cmd.setScissor(0, scissor);
 
-    draw_objects(frame_cmd);
+    draw_models(frame_cmd);
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame_cmd);
 
     // END DRAW COMMANDS
@@ -293,7 +293,7 @@ void Renderer::draw_frame() {
     m_frame++;
 }
 
-void Renderer::draw_objects(vk::CommandBuffer cmd) {
+void Renderer::draw_models(vk::CommandBuffer cmd) {
     Transformations transforms{
         .view = glm::lookAt(
             m_camera.get_position(),
@@ -301,7 +301,7 @@ void Renderer::draw_objects(vk::CommandBuffer cmd) {
             m_camera.get_up()
         ),
         .projection = glm::perspective(
-            glm::radians(60.0f),
+            glm::radians(90.0f),
             m_window_extent.width / (float)m_window_extent.height,
             0.1f,
             100.0f
@@ -310,6 +310,8 @@ void Renderer::draw_objects(vk::CommandBuffer cmd) {
 
     transforms.projection[1][1] *= -1;
     transforms.view_projection = transforms.projection * transforms.view;
+
+    m_frustum.update(transforms.view_projection);
 
     void *data;
     vmaMapMemory(m_allocator, current_frame().transformations.allocation, &data);
@@ -320,6 +322,9 @@ void Renderer::draw_objects(vk::CommandBuffer cmd) {
     VkMaterial *last_material = nullptr;
     for (const auto &vk_model : m_models) {
         for (const auto &vk_primitive : vk_model.primitives) {
+            if (!m_frustum.is_sphere_within(vk_primitive.bounding_sphere))
+                continue;
+
             if (vk_primitive.material != last_material) {
                 cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, vk_primitive.material->pipeline);
                 last_material = vk_primitive.material;
@@ -351,6 +356,7 @@ void Renderer::draw_objects(vk::CommandBuffer cmd) {
             cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
             cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
 
+            LOG_INFO("(Renderer) {} Drawing model '{}'", m_frame, vk_model.name);
             cmd.drawIndexed(vk_primitive.index_count, 1, 0, vk_primitive.vertex_offset, 0);
         }
     }
