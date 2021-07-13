@@ -32,7 +32,6 @@ private:
 
 struct VkPrimitive {
     uint32_t index_count;
-    uint32_t vertex_offset;
     VmaBuffer index_buffer;
 
     VkMaterial *material{ nullptr };

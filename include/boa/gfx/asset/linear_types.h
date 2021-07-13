@@ -76,7 +76,7 @@ struct Sphere {
 
 struct Frustum {
     void update(glm::mat4 projection);
-    bool is_sphere_within(const Sphere &sphere) const;
+    bool is_sphere_within(const glm::vec3 &center, float radius) const;
     bool is_box_within(const Box &box) const;
 
     std::array<glm::vec4, 6> planes;

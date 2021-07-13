@@ -19,6 +19,7 @@ struct EntityMeta {
     std::bitset<MAX_COMPONENTS> component_mask;
 };
 
+// TODO: support more than one EntityGroup and ComponentStore?
 struct EntityGroup {
     EntityGroup();
     static EntityGroup &get();
@@ -45,6 +46,8 @@ struct EntityGroup {
 
     template <typename C>
     C &get_component(uint32_t e_id) {
+        if (!has_component<C>(e_id))
+            throw std::runtime_error("Attempted to get component that does not exist for entity");
         auto &component_store = ComponentStore::get();
         C *component_zone = component_store.get_component_zone<C>();
         return component_zone[e_id];

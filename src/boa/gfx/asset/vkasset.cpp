@@ -143,7 +143,6 @@ void VkModel::add_from_node(const Model::Node &node) {
             }
 
             new_vk_primitive.index_count = primitive.indices.size();
-            new_vk_primitive.vertex_offset = primitive.vertex_offset;
             new_vk_primitive.bounding_sphere = primitive.bounding_sphere;
 
             new_vk_primitive.transform_matrix = node.matrix;

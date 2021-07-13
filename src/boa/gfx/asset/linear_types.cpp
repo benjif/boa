@@ -70,9 +70,9 @@ bool Frustum::is_box_within(const Box &box) const {
     TODO();
 }
 
-bool Frustum::is_sphere_within(const Sphere &sphere) const {
+bool Frustum::is_sphere_within(const glm::vec3 &center, float radius) const {
     for (const auto &plane : planes) {
-        if (plane.x * sphere.center.x + plane.y * sphere.center.y + plane.z * sphere.center.z + plane.w <= -sphere.radius)
+        if (plane.x * center.x + plane.y * center.y + plane.z * center.z + plane.w <= -radius)
             return false;
     }
 

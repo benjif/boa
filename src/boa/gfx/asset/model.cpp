@@ -30,7 +30,6 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
             new_mesh.primitives.push_back(m_primitives.size());
 
             uint32_t vertex_start = static_cast<uint32_t>(m_vertices.size());
-            new_primitive.vertex_offset = vertex_start * sizeof(Vertex);
 
             if (primitive.indices < 0)
                 TODO();

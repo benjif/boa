@@ -30,7 +30,6 @@ public:
     struct Primitive {
         Box bounding_box;
         Sphere bounding_sphere;
-        size_t vertex_offset;
         std::optional<size_t> material;
         std::vector<uint32_t> indices;
     };

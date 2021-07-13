@@ -1,6 +1,6 @@
 #define VMA_IMPLEMENTATION
+#include "boa/ecs/ecs.h"
 #include "boa/iteration.h"
-#include "boa/ecs/entity.h"
 #include "boa/gfx/renderer.h"
 #include "boa/gfx/vk/initializers.h"
 #include "backends/imgui_impl_glfw.h"
@@ -323,6 +323,15 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
     VkPrimitive *last_primitive = nullptr;
     VkMaterial *last_material = nullptr;
     // TODO: instanced rendering (entities that share the same Model)
+
+    /*std::unordered_map<uint32_t, std::vector<uint32_t>> model_instance_groups;
+
+    entity_group.for_each_entity_with_component<boa::ecs::Model>([&](auto &e_id) {
+        uint32_t model_id = entity_group.get_component<boa::ecs::Model>(e_id).id;
+        model_instance_groups[model_id].push_back(e_id);
+        return Iteration::Continue;
+    });*/
+
     entity_group.for_each_entity_with_component<boa::ecs::Model>([&](auto &e_id) {
         uint32_t model_id = entity_group.get_component<boa::ecs::Model>(e_id).id;
         auto &vk_model = m_models[model_id];
@@ -332,7 +341,12 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
             entity_transform_matrix = entity_group.get_component<boa::ecs::Transform>(e_id).transform_matrix;
 
         for (const auto &vk_primitive : vk_model.primitives) {
-            if (!m_frustum.is_sphere_within(vk_primitive.bounding_sphere))
+            // probably not right, it won't matter once we do frustum culling on the GPU
+            // with instanced rendering
+            glm::mat4 combined_transform_matrix = vk_primitive.transform_matrix * entity_transform_matrix;
+            glm::vec3 new_bounding_center = combined_transform_matrix * glm::vec4(vk_primitive.bounding_sphere.center, 1.0f);
+            double new_bounding_radius = glm::length(combined_transform_matrix * glm::vec4(0.0f, 0.0f, 0.0f, vk_primitive.bounding_sphere.radius));
+            if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
                 continue;
 
             if (vk_primitive.material != last_material) {
@@ -356,7 +370,7 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
                 }
             }
 
-            glm::mat4 model_view_projection = transforms.view_projection * vk_primitive.transform_matrix * entity_transform_matrix;
+            glm::mat4 model_view_projection = transforms.view_projection * combined_transform_matrix;
             PushConstants push_constants = { .model_view_projection = model_view_projection };
 
             cmd.pushConstants(vk_primitive.material->pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
@@ -366,8 +380,9 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
             cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
             cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
 
-            LOG_INFO("(Renderer) {} Drawing model '{}'", m_frame, vk_model.name);
-            cmd.drawIndexed(vk_primitive.index_count, 1, 0, vk_primitive.vertex_offset, 0);
+            LOG_INFO("(Renderer) {} Drawing entity {} with model '{}'", m_frame, e_id, vk_model.name);
+
+            cmd.drawIndexed(vk_primitive.index_count, 1, 0, 0, 0);
         }
 
         return Iteration::Continue;
