@@ -8,6 +8,7 @@ layout (location = 4) in vec2 inTexCoord1;
 
 layout (location = 0) out vec4 outColor;
 layout (location = 1) out vec2 outTexCoord;
+layout (location = 2) flat out int imageDescriptor;
 
 layout(set = 0, binding = 0) uniform Transformations {
     mat4 view;
@@ -16,7 +17,7 @@ layout(set = 0, binding = 0) uniform Transformations {
 } transform;
 
 layout(push_constant) uniform constants {
-    vec4 extra;
+    ivec4 extra;
     mat4 model_view_projection;
 } PushConstants;
 
@@ -24,4 +25,5 @@ void main() {
     gl_Position = PushConstants.model_view_projection * vec4(inPosition, 1.0f);
     outColor = inColor;
     outTexCoord = inTexCoord;
+    imageDescriptor = PushConstants.extra.x;
 }

@@ -322,8 +322,8 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
 
     VkPrimitive *last_primitive = nullptr;
     VkMaterial *last_material = nullptr;
-    // TODO: instanced rendering (entities that share the same Model)
 
+    // TODO: instanced rendering (entities that share the same Model)
     /*std::unordered_map<uint32_t, std::vector<uint32_t>> model_instance_groups;
 
     entity_group.for_each_entity_with_component<boa::ecs::Model>([&](auto &e_id) {
@@ -349,6 +349,9 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
             if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
                 continue;
 
+            glm::mat4 model_view_projection = transforms.view_projection * combined_transform_matrix;
+            PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
+
             if (vk_primitive.material != last_material) {
                 cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, vk_primitive.material->pipeline);
                 last_material = vk_primitive.material;
@@ -367,11 +370,9 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
                         1,
                         vk_primitive.material->texture_set,
                         nullptr);
+                    push_constants.extra[0] = vk_primitive.material->descriptor_number;
                 }
             }
-
-            glm::mat4 model_view_projection = transforms.view_projection * combined_transform_matrix;
-            PushConstants push_constants = { .model_view_projection = model_view_projection };
 
             cmd.pushConstants(vk_primitive.material->pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
@@ -580,11 +581,17 @@ void Renderer::create_logical_device() {
     }
 
     vk::PhysicalDeviceFeatures device_features{
-        .samplerAnisotropy = true,
+        .samplerAnisotropy                      = true,
+        .shaderSampledImageArrayDynamicIndexing = true,
+    };
+
+    vk::PhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{
+        .descriptorBindingPartiallyBound        = true,
     };
 
     vk::PhysicalDeviceImagelessFramebufferFeatures imageless_framebuffer_features{
-        .imagelessFramebuffer = true,
+        .pNext                  = &descriptor_indexing_features,
+        .imagelessFramebuffer   = true,
     };
 
     vk::DeviceCreateInfo create_info{
@@ -1103,7 +1110,8 @@ VmaBuffer Renderer::create_buffer(size_t size, vk::BufferUsageFlags usage, VmaMe
 void Renderer::create_descriptors() {
     std::vector<vk::DescriptorPoolSize> sizes = {
         { vk::DescriptorType::eUniformBuffer, 10 },
-        { vk::DescriptorType::eSampler, 10 },
+        { vk::DescriptorType::eSampler, 200 },
+        { vk::DescriptorType::eCombinedImageSampler, 200 },
     };
 
     vk::DescriptorPoolCreateInfo pool_info{
@@ -1137,23 +1145,30 @@ void Renderer::create_descriptors() {
         throw std::runtime_error("Failed to create descriptor set layout");
     }
 
-    vk::DescriptorSetLayoutBinding texture_bind = {
+    vk::DescriptorSetLayoutBinding texture_bind{
         .binding            = 0,
         .descriptorType     = vk::DescriptorType::eCombinedImageSampler,
-        .descriptorCount    = 1,
+        .descriptorCount    = MAX_IMAGE_DESCRIPTORS,
         .stageFlags         = vk::ShaderStageFlagBits::eFragment,
         .pImmutableSamplers = nullptr,
     };
 
+    vk::DescriptorBindingFlags binding_flags = vk::DescriptorBindingFlagBits::ePartiallyBound;
+    vk::DescriptorSetLayoutBindingFlagsCreateInfo texture_bind_flags{
+        .bindingCount   = 1,
+        .pBindingFlags  = &binding_flags,
+    };
+
     vk::DescriptorSetLayoutCreateInfo texture_set_info{
+        .pNext              = &texture_bind_flags,
         .bindingCount       = 1,
         .pBindings          = &texture_bind,
     };
 
     try {
-        m_texture_descriptor_set_layout = m_device.get().createDescriptorSetLayout(texture_set_info);
+        m_textures_descriptor_set_layout = m_device.get().createDescriptorSetLayout(texture_set_info);
     } catch (const vk::SystemError &err) {
-        throw std::runtime_error("Failed to create texture descriptor set layout");
+        throw std::runtime_error("Failed to create descriptor set layout for textures");
     }
 
     for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
@@ -1196,7 +1211,7 @@ void Renderer::create_descriptors() {
 
     m_deletion_queue.enqueue([&]() {
         m_device.get().destroyDescriptorSetLayout(m_descriptor_set_layout);
-        m_device.get().destroyDescriptorSetLayout(m_texture_descriptor_set_layout);
+        m_device.get().destroyDescriptorSetLayout(m_textures_descriptor_set_layout);
         m_device.get().destroyDescriptorPool(m_descriptor_pool);
 
         for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++)
@@ -1258,7 +1273,7 @@ void Renderer::create_pipelines() {
 
     vk::PipelineLayoutCreateInfo textured_layout_info = untextured_layout_info;
 
-    vk::DescriptorSetLayout textured_set_layouts[] = { m_descriptor_set_layout, m_texture_descriptor_set_layout };
+    vk::DescriptorSetLayout textured_set_layouts[] = { m_descriptor_set_layout, m_textures_descriptor_set_layout };
 
     textured_layout_info.setLayoutCount = 2;
     textured_layout_info.pSetLayouts = textured_set_layouts;

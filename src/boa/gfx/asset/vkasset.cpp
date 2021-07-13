@@ -19,15 +19,17 @@ VkModel::VkModel(Renderer &renderer, const std::string &model_name, const Model 
     samplers.reserve(model.get_sampler_count());
 
     size_t image_count = model.get_image_count();
+    if (image_count >= renderer.MAX_IMAGE_DESCRIPTORS)
+        throw std::runtime_error("Bounded more than max image descriptors for set");
 
     vk::DescriptorSetAllocateInfo alloc_info{
         .descriptorPool         = renderer.m_descriptor_pool,
         .descriptorSetCount     = 1,
-        .pSetLayouts            = &renderer.m_texture_descriptor_set_layout,
+        .pSetLayouts            = &renderer.m_textures_descriptor_set_layout,
     };
 
     try {
-        texture_descriptor_set = renderer.m_device.get().allocateDescriptorSets(alloc_info)[0];
+        textures_descriptor_set = renderer.m_device.get().allocateDescriptorSets(alloc_info)[0];
     } catch (const vk::SystemError &err) {
         throw std::runtime_error("Failed to allocate descriptor sets");
     }
@@ -125,7 +127,8 @@ void VkModel::add_from_node(const Model::Node &node) {
                         VkMaterial *new_textured = renderer.create_material(textured->pipeline, textured->pipeline_layout,
                             fmt::format("textured_{}_{}", name, primitive_idx));
 
-                        new_textured->texture_set = texture_descriptor_set;
+                        new_textured->texture_set = textures_descriptor_set;
+                        new_textured->descriptor_number = descriptor_count;
 
                         vk::DescriptorImageInfo image_buffer_info{
                             .sampler        = samplers[base_texture.sampler.value()],
@@ -135,8 +138,11 @@ void VkModel::add_from_node(const Model::Node &node) {
 
                         vk::WriteDescriptorSet write = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
                             new_textured->texture_set, &image_buffer_info, 0);
-                        renderer.m_device.get().updateDescriptorSets(write, 0);
+                        LOG_INFO("Writing to descriptor {}", descriptor_count);
+                        write.dstArrayElement = descriptor_count;
+                        renderer.m_device.get().updateDescriptorSets(write, nullptr);
 
+                        descriptor_count++;
                         new_vk_primitive.material = new_textured;
                     }
                 }

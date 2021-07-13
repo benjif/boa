@@ -54,6 +54,7 @@ private:
 #endif
 
     constexpr static uint32_t FRAMES_IN_FLIGHT = 2;
+    constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 200;
 
     struct QueueFamilyIndices {
         std::optional<uint32_t> graphics_family;
@@ -77,7 +78,8 @@ private:
     };
 
     struct PushConstants {
-        glm::vec4 extra;
+        //glm::vec4 extra;
+        glm::ivec4 extra;
         glm::mat4 model_view_projection;
     };
 
@@ -122,7 +124,7 @@ private:
     vk::Queue m_graphics_queue;
     vk::Queue m_present_queue;
     vk::DescriptorSetLayout m_descriptor_set_layout;
-    vk::DescriptorSetLayout m_texture_descriptor_set_layout;
+    vk::DescriptorSetLayout m_textures_descriptor_set_layout;
     vk::DescriptorPool m_descriptor_pool;
 
     vk::SampleCountFlagBits m_msaa_samples{ vk::SampleCountFlagBits::e1 };

@@ -13,6 +13,7 @@ class Model;
 class Renderer;
 
 struct VkMaterial {
+    uint32_t descriptor_number;
     vk::DescriptorSet texture_set{ VK_NULL_HANDLE };
     vk::Pipeline pipeline;
     vk::PipelineLayout pipeline_layout;
@@ -50,7 +51,9 @@ struct VkModel {
     VmaBuffer vertex_buffer;
 
 private:
-    vk::DescriptorSet texture_descriptor_set;
+    uint32_t descriptor_count{ 0 };
+    vk::DescriptorSet textures_descriptor_set;
+    vk::DescriptorSetLayout textures_descriptor_set_layout;
 
     Renderer &renderer;
     const Model &model;
