@@ -37,6 +37,14 @@ public:
 
     uint32_t load_model(const Model &model, const std::string &name);
 
+    input::Keyboard &get_keyboard() { return m_keyboard; }
+    input::Mouse &get_mouse() { return m_mouse; }
+    Camera &get_camera() { return m_camera; }
+    Window &get_window() { return m_window; }
+
+    void set_per_frame_callback(std::function<void(float)> callback);
+    void set_ui_mouse_enabled(bool mouse_enabled);
+
 private:
     const std::vector<const char *> validation_layers = {
         "VK_LAYER_KHRONOS_validation"
@@ -107,6 +115,8 @@ private:
     input::Mouse m_mouse;
     Camera m_camera;
 
+    std::function<void(float)> m_per_frame_callback;
+
     DeletionQueue m_deletion_queue;
     UploadContext m_upload_context;
 
@@ -158,13 +168,11 @@ private:
 
     PerFrame &current_frame();
 
-    void input_update(float time_change);
     void draw_frame();
     void draw_models(vk::CommandBuffer cmd);
 
     void init_window_user_pointers();
     void init_window();
-    void init_input();
     void init_imgui();
 
     void cleanup();
@@ -185,14 +193,15 @@ private:
     void immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function);
 
     vk::ShaderModule load_shader(const char *path);
-    vk::ImageView create_image_view(vk::Image image, vk::Format format, vk::ImageAspectFlags aspect_flags, uint32_t mip_levels = 1);
-    VmaBuffer create_buffer(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memory_usage);
+    vk::ImageView create_image_view(vk::Image image, vk::Format format,
+        vk::ImageAspectFlags aspect_flags, uint32_t mip_levels = 1) const;
+    VmaBuffer create_buffer(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memory_usage) const;
 
-    SwapChainSupportDetails query_swap_chain_support(vk::PhysicalDevice device);
-    vk::SampleCountFlagBits get_max_sample_count();
-    bool check_device(vk::PhysicalDevice device);
-    bool check_device_extension_support(vk::PhysicalDevice device);
-    QueueFamilyIndices find_queue_families(vk::PhysicalDevice device);
+    SwapChainSupportDetails query_swap_chain_support(vk::PhysicalDevice device) const;
+    vk::SampleCountFlagBits get_max_sample_count() const;
+    bool check_device(vk::PhysicalDevice device) const;
+    bool check_device_extension_support(vk::PhysicalDevice device) const;
+    QueueFamilyIndices find_queue_families(vk::PhysicalDevice device) const;
 
     VkDebugUtilsMessengerEXT m_debug_messenger;
     void setup_debug_messenger();

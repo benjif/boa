@@ -19,7 +19,6 @@ Renderer::Renderer() {
 
     init_window_user_pointers();
     init_window();
-    init_input();
     create_instance();
     setup_debug_messenger();
     create_surface();
@@ -57,7 +56,7 @@ void Renderer::run() {
         //LOG_INFO("(Renderer) Framerate: {}\n", 1.0f / time_change);
         last_time = current_time;
 
-        input_update(time_change);
+        m_per_frame_callback(time_change);
 
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -77,30 +76,15 @@ void Renderer::run() {
     m_device.get().waitIdle();
 }
 
-void Renderer::input_update(float time_change) {
-    time_change *= 60.0f;
-    //LOG_INFO("(Renderer) Time change: {}\n", time_change);
+void Renderer::set_per_frame_callback(std::function<void(float)> callback) {
+    m_per_frame_callback = callback;
+}
 
-    Camera::DirectionFlags directions{};
-
-    if (m_keyboard.key(GLFW_KEY_W))
-        directions |= Camera::DirectionFlags::Forward;
-    if (m_keyboard.key(GLFW_KEY_A))
-        directions |= Camera::DirectionFlags::Left;
-    if (m_keyboard.key(GLFW_KEY_S))
-        directions |= Camera::DirectionFlags::Backward;
-    if (m_keyboard.key(GLFW_KEY_D))
-        directions |= Camera::DirectionFlags::Right;
-
-    m_camera.update_position(time_change, directions);
-
-    if (m_window.get_cursor_disabled()) {
-        glm::dvec2 cursor_change = m_mouse.last_movement();
-        m_camera.update_target(cursor_change);
-
-        //LOG_INFO("(Renderer) Camera pitch: {}, Camera yaw: {}", m_camera.get_pitch(), m_camera.get_yaw());
-        //LOG_INFO("(Renderer) Camera position: ({}, {}, {})", m_camera.get_position().x, m_camera.get_position().y, m_camera.get_position().z);
-    }
+void Renderer::set_ui_mouse_enabled(bool mouse_enabled) {
+    if (mouse_enabled)
+        ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+    else
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
 }
 
 void Renderer::init_window() {
@@ -116,27 +100,6 @@ void Renderer::init_window_user_pointers() {
     m_user_pointers.renderer = this;
     m_user_pointers.keyboard = &m_keyboard;
     m_user_pointers.mouse = &m_mouse;
-}
-
-void Renderer::init_input() {
-    m_keyboard.set_callback([&](int key, int action, int mods) {
-        if (action == GLFW_RELEASE) {
-            if (key == GLFW_KEY_LEFT_SHIFT)
-                m_camera.set_movement_speed(0.05f);
-        } else if (action == GLFW_PRESS) {
-            if (key == GLFW_KEY_ESCAPE) {
-                if (m_window.get_cursor_disabled()) {
-                    m_window.set_cursor_disabled(false);
-                    ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
-                } else {
-                    m_window.set_cursor_disabled(true);
-                    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
-                }
-            } else if (key == GLFW_KEY_LEFT_SHIFT) {
-                m_camera.set_movement_speed(0.20f);
-            }
-        }
-    });
 }
 
 void Renderer::create_allocator() {
@@ -523,7 +486,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Renderer::debug_callback(
     return VK_FALSE;
 }
 
-vk::SampleCountFlagBits Renderer::get_max_sample_count() {
+vk::SampleCountFlagBits Renderer::get_max_sample_count() const {
     const vk::SampleCountFlagBits descending_sample_counts[] = {
         vk::SampleCountFlagBits::e64,
         vk::SampleCountFlagBits::e32,
@@ -562,6 +525,9 @@ void Renderer::select_physical_device() {
 
     if (!m_physical_device)
         throw std::runtime_error("Failed to find suitable GPU");
+
+    LOG_INFO("(Renderer) Physical device '{}' selected", m_device_properties.deviceName);
+    LOG_INFO("(Renderer) Max MSAA samples: {}", static_cast<int>(m_msaa_samples));
 }
 
 void Renderer::create_logical_device() {
@@ -627,7 +593,7 @@ void Renderer::create_surface() {
     m_surface = vk::UniqueSurfaceKHR(temp_surface, m_instance.get());
 }
 
-Renderer::SwapChainSupportDetails Renderer::query_swap_chain_support(vk::PhysicalDevice device) {
+Renderer::SwapChainSupportDetails Renderer::query_swap_chain_support(vk::PhysicalDevice device) const {
     SwapChainSupportDetails details;
 
     details.capabilities = device.getSurfaceCapabilitiesKHR(m_surface.get());
@@ -637,7 +603,7 @@ Renderer::SwapChainSupportDetails Renderer::query_swap_chain_support(vk::Physica
     return details;
 }
 
-bool Renderer::check_device(vk::PhysicalDevice device) {
+bool Renderer::check_device(vk::PhysicalDevice device) const {
     QueueFamilyIndices indices = find_queue_families(device);
 
     bool extensions_supported = check_device_extension_support(device);
@@ -660,7 +626,7 @@ bool Renderer::check_device(vk::PhysicalDevice device) {
         more_features.get<vk::PhysicalDeviceVulkan12Features>().imagelessFramebuffer;
 }
 
-bool Renderer::check_device_extension_support(vk::PhysicalDevice device) {
+bool Renderer::check_device_extension_support(vk::PhysicalDevice device) const {
     std::vector<vk::ExtensionProperties> available_extensions =
         device.enumerateDeviceExtensionProperties();
 
@@ -672,7 +638,7 @@ bool Renderer::check_device_extension_support(vk::PhysicalDevice device) {
     return required_extensions.empty();
 }
 
-Renderer::QueueFamilyIndices Renderer::find_queue_families(vk::PhysicalDevice device) {
+Renderer::QueueFamilyIndices Renderer::find_queue_families(vk::PhysicalDevice device) const {
     QueueFamilyIndices indices;
 
     auto queue_families = device.getQueueFamilyProperties();
@@ -693,7 +659,7 @@ Renderer::QueueFamilyIndices Renderer::find_queue_families(vk::PhysicalDevice de
     return indices;
 }
 
-vk::ImageView Renderer::create_image_view(vk::Image image, vk::Format format, vk::ImageAspectFlags aspect_flags, uint32_t mip_levels) {
+vk::ImageView Renderer::create_image_view(vk::Image image, vk::Format format, vk::ImageAspectFlags aspect_flags, uint32_t mip_levels) const {
     vk::ImageViewCreateInfo view_info{
         .image              = image,
         .viewType           = vk::ImageViewType::e2D,
@@ -1063,6 +1029,8 @@ void Renderer::create_sync_objects() {
 }
 
 vk::ShaderModule Renderer::load_shader(const char *path) {
+    LOG_INFO("Loading shader module at '{}'", path);
+
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open())
         throw std::runtime_error("Failed to open shader file");
@@ -1093,7 +1061,7 @@ Renderer::PerFrame &Renderer::current_frame() {
     return m_frames[m_frame % FRAMES_IN_FLIGHT];
 }
 
-VmaBuffer Renderer::create_buffer(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memory_usage) {
+VmaBuffer Renderer::create_buffer(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memory_usage) const {
     vk::BufferCreateInfo buffer_info{
         .size   = size,
         .usage  = usage,

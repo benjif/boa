@@ -138,7 +138,6 @@ void VkModel::add_from_node(const Model::Node &node) {
 
                         vk::WriteDescriptorSet write = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
                             new_textured->texture_set, &image_buffer_info, 0);
-                        LOG_INFO("Writing to descriptor {}", descriptor_count);
                         write.dstArrayElement = descriptor_count;
                         renderer.m_device.get().updateDescriptorSets(write, nullptr);
 

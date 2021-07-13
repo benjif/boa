@@ -5,6 +5,9 @@
 
 namespace boa::gfx {
 
+// TODO: more versatile camera class
+// ideally we should allow for different camera modes or leave the
+// camera mode implementations outside of this class.
 class Camera {
 public:
     enum class DirectionFlags : int {

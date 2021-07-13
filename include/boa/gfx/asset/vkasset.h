@@ -3,7 +3,6 @@
 
 #include "vk_mem_alloc.h"
 #include "glm/glm.hpp"
-//#include "glm/gtc/quaternion.hpp"
 #include <stdint.h>
 #include <vulkan/vulkan.hpp>
 
