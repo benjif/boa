@@ -41,7 +41,7 @@ struct VkPrimitive {
 };
 
 struct VkModel {
-    VkModel(Renderer &renderer, const std::string &model_name, const Model &model_model);
+    VkModel(Renderer *renderer, const std::string &model_name, const Model *model_model);
 
     std::string name;
     std::vector<vk::Sampler> samplers;
@@ -54,8 +54,8 @@ private:
     vk::DescriptorSet textures_descriptor_set;
     vk::DescriptorSetLayout textures_descriptor_set_layout;
 
-    Renderer &renderer;
-    const Model &model;
+    Renderer *renderer;
+    const Model *model;
 
     void add_sampler(const Model::Sampler &sampler);
     void add_from_node(const Model::Node &node);

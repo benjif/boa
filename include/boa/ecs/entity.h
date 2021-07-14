@@ -12,11 +12,15 @@ namespace boa::ecs {
 
 struct EntityMeta {
     EntityMeta(uint32_t id_)
-        : id(id_)
+        : id(id_),
+          component_mask(COMPONENTS_START_COUNT)
     {
     }
+
+    void grow_component_mask(uint32_t id);
+
     uint32_t id;
-    std::bitset<MAX_COMPONENTS> component_mask;
+    std::vector<bool> component_mask;
 };
 
 // TODO: support more than one EntityGroup and ComponentStore?
@@ -25,22 +29,27 @@ struct EntityGroup {
     static EntityGroup &get();
 
     uint32_t new_entity();
+    void delete_entity(uint32_t e_id);
 
     template <typename C>
     void enable(uint32_t e_id) {
         uint32_t c_id = component_id<C>();
-        entities[e_id].component_mask.set(c_id);
+        entities[e_id].grow_component_mask(c_id);
+        entities[e_id].component_mask[c_id] = true;
     }
 
     template <typename C>
     void disable(uint32_t e_id) {
         uint32_t c_id = component_id<C>();
-        entities[e_id].component_mask.reset(c_id);
+        entities[e_id].grow_component_mask(c_id);
+        entities[e_id].component_mask[c_id] = false;
     }
 
     template <typename C>
-    bool has_component(uint32_t e_id) {
+    bool has_component(uint32_t e_id) const {
         uint32_t c_id = component_id<C>();
+        if (c_id >= entities[e_id].component_mask.size())
+            return false;
         return entities[e_id].component_mask[c_id];
     }
 
@@ -61,6 +70,15 @@ struct EntityGroup {
                 if (callback(entity.id) == Iteration::Break)
                     break;
             }
+        }
+    }
+
+    template <typename ...C>
+    uint32_t find_first_entity_with_component() const {
+        uint32_t c_ids[] = { component_id<C>()... };
+        for (auto &entity : entities) {
+            if (std::all_of(std::begin(c_ids), std::end(c_ids), [&](uint32_t c_id) { return entity.component_mask[c_id]; }))
+                return entity.id;
         }
     }
 

@@ -295,13 +295,12 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
         return Iteration::Continue;
     });*/
 
-    entity_group.for_each_entity_with_component<boa::ecs::Model>([&](auto &e_id) {
-        uint32_t model_id = entity_group.get_component<boa::ecs::Model>(e_id).id;
-        auto &vk_model = m_models[model_id];
+    entity_group.for_each_entity_with_component<boa::gfx::VkModel>([&](auto &e_id) {
+        auto &vk_model = entity_group.get_component<boa::gfx::VkModel>(e_id);
 
         glm::mat4 entity_transform_matrix{ 1.0f };
-        if (entity_group.has_component<boa::ecs::Transform>(e_id))
-            entity_transform_matrix = entity_group.get_component<boa::ecs::Transform>(e_id).transform_matrix;
+        if (entity_group.has_component<boa::gfx::Transform>(e_id))
+            entity_transform_matrix = entity_group.get_component<boa::gfx::Transform>(e_id).transform_matrix;
 
         for (const auto &vk_primitive : vk_model.primitives) {
             // probably not right, it won't matter once we do frustum culling on the GPU
@@ -1122,10 +1121,10 @@ void Renderer::create_descriptors() {
         .pImmutableSamplers = nullptr,
     };
 
-    vk::DescriptorBindingFlags binding_flags = vk::DescriptorBindingFlagBits::ePartiallyBound;
+    vk::DescriptorBindingFlags texture_binding_flags = vk::DescriptorBindingFlagBits::ePartiallyBound;
     vk::DescriptorSetLayoutBindingFlagsCreateInfo texture_bind_flags{
         .bindingCount   = 1,
-        .pBindingFlags  = &binding_flags,
+        .pBindingFlags  = &texture_binding_flags,
     };
 
     vk::DescriptorSetLayoutCreateInfo texture_set_info{
@@ -1193,6 +1192,13 @@ void Renderer::create_pipelines() {
     vk::ShaderModule untextured_vert = load_shader("shaders/untextured_vert.spv");
     vk::ShaderModule textured_frag = load_shader("shaders/textured_frag.spv");
     vk::ShaderModule textured_vert = load_shader("shaders/textured_vert.spv");
+    vk::ShaderModule skybox_frag = load_shader("shaders/skybox_frag.spv");
+    vk::ShaderModule skybox_vert = load_shader("shaders/skybox_vert.spv");
+
+    PipelineContext pipeline_ctx;
+    vk::PipelineLayoutCreateInfo untextured_layout_info = pipeline_layout_create_info();
+    vk::Pipeline untextured_pipeline, textured_pipeline, skybox_pipeline;
+    vk::PipelineLayout untextured_pipeline_layout, textured_pipeline_layout, skybox_pipeline_layout;
 
     vk::PushConstantRange push_constants{
         .stageFlags = vk::ShaderStageFlagBits::eVertex,
@@ -1200,70 +1206,84 @@ void Renderer::create_pipelines() {
         .size       = sizeof(PushConstants),
     };
 
-    vk::PipelineLayoutCreateInfo untextured_layout_info = pipeline_layout_create_info();
-
-    untextured_layout_info.setLayoutCount = 1;
-    untextured_layout_info.pSetLayouts = &m_descriptor_set_layout;
-    untextured_layout_info.pushConstantRangeCount = 1;
-    untextured_layout_info.pPushConstantRanges = &push_constants;
-
-    vk::PipelineLayout untextured_pipeline_layout;
-    try {
-        untextured_pipeline_layout = m_device.get().createPipelineLayout(untextured_layout_info);
-    } catch (const vk::SystemError &err) {
-        throw std::runtime_error("Failed to create untextured pipeline layout");
-    }
-
-    PipelineContext pipeline_ctx;
-
-    pipeline_ctx.input_assembly = input_assembly_create_info(vk::PrimitiveTopology::eTriangleList);
-
     auto attrib_desc = Vertex::get_attribute_descriptions();
     auto binding_desc = Vertex::get_binding_description();
 
-    pipeline_ctx.vertex_input_info.pVertexAttributeDescriptions = attrib_desc.data();
-    pipeline_ctx.vertex_input_info.vertexAttributeDescriptionCount = attrib_desc.size();
-    pipeline_ctx.vertex_input_info.pVertexBindingDescriptions = &binding_desc;
-    pipeline_ctx.vertex_input_info.vertexBindingDescriptionCount = 1;
+    // UNTEXTURED PIPELINE
+    {
+        untextured_layout_info.setLayoutCount = 1;
+        untextured_layout_info.pSetLayouts = &m_descriptor_set_layout;
+        untextured_layout_info.pushConstantRangeCount = 1;
+        untextured_layout_info.pPushConstantRanges = &push_constants;
 
-    pipeline_ctx.shader_stages.push_back(
-        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, untextured_vert));
-    pipeline_ctx.shader_stages.push_back(
-        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, untextured_frag));
+        try {
+            untextured_pipeline_layout = m_device.get().createPipelineLayout(untextured_layout_info);
+        } catch (const vk::SystemError &err) {
+            throw std::runtime_error("Failed to create untextured pipeline layout");
+        }
 
-    pipeline_ctx.rasterizer = rasterization_state_create_info(vk::PolygonMode::eFill);
-    pipeline_ctx.multisample = multisample_state_create_info(m_msaa_samples);
-    pipeline_ctx.color_blend_attachment = color_blend_attachment_state();
-    pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLessOrEqual);
-    pipeline_ctx.pipeline_layout = untextured_pipeline_layout;
+        pipeline_ctx.input_assembly = input_assembly_create_info(vk::PrimitiveTopology::eTriangleList);
 
-    vk::Pipeline untextured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
-    create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
+        pipeline_ctx.vertex_input_info.pVertexAttributeDescriptions = attrib_desc.data();
+        pipeline_ctx.vertex_input_info.vertexAttributeDescriptionCount = attrib_desc.size();
+        pipeline_ctx.vertex_input_info.pVertexBindingDescriptions = &binding_desc;
+        pipeline_ctx.vertex_input_info.vertexBindingDescriptionCount = 1;
 
-    vk::PipelineLayoutCreateInfo textured_layout_info = untextured_layout_info;
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, untextured_vert));
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, untextured_frag));
 
-    vk::DescriptorSetLayout textured_set_layouts[] = { m_descriptor_set_layout, m_textures_descriptor_set_layout };
+        pipeline_ctx.rasterizer = rasterization_state_create_info(vk::PolygonMode::eFill);
+        pipeline_ctx.multisample = multisample_state_create_info(m_msaa_samples);
+        pipeline_ctx.color_blend_attachment = color_blend_attachment_state();
+        pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLessOrEqual);
+        pipeline_ctx.pipeline_layout = untextured_pipeline_layout;
 
-    textured_layout_info.setLayoutCount = 2;
-    textured_layout_info.pSetLayouts = textured_set_layouts;
-
-    vk::PipelineLayout textured_pipeline_layout;
-    try {
-        textured_pipeline_layout = m_device.get().createPipelineLayout(textured_layout_info);
-    } catch (const vk::SystemError &err) {
-        throw std::runtime_error("Failed to create textured pipeline layout");
+        untextured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
+        create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
     }
 
-    pipeline_ctx.shader_stages.clear();
-    pipeline_ctx.shader_stages.push_back(
-        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, textured_vert));
-    pipeline_ctx.shader_stages.push_back(
-        pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, textured_frag));
+    // TEXTURED PIPELINE
+    {
+        vk::PipelineLayoutCreateInfo textured_layout_info = untextured_layout_info;
 
-    pipeline_ctx.pipeline_layout = textured_pipeline_layout;
+        vk::DescriptorSetLayout textured_set_layouts[] = { m_descriptor_set_layout, m_textures_descriptor_set_layout };
 
-    vk::Pipeline textured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
-    create_material(textured_pipeline, textured_pipeline_layout, "textured");
+        textured_layout_info.setLayoutCount = 2;
+        textured_layout_info.pSetLayouts = textured_set_layouts;
+
+        try {
+            textured_pipeline_layout = m_device.get().createPipelineLayout(textured_layout_info);
+        } catch (const vk::SystemError &err) {
+            throw std::runtime_error("Failed to create textured pipeline layout");
+        }
+
+        pipeline_ctx.shader_stages.clear();
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, textured_vert));
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, textured_frag));
+
+        pipeline_ctx.pipeline_layout = textured_pipeline_layout;
+
+        textured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
+        create_material(textured_pipeline, textured_pipeline_layout, "textured");
+    }
+
+    // SKYBOX PIPELINE
+    /*{
+        vk::PipelineLayoutCreateInfo skybox_layout_info = pipeline_layout_create_info();
+
+        skybox_layout_info.setLayoutCount = 1;
+        skybox_layout_info.pSetLayouts = &m_skybox_descriptor_set_layout;
+
+        try {
+            skybox_pipeline_layout = m_device.get().createPipelineLayout(skybox_layout_info);
+        } catch (const vk::SystemError &err) {
+            throw std::runtime_error("Failed to create untextured pipeline layout");
+        }
+    }*/
 
     m_deletion_queue.enqueue([=]() {
         m_device.get().destroyPipeline(untextured_pipeline);
@@ -1276,6 +1296,8 @@ void Renderer::create_pipelines() {
     m_device.get().destroyShaderModule(untextured_vert);
     m_device.get().destroyShaderModule(textured_frag);
     m_device.get().destroyShaderModule(textured_vert);
+    m_device.get().destroyShaderModule(skybox_frag);
+    m_device.get().destroyShaderModule(skybox_vert);
 }
 
 size_t Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name) {
@@ -1288,7 +1310,7 @@ size_t Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layou
 }
 
 uint32_t Renderer::load_model(const Model &model, const std::string &name) {
-    VkModel new_model(*this, name, model);
+    VkModel new_model(this, name, &model);
 
     // we have to do this here because m_models (std::vector)
     // will use the copy constructor during resizing
@@ -1297,9 +1319,14 @@ uint32_t Renderer::load_model(const Model &model, const std::string &name) {
             new_model.vertex_buffer.allocation);
     });
 
-    m_models.push_back(std::move(new_model));
+    auto &entity_group = boa::ecs::EntityGroup::get();
+    auto new_entity = entity_group.new_entity();
+    entity_group.enable<boa::gfx::VkModel>(new_entity);
 
-    return m_models.size() - 1;
+    auto &model_component = entity_group.get_component<boa::gfx::VkModel>(new_entity);
+    model_component = new_model;
+
+    return new_entity;
 }
 
 void Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function) {

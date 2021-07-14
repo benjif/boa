@@ -8,17 +8,14 @@
 
 namespace boa::ecs {
 
-const size_t MAX_COMPONENTS = 64;
+const size_t COMPONENTS_START_COUNT = 64;
+const size_t PER_COMPONENT_SIZE = 10 * KiB;
+const uint32_t COMPONENTS_GROWTH_RATE = 2;
 
-extern uint32_t component_count;
+extern uint32_t component_type_count;
 
 template <typename T>
-uint32_t component_id() {
-    static uint32_t c_id = component_count++;
-    if (c_id >= MAX_COMPONENTS)
-        throw std::runtime_error("Component type overflow");
-    return c_id;
-}
+uint32_t component_id();
 
 class ComponentStore {
 public:
@@ -28,15 +25,25 @@ public:
     template <typename Component>
     Component *get_component_zone() {
         uint32_t c_id = component_id<Component>();
-        return (Component *)(m_component_store.data() + c_id * KiB);
+        return (Component *)(m_component_store.get() + c_id * PER_COMPONENT_SIZE);
     }
 
+    void grow();
+    size_t size() const;
+
 private:
-    // TODO: dynamically allocate component store so that resizing is possible
-    // 1 KiB per component type
-    // component instance offset by entity id
-    std::array<char, MAX_COMPONENTS * KiB> m_component_store;
+    std::unique_ptr<char[]> m_component_store;
+    uint32_t m_growth{ 1 };
 };
+
+template <typename T>
+uint32_t component_id() {
+    static uint32_t c_id = component_type_count++;
+    auto &store = ComponentStore::get();
+    if (c_id >= store.size())
+        store.grow();
+    return c_id;
+}
 
 }
 

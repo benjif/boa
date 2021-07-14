@@ -2,6 +2,7 @@
 #define BOA_GFX_ASSET_LINEAR_TYPES_H
 
 #include "glm/glm.hpp"
+#include "glm/gtc/quaternion.hpp"
 #include <vulkan/vulkan.hpp>
 #include <fmt/format.h>
 #include <string>
@@ -62,6 +63,15 @@ struct Vertex {
     bool operator==(const Vertex &other) const {
         return position == other.position && normal == other.normal && texture_coord0 == other.texture_coord0;
     }
+};
+
+struct Transform {
+    glm::mat4 transform_matrix{ 1.0f };
+    glm::vec3 translation{ 0.0f, 0.0f, 0.0f };
+    glm::quat orientation{ 0.0f, 0.0f, 0.0f, 0.0f };
+    glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
+
+    void update();
 };
 
 struct Box {
