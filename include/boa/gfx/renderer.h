@@ -12,9 +12,10 @@
 #include "boa/input/keyboard.h"
 #include "boa/input/mouse.h"
 #include "glm/gtx/transform.hpp"
-#include <optional>
-#include <string>
 #include <functional>
+#include <optional>
+#include <utility>
+#include <string>
 
 namespace boa::gfx {
 
@@ -64,6 +65,11 @@ private:
     constexpr static uint32_t FRAMES_IN_FLIGHT = 2;
     constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 200;
 
+    enum {
+        UNTEXTURED_MATERIAL_INDEX   = 0,
+        TEXTURED_MATERIAL_INDEX     = 1,
+    };
+
     struct QueueFamilyIndices {
         std::optional<uint32_t> graphics_family;
         std::optional<uint32_t> present_family;
@@ -86,7 +92,6 @@ private:
     };
 
     struct PushConstants {
-        //glm::vec4 extra;
         glm::ivec4 extra;
         glm::mat4 model_view_projection;
     };
@@ -158,13 +163,11 @@ private:
 
     Frustum m_frustum;
     std::vector<VkModel> m_models;
-    std::unordered_map<std::string, VkMaterial> m_materials;
-    std::unordered_map<std::string, VkTexture> m_textures;
+    std::vector<VkMaterial> m_materials;
 
     static void framebuffer_size_callback(void *user_ptr_v, int w, int h);
 
-    VkMaterial *create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name);
-    VkMaterial *get_material(const std::string &name);
+    size_t create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name);
 
     PerFrame &current_frame();
 

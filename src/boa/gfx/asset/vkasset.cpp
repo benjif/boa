@@ -108,7 +108,7 @@ void VkModel::add_from_node(const Model::Node &node) {
         for (size_t primitive_idx : mesh.primitives) {
             const auto &primitive = model.get_primitive(primitive_idx);
             VkPrimitive new_vk_primitive;
-            new_vk_primitive.material = renderer.get_material("untextured");
+            new_vk_primitive.material_index = renderer.UNTEXTURED_MATERIAL_INDEX;
 
             if (primitive.material.has_value()) {
                 const auto &material = model.get_material(primitive.material.value());
@@ -123,12 +123,14 @@ void VkModel::add_from_node(const Model::Node &node) {
 
                         LOG_INFO("(Asset) Creating new material 'textured_{}_{}'", name, primitive_idx);
 
-                        VkMaterial *textured = renderer.get_material("textured");
-                        VkMaterial *new_textured = renderer.create_material(textured->pipeline, textured->pipeline_layout,
-                            fmt::format("textured_{}_{}", name, primitive_idx));
+                        VkMaterial &textured = renderer.m_materials[renderer.TEXTURED_MATERIAL_INDEX];
 
-                        new_textured->texture_set = textures_descriptor_set;
-                        new_textured->descriptor_number = descriptor_count;
+                        size_t new_textured_index = renderer.create_material(textured.pipeline, textured.pipeline_layout,
+                            fmt::format("textured_{}_{}", name, primitive_idx));
+                        VkMaterial &new_textured = renderer.m_materials[new_textured_index];
+
+                        new_textured.texture_set = textures_descriptor_set;
+                        new_textured.descriptor_number = descriptor_count;
 
                         vk::DescriptorImageInfo image_buffer_info{
                             .sampler        = samplers[base_texture.sampler.value()],
@@ -137,12 +139,12 @@ void VkModel::add_from_node(const Model::Node &node) {
                         };
 
                         vk::WriteDescriptorSet write = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
-                            new_textured->texture_set, &image_buffer_info, 0);
+                            new_textured.texture_set, &image_buffer_info, 0);
                         write.dstArrayElement = descriptor_count;
                         renderer.m_device.get().updateDescriptorSets(write, nullptr);
 
+                        new_vk_primitive.material_index = new_textured_index;
                         descriptor_count++;
-                        new_vk_primitive.material = new_textured;
                     }
                 }
             }

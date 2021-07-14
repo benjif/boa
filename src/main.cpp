@@ -3,6 +3,7 @@
 #include "boa/gfx/asset/model.h"
 #include "boa/gfx/renderer.h"
 #include "boa/ecs/ecs.h"
+#include <chrono>
 
 int main(int argc, char **argv) {
     LOG_INFO("(Global) Started");
@@ -14,16 +15,16 @@ int main(int argc, char **argv) {
     entity_group.enable<boa::ecs::Model>(sponza);
     entity_group.enable<boa::ecs::Transform>(sponza);
 
+    auto &transform_component = entity_group.get_component<boa::ecs::Transform>(sponza);
     {
-        auto &transform_component = entity_group.get_component<boa::ecs::Transform>(sponza);
         transform_component.orientation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
         transform_component.translation = glm::vec3(2.0f, 0.0f, 2.0f);
-        transform_component.scale = glm::vec3(0.01f, 0.01f, 0.01f);
+        transform_component.scale = glm::vec3(0.1f, 0.1f, 0.1f);
         transform_component.update();
     }
 
     boa::gfx::Model sponza_model;
-    sponza_model.open_gltf_file("models/sponza/glTF/Sponza.gltf");
+    sponza_model.open_gltf_file("models/minecraft.gltf");
 
     boa::gfx::Renderer renderer;
 
@@ -33,12 +34,16 @@ int main(int argc, char **argv) {
         model_component.id = sponza_model_id;
     }
 
+    auto &window = renderer.get_window();
     auto &camera = renderer.get_camera();
     auto &keyboard = renderer.get_keyboard();
     auto &mouse = renderer.get_mouse();
-    auto &window = renderer.get_window();
 
+    //auto start_time = std::chrono::high_resolution_clock::now();
     renderer.set_per_frame_callback([&](float time_change) {
+        //auto current_time = std::chrono::high_resolution_clock::now();
+        //float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+
         time_change *= 60.0f;
 
         boa::gfx::Camera::DirectionFlags directions{};

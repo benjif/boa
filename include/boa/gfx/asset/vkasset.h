@@ -12,10 +12,11 @@ class Model;
 class Renderer;
 
 struct VkMaterial {
+    std::string name;
     uint32_t descriptor_number;
     vk::DescriptorSet texture_set{ VK_NULL_HANDLE };
-    vk::Pipeline pipeline;
-    vk::PipelineLayout pipeline_layout;
+    vk::Pipeline pipeline{ VK_NULL_HANDLE };
+    vk::PipelineLayout pipeline_layout{ VK_NULL_HANDLE };
 };
 
 struct VkTexture {
@@ -33,8 +34,7 @@ private:
 struct VkPrimitive {
     uint32_t index_count;
     VmaBuffer index_buffer;
-
-    VkMaterial *material{ nullptr };
+    size_t material_index;
 
     Sphere bounding_sphere;
     glm::mat4 transform_matrix;

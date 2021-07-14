@@ -32,6 +32,7 @@ public:
     }
 
 private:
+    // TODO: dynamically allocate component store so that resizing is possible
     // 1 KiB per component type
     // component instance offset by entity id
     std::array<char, MAX_COMPONENTS * KiB> m_component_store;

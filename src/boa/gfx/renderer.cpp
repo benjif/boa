@@ -45,7 +45,7 @@ Renderer::~Renderer() {
 
 void Renderer::run() {
     auto last_time = std::chrono::high_resolution_clock::now();
-    auto current_time = std::chrono::high_resolution_clock::now();
+    auto current_time = last_time;
 
     while (!m_window.should_close()) {
         m_window.poll_events();
@@ -284,7 +284,7 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
     auto &entity_group = boa::ecs::EntityGroup::get();
 
     VkPrimitive *last_primitive = nullptr;
-    VkMaterial *last_material = nullptr;
+    size_t last_material = std::numeric_limits<size_t>::max();
 
     // TODO: instanced rendering (entities that share the same Model)
     /*std::unordered_map<uint32_t, std::vector<uint32_t>> model_instance_groups;
@@ -315,29 +315,30 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
             glm::mat4 model_view_projection = transforms.view_projection * combined_transform_matrix;
             PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
 
-            if (vk_primitive.material != last_material) {
-                cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, vk_primitive.material->pipeline);
-                last_material = vk_primitive.material;
+            auto &material = m_materials[vk_primitive.material_index];
+            if (vk_primitive.material_index != last_material) {
+                cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, material.pipeline);
+                last_material = vk_primitive.material_index;
 
                 cmd.bindDescriptorSets(
                     vk::PipelineBindPoint::eGraphics,
-                    vk_primitive.material->pipeline_layout,
+                    material.pipeline_layout,
                     0,
                     current_frame().parent_set,
                     nullptr);
 
-                if ((VkDescriptorSet)vk_primitive.material->texture_set != VK_NULL_HANDLE) {
+                if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE) {
                     cmd.bindDescriptorSets(
                         vk::PipelineBindPoint::eGraphics,
-                        vk_primitive.material->pipeline_layout,
+                        material.pipeline_layout,
                         1,
-                        vk_primitive.material->texture_set,
+                        material.texture_set,
                         nullptr);
-                    push_constants.extra[0] = vk_primitive.material->descriptor_number;
+                    push_constants.extra[0] = material.descriptor_number;
                 }
             }
 
-            cmd.pushConstants(vk_primitive.material->pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
+            cmd.pushConstants(material.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
             vk::Buffer vertex_buffers[] = { vk_model.vertex_buffer.buffer };
             vk::DeviceSize offsets[] = { 0 };
@@ -1277,20 +1278,13 @@ void Renderer::create_pipelines() {
     m_device.get().destroyShaderModule(textured_vert);
 }
 
-VkMaterial *Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name) {
+size_t Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name) {
     VkMaterial material;
     material.pipeline = pipeline;
     material.pipeline_layout = layout;
-    m_materials[name] = material;
-    return &m_materials[name];
-}
-
-VkMaterial *Renderer::get_material(const std::string &name) {
-    auto it = m_materials.find(name);
-    if (it == m_materials.end())
-        return nullptr;
-    else
-        return &(*it).second;
+    material.name = name;
+    m_materials.push_back(std::move(material));
+    return m_materials.size() - 1;
 }
 
 uint32_t Renderer::load_model(const Model &model, const std::string &name) {
