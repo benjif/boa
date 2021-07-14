@@ -11,19 +11,27 @@ int main(int argc, char **argv) {
     boa::ecs::ComponentStore component_store;
     boa::ecs::EntityGroup entity_group;
 
-    boa::gfx::Model sponza_model;
-    sponza_model.open_gltf_file("models/sponza/glTF/Sponza.gltf");
+    auto sponza = entity_group.new_entity();
+    entity_group.enable<boa::ecs::Model>(sponza);
+    entity_group.enable<boa::ecs::Transform>(sponza);
 
-    boa::gfx::Renderer renderer;
-    auto sponza = renderer.load_model(sponza_model, "sponza");
-
-    entity_group.enable<boa::gfx::Transform>(sponza);
-    auto &transform_component = entity_group.get_component<boa::gfx::Transform>(sponza);
+    auto &transform_component = entity_group.get_component<boa::ecs::Transform>(sponza);
     {
         transform_component.orientation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
         transform_component.translation = glm::vec3(2.0f, 0.0f, 2.0f);
         transform_component.scale = glm::vec3(0.02f, 0.02f, 0.02f);
         transform_component.update();
+    }
+
+    boa::gfx::Model sponza_model;
+    sponza_model.open_gltf_file("models/sponza/glTF/Sponza.gltf");
+
+    boa::gfx::Renderer renderer;
+
+    uint32_t sponza_model_id = renderer.load_model(sponza_model, "sponza");
+    {
+        auto &model_component = entity_group.get_component<boa::ecs::Model>(sponza);
+        model_component.id = sponza_model_id;
     }
 
     auto &window = renderer.get_window();

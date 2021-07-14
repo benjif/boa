@@ -1,5 +1,3 @@
-#include "glm/gtx/quaternion.hpp"
-#include "glm/gtx/transform.hpp"
 #include "boa/macros.h"
 #include "boa/gfx/asset/linear_types.h"
 
@@ -17,13 +15,6 @@ Sphere Sphere::bounding_sphere_from_bounding_box(const Box &box) {
     new_sphere.radius = glm::distance(new_sphere.center, glm::vec3(box.min));
 
     return new_sphere;
-}
-
-void Transform::update() {
-    transform_matrix = glm::mat4(1.0f);
-    transform_matrix *= glm::translate(translation);
-    transform_matrix *= glm::toMat4(orientation);
-    transform_matrix *= glm::scale(scale);
 }
 
 // https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf

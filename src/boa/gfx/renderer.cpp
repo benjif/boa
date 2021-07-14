@@ -295,12 +295,13 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
         return Iteration::Continue;
     });*/
 
-    entity_group.for_each_entity_with_component<boa::gfx::VkModel>([&](auto &e_id) {
-        auto &vk_model = entity_group.get_component<boa::gfx::VkModel>(e_id);
+    entity_group.for_each_entity_with_component<boa::ecs::Model>([&](auto &e_id) {
+        uint32_t model_id = entity_group.get_component<boa::ecs::Model>(e_id).id;
+        auto &vk_model = m_models[model_id];
 
         glm::mat4 entity_transform_matrix{ 1.0f };
-        if (entity_group.has_component<boa::gfx::Transform>(e_id))
-            entity_transform_matrix = entity_group.get_component<boa::gfx::Transform>(e_id).transform_matrix;
+        if (entity_group.has_component<boa::ecs::Transform>(e_id))
+            entity_transform_matrix = entity_group.get_component<boa::ecs::Transform>(e_id).transform_matrix;
 
         for (const auto &vk_primitive : vk_model.primitives) {
             // probably not right, it won't matter once we do frustum culling on the GPU
@@ -351,48 +352,6 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
 
         return Iteration::Continue;
     });
-
-    /*for (const auto &vk_model : m_models) {
-        for (const auto &vk_primitive : vk_model.primitives) {
-            if (!m_frustum.is_sphere_within(vk_primitive.bounding_sphere))
-                continue;
-
-            if (vk_primitive.material != last_material) {
-                cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, vk_primitive.material->pipeline);
-                last_material = vk_primitive.material;
-
-                cmd.bindDescriptorSets(
-                    vk::PipelineBindPoint::eGraphics,
-                    vk_primitive.material->pipeline_layout,
-                    0,
-                    current_frame().parent_set,
-                    nullptr);
-
-                if ((VkDescriptorSet)vk_primitive.material->texture_set != VK_NULL_HANDLE) {
-                    cmd.bindDescriptorSets(
-                        vk::PipelineBindPoint::eGraphics,
-                        vk_primitive.material->pipeline_layout,
-                        1,
-                        vk_primitive.material->texture_set,
-                        nullptr);
-                }
-            }
-
-            glm::mat4 model_view_projection = transforms.view_projection * vk_primitive.transform_matrix
-                * vk_model.transform_matrix;
-            PushConstants push_constants = { .model_view_projection = model_view_projection };
-
-            cmd.pushConstants(vk_primitive.material->pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
-
-            vk::Buffer vertex_buffers[] = { vk_model.vertex_buffer.buffer };
-            vk::DeviceSize offsets[] = { 0 };
-            cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
-            cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
-
-            LOG_INFO("(Renderer) {} Drawing model '{}'", m_frame, vk_model.name);
-            cmd.drawIndexed(vk_primitive.index_count, 1, 0, vk_primitive.vertex_offset, 0);
-        }
-    }*/
 }
 
 void Renderer::create_instance() {
@@ -1310,7 +1269,7 @@ size_t Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layou
 }
 
 uint32_t Renderer::load_model(const Model &model, const std::string &name) {
-    VkModel new_model(this, name, &model);
+    VkModel new_model(*this, name, model);
 
     // we have to do this here because m_models (std::vector)
     // will use the copy constructor during resizing
@@ -1319,14 +1278,9 @@ uint32_t Renderer::load_model(const Model &model, const std::string &name) {
             new_model.vertex_buffer.allocation);
     });
 
-    auto &entity_group = boa::ecs::EntityGroup::get();
-    auto new_entity = entity_group.new_entity();
-    entity_group.enable<boa::gfx::VkModel>(new_entity);
+    m_models.push_back(std::move(new_model));
 
-    auto &model_component = entity_group.get_component<boa::gfx::VkModel>(new_entity);
-    model_component = new_model;
-
-    return new_entity;
+    return m_models.size() - 1;
 }
 
 void Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function) {

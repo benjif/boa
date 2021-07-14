@@ -65,15 +65,6 @@ struct Vertex {
     }
 };
 
-struct Transform {
-    glm::mat4 transform_matrix{ 1.0f };
-    glm::vec3 translation{ 0.0f, 0.0f, 0.0f };
-    glm::quat orientation{ 0.0f, 0.0f, 0.0f, 0.0f };
-    glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
-
-    void update();
-};
-
 struct Box {
     glm::dvec3 min, max;
 };

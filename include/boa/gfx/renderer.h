@@ -35,8 +35,6 @@ public:
     Renderer();
     ~Renderer();
     void run();
-
-    // returns entity id
     uint32_t load_model(const Model &model, const std::string &name);
 
     input::Keyboard &get_keyboard() { return m_keyboard; }
@@ -163,6 +161,7 @@ private:
     vk::ImageView m_msaa_image_view;
 
     Frustum m_frustum;
+    std::vector<VkModel> m_models;
     std::vector<VkMaterial> m_materials;
 
     static void framebuffer_size_callback(void *user_ptr_v, int w, int h);
