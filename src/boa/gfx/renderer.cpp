@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <fstream>
 #include <chrono>
+#include <stack>
 
 namespace boa::gfx {
 
@@ -256,6 +257,60 @@ void Renderer::draw_frame() {
     m_frame++;
 }
 
+void Renderer::draw_model_node(vk::CommandBuffer cmd, const VkModel &model, const VkNode &node, const Transformations &transforms, glm::mat4 &local_transform) {
+    local_transform *= node.transform_matrix;
+
+    size_t last_material = std::numeric_limits<size_t>::max();
+    for (size_t vk_primitive_idx : node.primitives) {
+        const auto &vk_primitive = model.primitives[vk_primitive_idx];
+
+        // probably not right, it won't matter once we do frustum culling on the GPU
+        // with instanced rendering
+        glm::vec3 new_bounding_center = local_transform * glm::vec4(vk_primitive.bounding_sphere.center, 1.0f);
+        double new_bounding_radius = glm::length(local_transform * glm::vec4(0.0f, 0.0f, 0.0f, vk_primitive.bounding_sphere.radius));
+        if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
+            continue;
+
+        glm::mat4 model_view_projection = transforms.view_projection * local_transform;
+        PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
+
+        auto &material = m_materials[vk_primitive.material];
+        if (vk_primitive.material != last_material) {
+            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, material.pipeline);
+            last_material = vk_primitive.material;
+
+            cmd.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                material.pipeline_layout,
+                0,
+                current_frame().parent_set,
+                nullptr);
+
+            if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE) {
+                cmd.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    material.pipeline_layout,
+                    1,
+                    material.texture_set,
+                    nullptr);
+                push_constants.extra[0] = material.descriptor_number;
+            }
+        }
+
+        cmd.pushConstants(material.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
+
+        vk::Buffer vertex_buffers[] = { model.vertex_buffer.buffer };
+        vk::DeviceSize offsets[] = { 0 };
+        cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
+        cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
+
+        cmd.drawIndexed(vk_primitive.index_count, 1, 0, 0, 0);
+    }
+
+    for (size_t child_idx : node.children)
+        draw_model_node(cmd, model, node, transforms, local_transform);
+}
+
 void Renderer::draw_models(vk::CommandBuffer cmd) {
     Transformations transforms{
         .view = glm::lookAt(
@@ -283,9 +338,6 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
 
     auto &entity_group = boa::ecs::EntityGroup::get();
 
-    VkPrimitive *last_primitive = nullptr;
-    size_t last_material = std::numeric_limits<size_t>::max();
-
     // TODO: instanced rendering (entities that share the same Model)
     /*std::unordered_map<uint32_t, std::vector<uint32_t>> model_instance_groups;
 
@@ -295,60 +347,19 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
         return Iteration::Continue;
     });*/
 
-    entity_group.for_each_entity_with_component<boa::ecs::Model>([&](auto &e_id) {
-        uint32_t model_id = entity_group.get_component<boa::ecs::Model>(e_id).id;
+    entity_group.for_each_entity_with_component<boa::ecs::Renderable>([&](auto &e_id) {
+        uint32_t model_id = entity_group.get_component<boa::ecs::Renderable>(e_id).id;
         auto &vk_model = m_models[model_id];
 
+        if (vk_model.nodes.size() == 0)
+            return Iteration::Continue;
+
         glm::mat4 entity_transform_matrix{ 1.0f };
-        if (entity_group.has_component<boa::ecs::Transform>(e_id))
-            entity_transform_matrix = entity_group.get_component<boa::ecs::Transform>(e_id).transform_matrix;
+        if (entity_group.has_component<boa::ecs::Transformable>(e_id))
+            entity_transform_matrix = entity_group.get_component<boa::ecs::Transformable>(e_id).transform_matrix;
 
-        for (const auto &vk_primitive : vk_model.primitives) {
-            // probably not right, it won't matter once we do frustum culling on the GPU
-            // with instanced rendering
-            glm::mat4 combined_transform_matrix = vk_primitive.transform_matrix * entity_transform_matrix;
-            glm::vec3 new_bounding_center = combined_transform_matrix * glm::vec4(vk_primitive.bounding_sphere.center, 1.0f);
-            double new_bounding_radius = glm::length(combined_transform_matrix * glm::vec4(0.0f, 0.0f, 0.0f, vk_primitive.bounding_sphere.radius));
-            if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
-                continue;
-
-            glm::mat4 model_view_projection = transforms.view_projection * combined_transform_matrix;
-            PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
-
-            auto &material = m_materials[vk_primitive.material_index];
-            if (vk_primitive.material_index != last_material) {
-                cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, material.pipeline);
-                last_material = vk_primitive.material_index;
-
-                cmd.bindDescriptorSets(
-                    vk::PipelineBindPoint::eGraphics,
-                    material.pipeline_layout,
-                    0,
-                    current_frame().parent_set,
-                    nullptr);
-
-                if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE) {
-                    cmd.bindDescriptorSets(
-                        vk::PipelineBindPoint::eGraphics,
-                        material.pipeline_layout,
-                        1,
-                        material.texture_set,
-                        nullptr);
-                    push_constants.extra[0] = material.descriptor_number;
-                }
-            }
-
-            cmd.pushConstants(material.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
-
-            vk::Buffer vertex_buffers[] = { vk_model.vertex_buffer.buffer };
-            vk::DeviceSize offsets[] = { 0 };
-            cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
-            cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
-
-            LOG_INFO("(Renderer) {} Drawing entity {} with model '{}'", m_frame, e_id, vk_model.name);
-
-            cmd.drawIndexed(vk_primitive.index_count, 1, 0, 0, 0);
-        }
+        for (size_t node_idx : vk_model.root_nodes)
+            draw_model_node(cmd, vk_model, vk_model.nodes[node_idx], transforms, entity_transform_matrix);
 
         return Iteration::Continue;
     });
@@ -1268,7 +1279,7 @@ size_t Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layou
     return m_materials.size() - 1;
 }
 
-uint32_t Renderer::load_model(const Model &model, const std::string &name) {
+uint32_t Renderer::load_model(const glTFModel &model, const std::string &name) {
     VkModel new_model(*this, name, model);
 
     // we have to do this here because m_models (std::vector)

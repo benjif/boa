@@ -8,7 +8,7 @@
 
 namespace boa::gfx {
 
-class Model;
+class glTFModel;
 class Renderer;
 
 struct VkMaterial {
@@ -20,7 +20,7 @@ struct VkMaterial {
 };
 
 struct VkTexture {
-    VkTexture(Renderer &renderer, const Model::Image &model_image, bool mipmap = true);
+    VkTexture(Renderer &renderer, const glTFModel::Image &model_image, bool mipmap = true);
     VkTexture(Renderer &renderer, const char *path, bool mipmap = true);
 
     VmaImage image;
@@ -34,19 +34,30 @@ private:
 struct VkPrimitive {
     uint32_t index_count;
     VmaBuffer index_buffer;
-    size_t material_index;
+    size_t material;
 
     Sphere bounding_sphere;
     glm::mat4 transform_matrix;
 };
 
+struct VkNode {
+    std::vector<size_t> primitives;
+    std::vector<size_t> children;
+    glm::mat4 transform_matrix;
+};
+
 struct VkModel {
-    VkModel(Renderer &renderer, const std::string &model_name, const Model &model_model);
+    VkModel(Renderer &renderer, const std::string &model_name, const glTFModel &model_model);
 
     std::string name;
-    std::vector<vk::Sampler> samplers;
-    std::vector<VkTexture> textures;
+    std::vector<VkNode> nodes;
     std::vector<VkPrimitive> primitives;
+    std::vector<VkTexture> textures;
+    std::vector<vk::Sampler> samplers;
+
+    std::vector<size_t> root_nodes;
+    size_t root_node_count{ 0 };
+
     VmaBuffer vertex_buffer;
 
 private:
@@ -55,14 +66,14 @@ private:
     vk::DescriptorSetLayout textures_descriptor_set_layout;
 
     Renderer &renderer;
-    const Model &model;
+    const glTFModel &model;
 
-    void add_sampler(const Model::Sampler &sampler);
-    void add_from_node(const Model::Node &node);
+    void add_sampler(const glTFModel::Sampler &sampler);
+    void add_from_node(const glTFModel::Node &node);
 
     void upload_primitive_indices(VkPrimitive &vk_primitive,
-        const Model::Primitive &primitive);
-    void upload_model_vertices(const Model &model);
+        const glTFModel::Primitive &primitive);
+    void upload_model_vertices(const glTFModel &model);
 };
 
 }

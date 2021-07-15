@@ -1,6 +1,6 @@
 #include "boa/macros.h"
 #include "boa/iteration.h"
-#include "boa/gfx/asset/model.h"
+#include "boa/gfx/asset/gltf_model.h"
 #include "boa/gfx/renderer.h"
 #include "boa/ecs/ecs.h"
 #include <chrono>
@@ -12,26 +12,46 @@ int main(int argc, char **argv) {
     boa::ecs::EntityGroup entity_group;
 
     auto sponza = entity_group.new_entity();
-    entity_group.enable<boa::ecs::Model>(sponza);
-    entity_group.enable<boa::ecs::Transform>(sponza);
+    entity_group.enable<boa::ecs::Renderable>(sponza);
+    entity_group.enable<boa::ecs::Transformable>(sponza);
 
-    auto &transform_component = entity_group.get_component<boa::ecs::Transform>(sponza);
+    auto &sponza_transform_component = entity_group.get_component<boa::ecs::Transformable>(sponza);
     {
-        transform_component.orientation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
-        transform_component.translation = glm::vec3(2.0f, 0.0f, 2.0f);
-        transform_component.scale = glm::vec3(0.02f, 0.02f, 0.02f);
-        transform_component.update();
+        sponza_transform_component.orientation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
+        sponza_transform_component.translation = glm::vec3(2.0f, 0.0f, 2.0f);
+        sponza_transform_component.scale = glm::vec3(0.02f, 0.02f, 0.02f);
+        sponza_transform_component.update();
     }
 
-    boa::gfx::Model sponza_model;
+    auto box_animated = entity_group.new_entity();
+    entity_group.enable<boa::ecs::Renderable>(box_animated);
+    entity_group.enable<boa::ecs::Transformable>(box_animated);
+
+    auto &box_transform_component = entity_group.get_component<boa::ecs::Transformable>(box_animated);
+    {
+        box_transform_component.orientation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
+        box_transform_component.translation = glm::vec3(0.0f, 1.0f, 0.0f);
+        box_transform_component.scale = glm::vec3(1.0f, 1.0f, 1.0f);
+        box_transform_component.update();
+    }
+
+    boa::gfx::glTFModel sponza_model;
     sponza_model.open_gltf_file("models/sponza/glTF/Sponza.gltf");
+
+    boa::gfx::glTFModel box_animated_model;
+    box_animated_model.open_gltf_file("models/BoxAnimated.gltf");
 
     boa::gfx::Renderer renderer;
 
     uint32_t sponza_model_id = renderer.load_model(sponza_model, "sponza");
     {
-        auto &model_component = entity_group.get_component<boa::ecs::Model>(sponza);
+        auto &model_component = entity_group.get_component<boa::ecs::Renderable>(sponza);
         model_component.id = sponza_model_id;
+    }
+    uint32_t box_animated_model_id = renderer.load_model(box_animated_model, "box_animated");
+    {
+        auto &model_component = entity_group.get_component<boa::ecs::Renderable>(box_animated);
+        model_component.id = box_animated_model_id;
     }
 
     auto &window = renderer.get_window();

@@ -6,7 +6,7 @@
 
 namespace boa::ecs {
 
-struct Transform {
+struct Transformable {
     glm::mat4 transform_matrix{ 1.0f };
     glm::vec3 translation{ 0.0f, 0.0f, 0.0f };
     glm::quat orientation{ 0.0f, 0.0f, 0.0f, 0.0f };
@@ -15,7 +15,7 @@ struct Transform {
     void update();
 };
 
-struct Model {
+struct Renderable {
     uint32_t id;
 };
 

@@ -4,7 +4,7 @@
 
 namespace boa::ecs {
 
-void Transform::update() {
+void Transformable::update() {
     transform_matrix = glm::mat4(1.0f);
     transform_matrix *= glm::translate(translation);
     transform_matrix *= glm::toMat4(orientation);

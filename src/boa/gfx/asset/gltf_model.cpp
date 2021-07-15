@@ -3,14 +3,13 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "boa/macros.h"
-#include "boa/gfx/asset/model.h"
+#include "boa/gfx/asset/gltf_model.h"
 #include "glm/gtc/type_ptr.hpp"
 #include <stack>
 
 namespace boa::gfx {
 
-// assume primitives, nodes, and meshes only appear once
-size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
+size_t glTFModel::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
     Node new_node;
     if (node.matrix.size() == 16)
         new_node.matrix = glm::make_mat4<double>(&node.matrix.data()[0]);
@@ -84,7 +83,7 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
             tinygltf::Accessor position_accessor;
 
             for (const auto &attrib : primitive.attributes) {
-                gltf::AttributeType attrib_type = gltf::attribute_types.at(attrib.first);
+                AttributeType attrib_type = attribute_types.at(attrib.first);
                 const auto &accessor = m_model.accessors[primitive.attributes.at(attrib.first)];
                 const auto &buffer_view = m_model.bufferViews[accessor.bufferView];
                 const auto &buffer = m_model.buffers[buffer_view.buffer];
@@ -96,7 +95,7 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
                     throw std::runtime_error("Component type isn't float");
 
                 switch (attrib_type) {
-                case gltf::AttributeType::Normal:
+                case AttributeType::Normal:
                     if (accessor.type != TINYGLTF_TYPE_VEC3)
                         throw std::runtime_error("Normal isn't vec3");
                     data_normal = data;
@@ -104,7 +103,7 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
                         (accessor.ByteStride(buffer_view) / sizeof(float)) :
                         (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
                     break;
-                case gltf::AttributeType::Position:
+                case AttributeType::Position:
                     if (accessor.type != TINYGLTF_TYPE_VEC3)
                         throw std::runtime_error("Position isn't vec3");
                     position_accessor = accessor;
@@ -113,7 +112,7 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
                         (accessor.ByteStride(buffer_view) / sizeof(float)) :
                         (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
                     break;
-                case gltf::AttributeType::Texcoord0:
+                case AttributeType::Texcoord0:
                     if (accessor.type != TINYGLTF_TYPE_VEC2)
                         throw std::runtime_error("Texcoord0 isn't vec2");
                     data_texcoord0 = data;
@@ -121,7 +120,7 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
                         (accessor.ByteStride(buffer_view) / sizeof(float)) :
                         (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
                     break;
-                case gltf::AttributeType::Texcoord1:
+                case AttributeType::Texcoord1:
                     if (accessor.type != TINYGLTF_TYPE_VEC2)
                         throw std::runtime_error("Texcoord1 isn't vec2");
                     data_texcoord1 = data;
@@ -129,7 +128,7 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
                         (accessor.ByteStride(buffer_view) / sizeof(float)) :
                         (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
                     break;
-                case gltf::AttributeType::Texcoord2:
+                case AttributeType::Texcoord2:
                     if (accessor.type != TINYGLTF_TYPE_VEC2)
                         throw std::runtime_error("Texcoord2 isn't vec2");
                     stride_texcoord2 = accessor.ByteStride(buffer_view) ?
@@ -137,7 +136,7 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
                         (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
                     data_texcoord2 = data;
                     break;
-                case gltf::AttributeType::Color0:
+                case AttributeType::Color0:
                     stride_color0 = accessor.ByteStride(buffer_view) ?
                         (accessor.ByteStride(buffer_view) / sizeof(float)) :
                         (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(accessor.type));
@@ -198,7 +197,7 @@ size_t Model::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
     return new_node_idx;
 }
 
-void Model::open_gltf_file(const char *path) {
+void glTFModel::open_gltf_file(const char *path) {
     LOG_INFO("(glTF) Opening file '{}'", path);
 
     if (m_initialized)
@@ -229,6 +228,7 @@ void Model::open_gltf_file(const char *path) {
     m_textures.reserve(m_model.textures.size());
     m_samplers.reserve(m_model.samplers.size());
     m_images.reserve(m_model.images.size());
+    m_animations.reserve(m_model.animations.size());
 
     for (const auto &material : m_model.materials) {
         Material new_material;
@@ -279,142 +279,212 @@ void Model::open_gltf_file(const char *path) {
     }
 
     for (const auto &image : m_model.images) {
-        Image new_image;
-        new_image.bit_depth = image.bits;
-        new_image.component = image.component;
-        new_image.width = image.width;
-        new_image.height = image.height;
-        new_image.data = (void *)image.image.data();
-        m_images.push_back(std::move(new_image));
+        m_images.push_back(Image{
+            .width      = (uint32_t)image.width,
+            .height     = (uint32_t)image.height,
+            .bit_depth  = image.bits,
+            .component  = image.component,
+            .data       = (void *)image.image.data(),
+        });
     }
 
-    add_nodes(std::nullopt, m_model.nodes[scene.nodes[0]]);
+    for (const auto &animation : m_model.animations) {
+        Animation new_animation;
+        new_animation.channels.reserve(animation.channels.size());
+        new_animation.samplers.reserve(animation.samplers.size());
+
+        for (const auto &channel : animation.channels) {
+            AnimationChannel new_channel{
+                .target     = {
+                    .node   = (size_t)channel.target_node,
+                },
+                .sampler    = (size_t)channel.sampler,
+            };
+
+            if (channel.target_path.compare("translation") == 0)
+                new_channel.target.path = AnimationChannel::Path::Translation;
+            else if (channel.target_path.compare("rotation") == 0)
+                new_channel.target.path = AnimationChannel::Path::Rotation;
+            else if (channel.target_path.compare("scale") == 0)
+                new_channel.target.path = AnimationChannel::Path::Scale;
+            else if (channel.target_path.compare("weights") == 0)
+                new_channel.target.path = AnimationChannel::Path::Weights;
+            else
+                throw std::runtime_error("Unknown animation channel path");
+
+            const auto &sampler = animation.samplers[channel.sampler];
+
+            const auto &in_accessor = m_model.accessors[sampler.input];
+            const auto &in_buffer_view = m_model.bufferViews[in_accessor.bufferView];
+            const auto &in_buffer = m_model.buffers[in_buffer_view.buffer];
+            const float *in_data_raw = reinterpret_cast<const float *>(&(in_buffer.data[in_accessor.byteOffset + in_buffer_view.byteOffset]));
+
+            const auto &out_accessor = m_model.accessors[sampler.output];
+            const auto &out_buffer_view = m_model.bufferViews[out_accessor.bufferView];
+            const auto &out_buffer = m_model.buffers[out_buffer_view.buffer];
+            const float *out_data_raw = reinterpret_cast<const float *>(&(out_buffer.data[out_accessor.byteOffset + out_buffer_view.byteOffset]));
+
+            uint32_t in_stride = in_accessor.ByteStride(in_buffer_view) ?
+                (in_accessor.ByteStride(in_buffer_view) / sizeof(float)) : 1;
+            uint32_t out_stride, out_floats;
+            switch (new_channel.target.path) {
+            case AnimationChannel::Path::Translation:
+                out_stride = out_accessor.ByteStride(out_buffer_view) ?
+                    (out_accessor.ByteStride(out_buffer_view) / sizeof(float)) :
+                    (tinygltf::GetComponentSizeInBytes(out_accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+                out_floats = 3;
+                break;
+            case AnimationChannel::Path::Rotation:
+                out_stride = out_accessor.ByteStride(out_buffer_view) ?
+                    (out_accessor.ByteStride(out_buffer_view) / sizeof(float)) :
+                    (tinygltf::GetComponentSizeInBytes(out_accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
+                out_floats = 4;
+                break;
+            case AnimationChannel::Path::Scale:
+                out_stride = out_accessor.ByteStride(out_buffer_view) ?
+                    (out_accessor.ByteStride(out_buffer_view) / sizeof(float)) :
+                    (tinygltf::GetComponentSizeInBytes(out_accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+                out_floats = 3;
+                break;
+            case AnimationChannel::Path::Weights:
+                out_stride = out_accessor.ByteStride(out_buffer_view) ?
+                    (out_accessor.ByteStride(out_buffer_view) / sizeof(float)) :
+                    (tinygltf::GetComponentSizeInBytes(out_accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_SCALAR));
+                out_floats = 1;
+                break;
+            }
+
+            if (in_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || out_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT)
+                throw std::runtime_error("Unsupported input or output component type for animation data");
+            if (in_accessor.count != out_accessor.count)
+                throw std::runtime_error("Animation sampler doesn't have equal number of input and output values");
+
+            AnimationSampler new_sampler;
+
+            if (sampler.interpolation.compare("LINEAR") == 0)
+                new_sampler.interpolation = AnimationSampler::Interpolation::Linear;
+            else if (sampler.interpolation.compare("STEP") == 0)
+                new_sampler.interpolation = AnimationSampler::Interpolation::Step;
+            else if (sampler.interpolation.compare("CUBICSPLINE") == 0)
+                new_sampler.interpolation = AnimationSampler::Interpolation::CubicSpline;
+            else
+                throw std::runtime_error("Animation sampler interpolation is unknown");
+
+            new_sampler.in.reserve(in_accessor.count);
+            new_sampler.out.reserve(out_accessor.count * out_floats);
+
+            for (size_t i = 0; i < in_accessor.count; i++) {
+                new_sampler.in.push_back(in_data_raw[i * in_stride]);
+                for (size_t j = 0; j < out_floats; j++)
+                    new_sampler.out.push_back(out_data_raw[i * out_stride + j]);
+            }
+
+            new_animation.channels.push_back(std::move(new_channel));
+            new_animation.samplers.push_back(std::move(new_sampler));
+        }
+
+        m_animations.push_back(std::move(new_animation));
+    }
+
+    m_root_node_count = scene.nodes.size();
+    for (uint32_t node_idx : scene.nodes) {
+        m_root_nodes.push_back(node_idx);
+        add_nodes(std::nullopt, m_model.nodes[node_idx]);
+    }
 }
 
-void Model::debug_print_node(const Node &node) const {
-    LOG_INFO("(glTF) NODE: ");
+void glTFModel::debug_print_node(const Node &node, uint32_t indent) const {
+    LOG_INFO("(glTF)({: >{}} NODE: ", "", indent);
     if (node.mesh.has_value()) {
-        LOG_INFO("  MESH #{}: ", node.mesh.value());
+        LOG_INFO("(glTF){: >{}}    MESH #{}: ", "", indent, node.mesh.value());
         const auto &mesh = m_meshes.at(node.mesh.value());
 
         for (const auto &primitive_idx : mesh.primitives) {
-            LOG_INFO("      PRIMITIVE #{}: ", primitive_idx);
+            LOG_INFO("(glTF){: >{}}        PRIMITIVE #{}: ", "", indent, primitive_idx);
             const auto &primitive = m_primitives.at(primitive_idx);
             if (primitive.material.has_value())
-                LOG_INFO("      HAS MATERIAL: #{}", primitive.material.value());
-            for (size_t index : primitive.indices) {
-                const auto &vert = m_vertices.at(index);
-                LOG_INFO("          VERTEX @ INDEX {}: {}", index, vert);
-            }
+                LOG_INFO("(glTF){: >{}}        HAS MATERIAL: #{}", "", indent, primitive.material.value());
+            LOG_INFO("(glTF){: >{}}        VERTEX COUNT = {}", "", indent, primitive.indices.size());
         }
     }
 
     for (size_t child_idx : node.children) {
-        debug_print_node(m_nodes[child_idx]);
+        debug_print_node(m_nodes[child_idx], indent + 4);
     }
 }
 
-void Model::debug_print() const {
+void glTFModel::debug_print() const {
     LOG_INFO("(glTF) Size of nodes: {}", m_nodes.size());
-    debug_print_node(m_nodes[0]);
+    for (size_t i = 0; i < m_root_node_count; i++)
+        debug_print_node(m_nodes[i], 0);
 }
 
-const std::vector<Vertex> &Model::get_vertices() const {
+const std::vector<Vertex> &glTFModel::get_vertices() const {
     return m_vertices;
 }
 
-size_t Model::get_primitive_count() const {
+std::vector<size_t> glTFModel::get_root_nodes() const {
+    return m_root_nodes;
+}
+
+size_t glTFModel::get_root_node_count() const {
+    return m_root_node_count;
+}
+
+size_t glTFModel::get_node_count() const {
+    return m_nodes.size();
+}
+
+size_t glTFModel::get_primitive_count() const {
     return m_primitives.size();
 }
 
-size_t Model::get_texture_count() const {
+size_t glTFModel::get_texture_count() const {
     return m_textures.size();
 }
 
-size_t Model::get_sampler_count() const {
+size_t glTFModel::get_sampler_count() const {
     return m_samplers.size();
 }
 
-size_t Model::get_image_count() const {
+size_t glTFModel::get_image_count() const {
     return m_images.size();
 }
 
-const Model::Node &Model::get_node(size_t index) const {
+size_t glTFModel::get_animation_count() const {
+    return m_animations.size();
+}
+
+const glTFModel::Node &glTFModel::get_node(size_t index) const {
     return m_nodes.at(index);
 }
 
-const Model::Primitive &Model::get_primitive(size_t index) const {
+const glTFModel::Primitive &glTFModel::get_primitive(size_t index) const {
     return m_primitives.at(index);
 }
 
-const Model::Mesh &Model::get_mesh(size_t index) const {
+const glTFModel::Mesh &glTFModel::get_mesh(size_t index) const {
     return m_meshes.at(index);
 }
 
-const Model::Material &Model::get_material(size_t index) const {
+const glTFModel::Material &glTFModel::get_material(size_t index) const {
     return m_materials.at(index);
 }
 
-const Model::Texture &Model::get_texture(size_t index) const {
+const glTFModel::Texture &glTFModel::get_texture(size_t index) const {
     return m_textures.at(index);
 }
 
-const Model::Image &Model::get_image(size_t index) const {
+const glTFModel::Image &glTFModel::get_image(size_t index) const {
     return m_images.at(index);
 }
 
-const Model::Sampler &Model::get_sampler(size_t index) const {
+const glTFModel::Animation &glTFModel::get_animation(size_t index) const {
+    return m_animations.at(index);
+}
+
+const glTFModel::Sampler &glTFModel::get_sampler(size_t index) const {
     return m_samplers.at(index);
-}
-
-void Model::for_each_node(std::function<Iteration(const Node &)> callback) const {
-    for (const auto &node : m_nodes) {
-        auto decision = callback(node);
-        if (decision == Iteration::Break)
-            break;
-        else if (decision == Iteration::Continue)
-            continue;
-    }
-}
-
-void Model::for_each_primitive(std::function<Iteration(const Primitive &)> callback) const {
-    for (const auto &primitive : m_primitives) {
-        auto decision = callback(primitive);
-        if (decision == Iteration::Break)
-            break;
-        else if (decision == Iteration::Continue)
-            continue;
-    }
-}
-
-void Model::for_each_material(std::function<Iteration(const Material &)> callback) const {
-    for (const auto &material : m_materials) {
-        auto decision = callback(material);
-        if (decision == Iteration::Break)
-            break;
-        else if (decision == Iteration::Continue)
-            continue;
-    }
-}
-
-void Model::for_each_sampler(std::function<Iteration(const Sampler &)> callback) const {
-    for (const auto &sampler : m_samplers) {
-        auto decision = callback(sampler);
-        if (decision == Iteration::Break)
-            break;
-        else if (decision == Iteration::Continue)
-            continue;
-    }
-}
-
-void Model::for_each_image(std::function<Iteration(const Image &)> callback) const {
-    for (const auto &image : m_images) {
-        auto decision = callback(image);
-        if (decision == Iteration::Break)
-            break;
-        else if (decision == Iteration::Continue)
-            continue;
-    }
 }
 
 }

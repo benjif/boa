@@ -5,7 +5,7 @@
 #include "boa/gfx/window.h"
 #include "boa/gfx/vk/util.h"
 #include "boa/gfx/vk/types.h"
-#include "boa/gfx/asset/model.h"
+#include "boa/gfx/asset/gltf_model.h"
 #include "boa/gfx/asset/vkasset.h"
 #include "boa/macros.h"
 #include "boa/gfx/camera.h"
@@ -35,7 +35,7 @@ public:
     Renderer();
     ~Renderer();
     void run();
-    uint32_t load_model(const Model &model, const std::string &name);
+    uint32_t load_model(const glTFModel &model, const std::string &name);
 
     input::Keyboard &get_keyboard() { return m_keyboard; }
     input::Mouse &get_mouse() { return m_mouse; }
@@ -142,7 +142,7 @@ private:
     vk::DescriptorPool m_descriptor_pool;
 
     vk::SampleCountFlagBits m_msaa_samples{ vk::SampleCountFlagBits::e1 };
-    
+
     vk::SwapchainKHR m_swapchain;
     vk::Format m_swapchain_format;
     std::vector<vk::Image> m_swapchain_images;
@@ -172,6 +172,8 @@ private:
 
     void draw_frame();
     void draw_models(vk::CommandBuffer cmd);
+    void draw_model_node(vk::CommandBuffer cmd, const VkModel &model, const VkNode &node,
+        const Transformations &transforms, glm::mat4 &local_transform);
 
     void init_window_user_pointers();
     void init_window();
