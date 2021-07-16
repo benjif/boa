@@ -29,7 +29,7 @@ VkModel::VkModel(ModelManager &model_manager, Renderer &renderer, const std::str
     vk::DescriptorSetAllocateInfo alloc_info{
         .descriptorPool         = renderer.m_descriptor_pool,
         .descriptorSetCount     = 1,
-        .pSetLayouts            = &renderer.m_textures_descriptor_set_layout,
+        .pSetLayouts            = &renderer.m_textures_set_layout,
     };
 
     try {

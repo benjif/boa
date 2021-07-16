@@ -63,7 +63,7 @@ private:
 #endif
 
     constexpr static uint32_t FRAMES_IN_FLIGHT = 2;
-    constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 200;
+    constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 500;
 
     enum {
         UNTEXTURED_MATERIAL_INDEX   = 0,
@@ -102,7 +102,7 @@ private:
         vk::CommandPool command_pool;
         vk::CommandBuffer command_buffer;
         vk::DescriptorSet parent_set;
-        VmaBuffer transformations;
+        VmaBuffer transformations_buffer;
 
         DeletionQueue deletion_queue;
     };
@@ -139,7 +139,7 @@ private:
     vk::Queue m_graphics_queue;
     vk::Queue m_present_queue;
     vk::DescriptorSetLayout m_descriptor_set_layout;
-    vk::DescriptorSetLayout m_textures_descriptor_set_layout;
+    vk::DescriptorSetLayout m_textures_set_layout;
     vk::DescriptorPool m_descriptor_pool;
 
     vk::SampleCountFlagBits m_msaa_samples{ vk::SampleCountFlagBits::e1 };

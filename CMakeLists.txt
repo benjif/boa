@@ -9,6 +9,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(Vulkan REQUIRED)
 find_package(fmt REQUIRED)
+find_package(Bullet REQUIRED)
 
 file(GLOB SOURCES
     lib/imgui/*.cpp
@@ -49,21 +50,20 @@ target_include_directories(boa
     PUBLIC "${PROJECT_SOURCE_DIR}/lib/imgui/backends"
     PUBLIC "${PROJECT_SOURCE_DIR}/lib/imgui"
     PUBLIC "${PROJECT_SOURCE_DIR}/include"
-    PUBLIC ${VULKAN_INCLUDE_DIR}
+    PUBLIC ${Vulkan_INCLUDE_DIRS}
 )
 
 if(WIN32)
     target_include_directories(boa
-        PUBLIC ${Vulkan_INCLUDE_DIRS}
         PUBLIC "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/include"
         PUBLIC "${PROJECT_SOURCE_DIR}/lib/glm"
     )
     target_link_directories(boa
-        PUBLIC ${Vulkan_INCLUDE_DIRS}
         PUBLIC "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/lib-mingw-w64"
     )
     target_link_libraries(boa
         ${Vulkan_LIBRARIES}
+        ${BULLET_LIBRARIES}
         fmt::fmt
         -lglfw3
         -lgdi32
@@ -72,6 +72,7 @@ if(WIN32)
 else()
     target_link_libraries(boa
         ${Vulkan_LIBRARIES}
+        ${BULLET_LIBRARIES}
         fmt::fmt
         -lglfw3
         -lX11

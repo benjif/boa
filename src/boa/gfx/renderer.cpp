@@ -302,9 +302,9 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
     m_frustum.update(transforms.view_projection);
 
     void *data;
-    vmaMapMemory(m_allocator, current_frame().transformations.allocation, &data);
+    vmaMapMemory(m_allocator, current_frame().transformations_buffer.allocation, &data);
     memcpy(data, &transforms, sizeof(Transformations));
-    vmaUnmapMemory(m_allocator, current_frame().transformations.allocation);
+    vmaUnmapMemory(m_allocator, current_frame().transformations_buffer.allocation);
 
     auto &entity_group = boa::ecs::EntityGroup::get();
 
@@ -1137,13 +1137,13 @@ void Renderer::create_descriptors() {
     };
 
     try {
-        m_textures_descriptor_set_layout = m_device.get().createDescriptorSetLayout(texture_set_info);
+        m_textures_set_layout = m_device.get().createDescriptorSetLayout(texture_set_info);
     } catch (const vk::SystemError &err) {
         throw std::runtime_error("Failed to create descriptor set layout for textures");
     }
 
     for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
-        m_frames[i].transformations
+        m_frames[i].transformations_buffer
             = create_buffer(sizeof(Transformations), vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         vk::DescriptorSetAllocateInfo alloc_info{
@@ -1159,7 +1159,7 @@ void Renderer::create_descriptors() {
         }
 
         vk::DescriptorBufferInfo buffer_info{
-            .buffer = m_frames[i].transformations.buffer,
+            .buffer = m_frames[i].transformations_buffer.buffer,
             .offset = 0,
             .range  = sizeof(Transformations),
         };
@@ -1182,11 +1182,11 @@ void Renderer::create_descriptors() {
 
     m_deletion_queue.enqueue([&]() {
         m_device.get().destroyDescriptorSetLayout(m_descriptor_set_layout);
-        m_device.get().destroyDescriptorSetLayout(m_textures_descriptor_set_layout);
+        m_device.get().destroyDescriptorSetLayout(m_textures_set_layout);
         m_device.get().destroyDescriptorPool(m_descriptor_pool);
 
         for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++)
-            vmaDestroyBuffer(m_allocator, m_frames[i].transformations.buffer, m_frames[i].transformations.allocation);
+            vmaDestroyBuffer(m_allocator, m_frames[i].transformations_buffer.buffer, m_frames[i].transformations_buffer.allocation);
     });
 }
 
@@ -1252,7 +1252,7 @@ void Renderer::create_pipelines() {
     {
         vk::PipelineLayoutCreateInfo textured_layout_info = untextured_layout_info;
 
-        vk::DescriptorSetLayout textured_set_layouts[] = { m_descriptor_set_layout, m_textures_descriptor_set_layout };
+        vk::DescriptorSetLayout textured_set_layouts[] = { m_descriptor_set_layout, m_textures_set_layout };
 
         textured_layout_info.setLayoutCount = 2;
         textured_layout_info.pSetLayouts = textured_set_layouts;
