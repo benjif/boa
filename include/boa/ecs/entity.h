@@ -17,7 +17,7 @@ struct EntityMeta {
     {
     }
 
-    void grow_component_mask(uint32_t id);
+    void grow_if_needed(uint32_t id);
 
     uint32_t id;
     std::vector<bool> component_mask;
@@ -34,14 +34,35 @@ struct EntityGroup {
     template <typename C>
     void enable(uint32_t e_id) {
         uint32_t c_id = component_id<C>();
-        entities[e_id].grow_component_mask(c_id);
+        entities[e_id].grow_if_needed(c_id);
         entities[e_id].component_mask[c_id] = true;
+    }
+
+    template <typename C, typename ...Args>
+    void make(uint32_t e_id, Args ...args) {
+        uint32_t c_id = component_id<C>();
+        entities[e_id].grow_if_needed(c_id);
+        auto &component_store = ComponentStore::get();
+        C *component_zone = component_store.get_component_zone<C>();
+        C *component = component_zone + c_id;
+        new (component) C(args...); 
+    }
+
+    template <typename C, typename ...Args>
+    void enable_and_make(uint32_t e_id, Args ...args) {
+        uint32_t c_id = component_id<C>();
+        entities[e_id].grow_if_needed(c_id);
+        entities[e_id].component_mask[c_id] = true;
+        auto &component_store = ComponentStore::get();
+        C *component_zone = component_store.get_component_zone<C>();
+        C *component = component_zone + c_id;
+        new (component) C(args...); 
     }
 
     template <typename C>
     void disable(uint32_t e_id) {
         uint32_t c_id = component_id<C>();
-        entities[e_id].grow_component_mask(c_id);
+        entities[e_id].grow_if_needed(c_id);
         entities[e_id].component_mask[c_id] = false;
     }
 

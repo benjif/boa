@@ -5,7 +5,7 @@ namespace boa::ecs {
 
 EntityGroup *entity_group_instance = nullptr;
 
-void EntityMeta::grow_component_mask(uint32_t id) {
+void EntityMeta::grow_if_needed(uint32_t id) {
     if (id >= component_mask.size())
         component_mask.resize(component_mask.size() * COMPONENTS_GROWTH_RATE);
     assert(component_mask.size() <= ComponentStore::get().size());
