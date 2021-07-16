@@ -351,6 +351,14 @@ void glTFModel::open_gltf_file(const char *path) {
                         data_color0 = data;
                         type_color0 = accessor.type;
                         break;
+                    case AttributeType::Tangent:
+                        stride_tangent = accessor.ByteStride(buffer_view) ?
+                            (accessor.ByteStride(buffer_view) / sizeof(float)) :
+                            (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(accessor.type));
+                        data_tangent = data;
+                        break;
+                    default:
+                        break;
                     }
                 }
 

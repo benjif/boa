@@ -64,13 +64,13 @@ struct VkModel {
     VmaBuffer vertex_buffer;
 
 private:
-    uint32_t descriptor_count{ 0 };
-    vk::DescriptorSet textures_descriptor_set;
-    vk::DescriptorSetLayout textures_descriptor_set_layout;
+    uint32_t m_descriptor_count{ 0 };
+    vk::DescriptorSet m_textures_descriptor_set;
+    vk::DescriptorSetLayout m_textures_descriptor_set_layout;
 
-    ModelManager &model_manager;
-    Renderer &renderer;
-    const glTFModel &model;
+    ModelManager &m_model_manager;
+    Renderer &m_renderer;
+    const glTFModel &m_model;
 
     void add_sampler(const glTFModel::Sampler &sampler);
     void add_from_node(const glTFModel::Node &node);

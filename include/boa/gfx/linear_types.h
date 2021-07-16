@@ -87,7 +87,6 @@ struct Frustum {
 
 template <> struct fmt::formatter<glm::vec3> {
     constexpr auto parse(format_parse_context &ctx) {
-        auto it = ctx.begin();
         return ctx.begin();
     }
 
@@ -99,7 +98,6 @@ template <> struct fmt::formatter<glm::vec3> {
 
 template <> struct fmt::formatter<glm::vec4> {
     constexpr auto parse(format_parse_context &ctx) {
-        auto it = ctx.begin();
         return ctx.begin();
     }
 
@@ -111,7 +109,6 @@ template <> struct fmt::formatter<glm::vec4> {
 
 template <> struct fmt::formatter<boa::gfx::Vertex> {
     constexpr auto parse(format_parse_context &ctx) {
-        auto it = ctx.begin();
         return ctx.begin();
     }
 
@@ -123,7 +120,6 @@ template <> struct fmt::formatter<boa::gfx::Vertex> {
 
 template <> struct fmt::formatter<boa::gfx::Box> {
     constexpr auto parse(format_parse_context &ctx) {
-        auto it = ctx.begin();
         return ctx.begin();
     }
 

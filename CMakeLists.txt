@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(boa)
 
-set(CMAKE_CXX_FLAGS "-std=c++17")
+set(CMAKE_CXX_FLAGS "-std=c++17 -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 

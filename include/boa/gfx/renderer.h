@@ -170,8 +170,6 @@ private:
 
     void draw_frame();
     void draw_renderables(vk::CommandBuffer cmd);
-    void draw_model_node(vk::CommandBuffer cmd, const VkModel &model, const VkNode &node,
-        const Transformations &transforms, glm::mat4 &local_transform);
 
     void init_window_user_pointers();
     void init_window();

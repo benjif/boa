@@ -35,7 +35,7 @@ public:
         auto &box_transform_component = entity_group.get_component<boa::ecs::Transformable>(box_animated_entity);
         {
             box_transform_component.orientation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
-            box_transform_component.translation = glm::vec3(0.0f, 220.0f, 0.0f);
+            box_transform_component.translation = glm::vec3(0.0f, 0.0f, 0.0f);
             box_transform_component.scale = glm::vec3(0.6f, 0.6f, 0.6f);
             box_transform_component.update();
         }
@@ -77,7 +77,7 @@ public:
             auto &box_transform_component = entity_group.get_component<boa::ecs::Transformable>(box_animated_entity);
 
             box_transform_component.translation.x = sin(time) / 8;
-            box_transform_component.translation.y = cos(time) / 8;
+            box_transform_component.translation.y = 0.75f + cos(time) / 8;
             box_transform_component.update();
 
             time_change *= 60.0f;

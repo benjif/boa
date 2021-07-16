@@ -259,60 +259,6 @@ void Renderer::draw_frame() {
     m_frame++;
 }
 
-void Renderer::draw_model_node(vk::CommandBuffer cmd, const VkModel &model, const VkNode &node, const Transformations &transforms, glm::mat4 &local_transform) {
-    local_transform *= node.transform_matrix;
-
-    size_t last_material = std::numeric_limits<size_t>::max();
-    for (size_t vk_primitive_idx : node.primitives) {
-        const auto &vk_primitive = model.primitives[vk_primitive_idx];
-
-        // probably not right, it won't matter once we do frustum culling on the GPU
-        // with instanced rendering
-        glm::vec3 new_bounding_center = local_transform * glm::vec4(vk_primitive.bounding_sphere.center, 1.0f);
-        double new_bounding_radius = glm::length(local_transform * glm::vec4(0.0f, 0.0f, 0.0f, vk_primitive.bounding_sphere.radius));
-        if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
-            continue;
-
-        glm::mat4 model_view_projection = transforms.view_projection * local_transform;
-        PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
-
-        auto &material = m_model_manager.get_material(vk_primitive.material);
-        if (vk_primitive.material != last_material) {
-            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, material.pipeline);
-            last_material = vk_primitive.material;
-
-            cmd.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                material.pipeline_layout,
-                0,
-                current_frame().parent_set,
-                nullptr);
-
-            if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE) {
-                cmd.bindDescriptorSets(
-                    vk::PipelineBindPoint::eGraphics,
-                    material.pipeline_layout,
-                    1,
-                    material.texture_set,
-                    nullptr);
-                push_constants.extra[0] = material.descriptor_number;
-            }
-        }
-
-        cmd.pushConstants(material.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
-
-        vk::Buffer vertex_buffers[] = { model.vertex_buffer.buffer };
-        vk::DeviceSize offsets[] = { 0 };
-        cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
-        cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
-
-        cmd.drawIndexed(vk_primitive.index_count, 1, 0, 0, 0);
-    }
-
-    for (size_t child_idx : node.children)
-        draw_model_node(cmd, model, node, transforms, local_transform);
-}
-
 void Renderer::draw_renderables(vk::CommandBuffer cmd) {
     Transformations transforms{
         .view = glm::lookAt(
