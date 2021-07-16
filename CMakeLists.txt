@@ -25,6 +25,14 @@ file(GLOB SOURCES
 
 add_executable(boa ${SOURCES})
 
+option(BENCHMARK "BENCHMARK" OFF)
+
+if(BENCHMARK)
+    add_definitions(
+        -DBENCHMARK
+    )
+endif()
+
 add_definitions(
     -DVULKAN_HPP_NO_NODISCARD_WARNINGS
     -DVULKAN_HPP_NO_STRUCT_CONSTRUCTORS

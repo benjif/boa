@@ -107,17 +107,18 @@ glm::mat4 Animated::transform_for_node(size_t node_id) {
     if (!active)
         return glm::mat4(1.0f);
 
+    glm::mat4 ret{ 1.0f };
     for (auto &component : animations[active_animation].animation_components) {
         if (node_id == component.node_id) {
             switch (component.type) {
             case Animation::Component::Type::Translation:
-                return glm::translate(std::get<glm::vec3>(component.target_progress));
+                ret *= glm::translate(std::get<glm::vec3>(component.target_progress));
                 break;
             case Animation::Component::Type::Rotation:
-                return glm::toMat4(std::get<glm::quat>(component.target_progress));
+                ret *= glm::toMat4(std::get<glm::quat>(component.target_progress));
                 break;
             case Animation::Component::Type::Scale:
-                return glm::scale(std::get<glm::vec3>(component.target_progress));
+                ret *= glm::scale(std::get<glm::vec3>(component.target_progress));
                 break;
             default:
                 TODO();
@@ -125,7 +126,7 @@ glm::mat4 Animated::transform_for_node(size_t node_id) {
         }
     }
 
-    return glm::mat4(1.0f);
+    return ret;
 }
 
 }

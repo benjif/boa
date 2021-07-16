@@ -79,6 +79,10 @@ vk::PresentModeKHR choose_swap_present_mode(const std::vector<vk::PresentModeKHR
             return mode;
     }
 
+#ifdef BENCHMARK
+    return vk::PresentModeKHR::eImmediate;
+#endif
+
     return vk::PresentModeKHR::eFifo;
 }
 

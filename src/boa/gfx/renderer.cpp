@@ -13,12 +13,16 @@
 #include <chrono>
 #include <stack>
 
+#define BENCHMARK_FRAME_COUNT 30000
+
 namespace boa::gfx {
 
 Renderer::Renderer(ModelManager &model_manager)
     : m_model_manager(model_manager)
 {
+#ifndef NDEBUG
     auto boa_start_time = std::chrono::high_resolution_clock::now();
+#endif
 
     init_window_user_pointers();
     init_window();
@@ -37,9 +41,11 @@ Renderer::Renderer(ModelManager &model_manager)
     create_pipelines();
     init_imgui();
 
+#ifndef NDEBUG
     auto boa_end_time = std::chrono::high_resolution_clock::now();
     LOG_INFO("(Renderer) It took {} seconds for Boa's renderer to initialize",
         std::chrono::duration<float, std::chrono::seconds::period>(boa_end_time - boa_start_time).count());
+#endif
 }
 
 Renderer::~Renderer() {
@@ -47,6 +53,10 @@ Renderer::~Renderer() {
 }
 
 void Renderer::run() {
+#ifdef BENCHMARK
+    auto render_start_time = std::chrono::high_resolution_clock::now();
+#endif
+
     auto last_time = std::chrono::high_resolution_clock::now();
     auto current_time = last_time;
 
@@ -56,7 +66,7 @@ void Renderer::run() {
         current_time = std::chrono::high_resolution_clock::now();
         float time_change
             = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
-        //LOG_INFO("(Renderer) Framerate: {}\n", 1.0f / time_change);
+
         last_time = current_time;
 
         m_per_frame_callback(time_change);
@@ -74,7 +84,19 @@ void Renderer::run() {
         ImGui::End();
 
         draw_frame();
+
+#ifdef BENCHMARK
+        if (m_frame == BENCHMARK_FRAME_COUNT)
+            break;
+#endif
     }
+
+#ifdef BENCHMARK
+    auto render_stop_time = std::chrono::high_resolution_clock::now();
+    float render_time = std::chrono::duration<float, std::chrono::seconds::period>(render_stop_time - render_start_time).count();
+    fmt::print("Reached {} frames after {} seconds.\nAverage: {} FPS\n",
+        BENCHMARK_FRAME_COUNT, render_time, BENCHMARK_FRAME_COUNT / render_time);
+#endif
 
     m_device.get().waitIdle();
 }
