@@ -5,197 +5,11 @@
 #include "boa/macros.h"
 #include "boa/gfx/asset/gltf_model.h"
 #include "glm/gtc/type_ptr.hpp"
+#include "glm/gtx/quaternion.hpp"
+#include "glm/gtx/transform.hpp"
 #include <stack>
 
 namespace boa::gfx {
-
-size_t glTFModel::add_nodes(std::optional<size_t> parent, tinygltf::Node &node) {
-    Node new_node;
-    if (node.matrix.size() == 16)
-        new_node.matrix = glm::make_mat4<double>(&node.matrix.data()[0]);
-    else
-        new_node.matrix = glm::mat4(1.0f);
-    size_t new_node_idx = m_nodes.size();
-
-    if (parent.has_value())
-        new_node.parent = parent.value();
-
-    if (node.mesh > -1) {
-        Mesh new_mesh;
-        new_node.mesh = m_meshes.size();
-
-        for (const auto &primitive : m_model.meshes[node.mesh].primitives) {
-            Primitive new_primitive;
-            new_mesh.primitives.push_back(m_primitives.size());
-
-            uint32_t vertex_start = static_cast<uint32_t>(m_vertices.size());
-
-            if (primitive.indices < 0)
-                TODO();
-            if (primitive.material != -1)
-                new_primitive.material = primitive.material;
-
-            const auto &index_accessor = m_model.accessors[primitive.indices];
-            const auto &index_buffer_view = m_model.bufferViews[index_accessor.bufferView];
-            const auto &index_buffer = m_model.buffers[index_buffer_view.buffer];
-
-            const void *index_data_raw = &(index_buffer.data[index_accessor.byteOffset + index_buffer_view.byteOffset]);
-
-            switch (index_accessor.componentType) {
-            case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
-                const uint32_t *index_data = static_cast<const uint32_t *>(index_data_raw);
-                for (size_t i = 0; i < index_accessor.count; i++)
-                    new_primitive.indices.push_back(index_data[i] + vertex_start);
-                break;
-            } case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
-                const uint16_t *index_data = static_cast<const uint16_t *>(index_data_raw);
-                for (size_t i = 0; i < index_accessor.count; i++)
-                    new_primitive.indices.push_back(index_data[i] + vertex_start);
-                break;
-            } case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
-                const uint8_t *index_data = static_cast<const uint8_t *>(index_data_raw);
-                for (size_t i = 0; i < index_accessor.count; i++)
-                    new_primitive.indices.push_back(index_data[i] + vertex_start);
-                break;
-            } default:
-                throw std::runtime_error("Index component type not supported");
-                break;
-            }
-
-            const float *data_normal = nullptr,
-                        *data_position = nullptr,
-                        *data_tangent = nullptr,
-                        *data_texcoord0 = nullptr,
-                        *data_texcoord1 = nullptr,
-                        *data_texcoord2 = nullptr,
-                        *data_color0 = nullptr;
-
-            uint32_t stride_normal,
-                     stride_position,
-                     stride_tangent,
-                     stride_texcoord0,
-                     stride_texcoord1,
-                     stride_texcoord2,
-                     stride_color0;
-
-            int type_color0;
-
-            tinygltf::Accessor position_accessor;
-
-            for (const auto &attrib : primitive.attributes) {
-                AttributeType attrib_type = attribute_types.at(attrib.first);
-                const auto &accessor = m_model.accessors[primitive.attributes.at(attrib.first)];
-                const auto &buffer_view = m_model.bufferViews[accessor.bufferView];
-                const auto &buffer = m_model.buffers[buffer_view.buffer];
-
-                const float *data
-                    = reinterpret_cast<const float *>(&buffer.data[buffer_view.byteOffset + accessor.byteOffset]);
-
-                if (accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT)
-                    throw std::runtime_error("Component type isn't float");
-
-                switch (attrib_type) {
-                case AttributeType::Normal:
-                    if (accessor.type != TINYGLTF_TYPE_VEC3)
-                        throw std::runtime_error("Normal isn't vec3");
-                    data_normal = data;
-                    stride_normal = accessor.ByteStride(buffer_view) ?
-                        (accessor.ByteStride(buffer_view) / sizeof(float)) :
-                        (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
-                    break;
-                case AttributeType::Position:
-                    if (accessor.type != TINYGLTF_TYPE_VEC3)
-                        throw std::runtime_error("Position isn't vec3");
-                    position_accessor = accessor;
-                    data_position = data;
-                    stride_position = accessor.ByteStride(buffer_view) ?
-                        (accessor.ByteStride(buffer_view) / sizeof(float)) :
-                        (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
-                    break;
-                case AttributeType::Texcoord0:
-                    if (accessor.type != TINYGLTF_TYPE_VEC2)
-                        throw std::runtime_error("Texcoord0 isn't vec2");
-                    data_texcoord0 = data;
-                    stride_texcoord0 = accessor.ByteStride(buffer_view) ?
-                        (accessor.ByteStride(buffer_view) / sizeof(float)) :
-                        (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
-                    break;
-                case AttributeType::Texcoord1:
-                    if (accessor.type != TINYGLTF_TYPE_VEC2)
-                        throw std::runtime_error("Texcoord1 isn't vec2");
-                    data_texcoord1 = data;
-                    stride_texcoord1 = accessor.ByteStride(buffer_view) ?
-                        (accessor.ByteStride(buffer_view) / sizeof(float)) :
-                        (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
-                    break;
-                case AttributeType::Texcoord2:
-                    if (accessor.type != TINYGLTF_TYPE_VEC2)
-                        throw std::runtime_error("Texcoord2 isn't vec2");
-                    stride_texcoord2 = accessor.ByteStride(buffer_view) ?
-                        (accessor.ByteStride(buffer_view) / sizeof(float)) :
-                        (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
-                    data_texcoord2 = data;
-                    break;
-                case AttributeType::Color0:
-                    stride_color0 = accessor.ByteStride(buffer_view) ?
-                        (accessor.ByteStride(buffer_view) / sizeof(float)) :
-                        (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(accessor.type));
-                    data_color0 = data;
-                    type_color0 = accessor.type;
-                    break;
-                }
-            }
-
-            if (!data_position)
-                throw std::runtime_error("glTF primitive must have a position attribute");
-            if (position_accessor.minValues.size() != 3 || position_accessor.maxValues.size() != 3)
-                throw std::runtime_error("Position accessor doesn't contain min or max values");
-
-            new_primitive.bounding_box.min = glm::make_vec3<double>(position_accessor.minValues.data());
-            new_primitive.bounding_box.max = glm::make_vec3<double>(position_accessor.maxValues.data());
-            new_primitive.bounding_sphere = Sphere::bounding_sphere_from_bounding_box(new_primitive.bounding_box);
-            m_primitives.push_back(std::move(new_primitive));
-
-            for (size_t i = 0; i < position_accessor.count; i++) {
-                Vertex vertex{};
-                vertex.position = glm::make_vec3(&data_position[i * stride_position]);
-                vertex.normal = data_normal ? glm::normalize(glm::make_vec3(&data_normal[i * stride_normal])) : glm::vec3(0.0f);
-                vertex.texture_coord0 = data_texcoord0 ? glm::make_vec2(&data_texcoord0[i * stride_texcoord0]) : glm::vec2(0.0f);
-                vertex.texture_coord1 = data_texcoord1 ? glm::make_vec2(&data_texcoord1[i * stride_texcoord1]) : glm::vec2(0.0f);
-
-                if (data_color0) {
-                    if (type_color0 == TINYGLTF_TYPE_VEC3) {
-                        vertex.color0 = glm::vec4{
-                            data_color0[i * stride_color0 + 0 * sizeof(float)],
-                            data_color0[i * stride_color0 + 1 * sizeof(float)],
-                            data_color0[i * stride_color0 + 2 * sizeof(float)],
-                            1.0f,
-                        };
-                    } else if (type_color0 == TINYGLTF_TYPE_VEC4) {
-                        vertex.color0 = glm::make_vec4(&data_color0[i * stride_color0]);
-                    } else {
-                        throw std::runtime_error("Unknown glTF color type");
-                    }
-                } else {
-                    vertex.color0 = glm::vec4(1.0f);
-                }
-
-                m_vertices.push_back(std::move(vertex));
-            }
-        }
-
-        m_meshes.push_back(std::move(new_mesh));
-    }
-
-    m_nodes.push_back(std::move(new_node));
-
-    for (int child : node.children) {
-        size_t child_idx = add_nodes(new_node_idx, m_model.nodes[child]);
-        m_nodes[new_node_idx].children.push_back(child_idx);
-    }
-
-    return new_node_idx;
-}
 
 void glTFModel::open_gltf_file(const char *path) {
     LOG_INFO("(glTF) Opening file '{}'", path);
@@ -387,9 +201,202 @@ void glTFModel::open_gltf_file(const char *path) {
     }
 
     m_root_node_count = scene.nodes.size();
-    for (uint32_t node_idx : scene.nodes) {
-        m_root_nodes.push_back(node_idx);
-        add_nodes(std::nullopt, m_model.nodes[node_idx]);
+    std::copy(scene.nodes.begin(), scene.nodes.end(), std::back_inserter(m_root_nodes));
+
+    for (const auto &node : m_model.nodes) {
+        Node new_node;
+        if (node.rotation.size() == 4)
+            new_node.rotation = glm::make_quat<double>(&node.rotation.data()[0]);
+        else
+            new_node.rotation = glm::dquat(0.0f, 0.0f, 0.0f, 0.0f);
+
+        if (node.translation.size() == 3)
+            new_node.translation = glm::make_vec3<double>(&node.translation.data()[0]);
+        else
+            new_node.translation = glm::dvec3(0.0f, 0.0f, 0.0f);
+
+        if (node.scale.size() == 3)
+            new_node.scale = glm::make_vec3<double>(&node.scale.data()[0]);
+        else
+            new_node.scale = glm::dvec3(1.0f, 1.0f, 1.0f);
+
+        if (node.matrix.size() == 16)
+            new_node.matrix = glm::make_mat4<double>(&node.matrix.data()[0]);
+        else
+            new_node.matrix = glm::translate(new_node.translation) * glm::toMat4(new_node.rotation) * glm::scale(new_node.scale);
+
+        size_t new_node_idx = m_nodes.size();
+        new_node.id = new_node_idx;
+
+        if (node.mesh > -1) {
+            Mesh new_mesh;
+            new_node.mesh = m_meshes.size();
+
+            for (const auto &primitive : m_model.meshes[node.mesh].primitives) {
+                Primitive new_primitive;
+                new_mesh.primitives.push_back(m_primitives.size());
+
+                uint32_t vertex_start = static_cast<uint32_t>(m_vertices.size());
+
+                if (primitive.indices < 0)
+                    TODO();
+                if (primitive.material != -1)
+                    new_primitive.material = primitive.material;
+
+                const auto &index_accessor = m_model.accessors[primitive.indices];
+                const auto &index_buffer_view = m_model.bufferViews[index_accessor.bufferView];
+                const auto &index_buffer = m_model.buffers[index_buffer_view.buffer];
+
+                const void *index_data_raw = &(index_buffer.data[index_accessor.byteOffset + index_buffer_view.byteOffset]);
+
+                switch (index_accessor.componentType) {
+                case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
+                    const uint32_t *index_data = static_cast<const uint32_t *>(index_data_raw);
+                    for (size_t i = 0; i < index_accessor.count; i++)
+                        new_primitive.indices.push_back(index_data[i] + vertex_start);
+                    break;
+                } case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
+                    const uint16_t *index_data = static_cast<const uint16_t *>(index_data_raw);
+                    for (size_t i = 0; i < index_accessor.count; i++)
+                        new_primitive.indices.push_back(index_data[i] + vertex_start);
+                    break;
+                } case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
+                    const uint8_t *index_data = static_cast<const uint8_t *>(index_data_raw);
+                    for (size_t i = 0; i < index_accessor.count; i++)
+                        new_primitive.indices.push_back(index_data[i] + vertex_start);
+                    break;
+                } default:
+                    throw std::runtime_error("Index component type not supported");
+                    break;
+                }
+
+                const float *data_normal = nullptr,
+                            *data_position = nullptr,
+                            *data_tangent = nullptr,
+                            *data_texcoord0 = nullptr,
+                            *data_texcoord1 = nullptr,
+                            *data_texcoord2 = nullptr,
+                            *data_color0 = nullptr;
+
+                uint32_t stride_normal,
+                         stride_position,
+                         stride_tangent,
+                         stride_texcoord0,
+                         stride_texcoord1,
+                         stride_texcoord2,
+                         stride_color0;
+
+                int type_color0;
+
+                tinygltf::Accessor position_accessor;
+
+                for (const auto &attrib : primitive.attributes) {
+                    AttributeType attrib_type = attribute_types.at(attrib.first);
+                    const auto &accessor = m_model.accessors[primitive.attributes.at(attrib.first)];
+                    const auto &buffer_view = m_model.bufferViews[accessor.bufferView];
+                    const auto &buffer = m_model.buffers[buffer_view.buffer];
+
+                    const float *data
+                        = reinterpret_cast<const float *>(&buffer.data[buffer_view.byteOffset + accessor.byteOffset]);
+
+                    if (accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT)
+                        throw std::runtime_error("Component type isn't float");
+
+                    switch (attrib_type) {
+                    case AttributeType::Normal:
+                        if (accessor.type != TINYGLTF_TYPE_VEC3)
+                            throw std::runtime_error("Normal isn't vec3");
+                        data_normal = data;
+                        stride_normal = accessor.ByteStride(buffer_view) ?
+                            (accessor.ByteStride(buffer_view) / sizeof(float)) :
+                            (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+                        break;
+                    case AttributeType::Position:
+                        if (accessor.type != TINYGLTF_TYPE_VEC3)
+                            throw std::runtime_error("Position isn't vec3");
+                        position_accessor = accessor;
+                        data_position = data;
+                        stride_position = accessor.ByteStride(buffer_view) ?
+                            (accessor.ByteStride(buffer_view) / sizeof(float)) :
+                            (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+                        break;
+                    case AttributeType::Texcoord0:
+                        if (accessor.type != TINYGLTF_TYPE_VEC2)
+                            throw std::runtime_error("Texcoord0 isn't vec2");
+                        data_texcoord0 = data;
+                        stride_texcoord0 = accessor.ByteStride(buffer_view) ?
+                            (accessor.ByteStride(buffer_view) / sizeof(float)) :
+                            (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
+                        break;
+                    case AttributeType::Texcoord1:
+                        if (accessor.type != TINYGLTF_TYPE_VEC2)
+                            throw std::runtime_error("Texcoord1 isn't vec2");
+                        data_texcoord1 = data;
+                        stride_texcoord1 = accessor.ByteStride(buffer_view) ?
+                            (accessor.ByteStride(buffer_view) / sizeof(float)) :
+                            (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
+                        break;
+                    case AttributeType::Texcoord2:
+                        if (accessor.type != TINYGLTF_TYPE_VEC2)
+                            throw std::runtime_error("Texcoord2 isn't vec2");
+                        stride_texcoord2 = accessor.ByteStride(buffer_view) ?
+                            (accessor.ByteStride(buffer_view) / sizeof(float)) :
+                            (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
+                        data_texcoord2 = data;
+                        break;
+                    case AttributeType::Color0:
+                        stride_color0 = accessor.ByteStride(buffer_view) ?
+                            (accessor.ByteStride(buffer_view) / sizeof(float)) :
+                            (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(accessor.type));
+                        data_color0 = data;
+                        type_color0 = accessor.type;
+                        break;
+                    }
+                }
+
+                if (!data_position)
+                    throw std::runtime_error("glTF primitive must have a position attribute");
+                if (position_accessor.minValues.size() != 3 || position_accessor.maxValues.size() != 3)
+                    throw std::runtime_error("Position accessor doesn't contain min or max values");
+
+                new_primitive.bounding_box.min = glm::make_vec3<double>(position_accessor.minValues.data());
+                new_primitive.bounding_box.max = glm::make_vec3<double>(position_accessor.maxValues.data());
+                new_primitive.bounding_sphere = Sphere::bounding_sphere_from_bounding_box(new_primitive.bounding_box);
+                m_primitives.push_back(std::move(new_primitive));
+
+                for (size_t i = 0; i < position_accessor.count; i++) {
+                    Vertex vertex{};
+                    vertex.position = glm::make_vec3(&data_position[i * stride_position]);
+                    vertex.normal = data_normal ? glm::normalize(glm::make_vec3(&data_normal[i * stride_normal])) : glm::vec3(0.0f);
+                    vertex.texture_coord0 = data_texcoord0 ? glm::make_vec2(&data_texcoord0[i * stride_texcoord0]) : glm::vec2(0.0f);
+                    vertex.texture_coord1 = data_texcoord1 ? glm::make_vec2(&data_texcoord1[i * stride_texcoord1]) : glm::vec2(0.0f);
+
+                    if (data_color0) {
+                        if (type_color0 == TINYGLTF_TYPE_VEC3) {
+                            vertex.color0 = glm::vec4{
+                                data_color0[i * stride_color0 + 0 * sizeof(float)],
+                                data_color0[i * stride_color0 + 1 * sizeof(float)],
+                                data_color0[i * stride_color0 + 2 * sizeof(float)],
+                                1.0f,
+                            };
+                        } else if (type_color0 == TINYGLTF_TYPE_VEC4) {
+                            vertex.color0 = glm::make_vec4(&data_color0[i * stride_color0]);
+                        } else {
+                            throw std::runtime_error("Unknown glTF color type");
+                        }
+                    } else {
+                        vertex.color0 = glm::vec4(1.0f);
+                    }
+
+                    m_vertices.push_back(std::move(vertex));
+                }
+            }
+
+            m_meshes.push_back(std::move(new_mesh));
+        }
+
+        std::copy(node.children.begin(), node.children.end(), std::back_inserter(new_node.children));
+        m_nodes.push_back(std::move(new_node));
     }
 }
 

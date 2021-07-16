@@ -1,14 +1,17 @@
 #ifndef BOA_GFX_ASSET_VKASSET_H
 #define BOA_GFX_ASSET_VKASSET_H
 
-#include "vk_mem_alloc.h"
+#include "boa/gfx/vk/types.h"
+#include "boa/gfx/linear_types.h"
+#include "boa/gfx/asset/gltf_model.h"
 #include "glm/glm.hpp"
-#include <stdint.h>
+#include <cstdint>
 #include <vulkan/vulkan.hpp>
 
 namespace boa::gfx {
 
 class glTFModel;
+class ModelManager;
 class Renderer;
 
 struct VkMaterial {
@@ -37,17 +40,17 @@ struct VkPrimitive {
     size_t material;
 
     Sphere bounding_sphere;
-    glm::mat4 transform_matrix;
 };
 
 struct VkNode {
+    size_t id;
     std::vector<size_t> primitives;
     std::vector<size_t> children;
     glm::mat4 transform_matrix;
 };
 
 struct VkModel {
-    VkModel(Renderer &renderer, const std::string &model_name, const glTFModel &model_model);
+    VkModel(ModelManager &model_manager, Renderer &renderer, const std::string &model_name, const glTFModel &model_model);
 
     std::string name;
     std::vector<VkNode> nodes;
@@ -65,6 +68,7 @@ private:
     vk::DescriptorSet textures_descriptor_set;
     vk::DescriptorSetLayout textures_descriptor_set_layout;
 
+    ModelManager &model_manager;
     Renderer &renderer;
     const glTFModel &model;
 

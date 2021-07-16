@@ -1,5 +1,5 @@
-#ifndef BOA_GFX_ASSET_LINEAR_TYPES_H
-#define BOA_GFX_ASSET_LINEAR_TYPES_H
+#ifndef BOA_GFX_LINEAR_TYPES_H
+#define BOA_GFX_LINEAR_TYPES_H
 
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"

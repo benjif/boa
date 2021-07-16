@@ -3,7 +3,8 @@
 
 #include "boa/macros.h"
 #include "boa/iteration.h"
-#include "boa/gfx/asset/linear_types.h"
+#include "boa/gfx/linear_types.h"
+#include "glm/gtc/quaternion.hpp"
 #include "tiny_gltf.h"
 #include <vector>
 #include <optional>
@@ -91,10 +92,14 @@ public:
     };
 
     struct Node {
+        size_t id;
         std::vector<size_t> children;
-        glm::dmat4 matrix;
         std::optional<size_t> parent;
         std::optional<size_t> mesh;
+        glm::dquat rotation;
+        glm::dvec3 translation;
+        glm::dvec3 scale;
+        glm::dmat4 matrix;
     };
 
     struct AnimationChannel {
@@ -233,7 +238,6 @@ private:
     bool m_initialized{ false };
 
     void debug_print_node(const Node &node, uint32_t indent) const;
-    size_t add_nodes(std::optional<size_t> parent, tinygltf::Node &node);
 
     std::vector<Vertex> m_vertices;
 

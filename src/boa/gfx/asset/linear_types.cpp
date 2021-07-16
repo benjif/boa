@@ -1,5 +1,5 @@
 #include "boa/macros.h"
-#include "boa/gfx/asset/linear_types.h"
+#include "boa/gfx/linear_types.h"
 
 namespace boa::gfx {
 

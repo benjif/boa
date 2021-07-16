@@ -1,14 +1,15 @@
 #include "boa/macros.h"
 #include "boa/gfx/renderer.h"
-#include "boa/gfx/asset/gltf_model.h"
+#include "boa/gfx/asset/model_manager.h"
 #include "boa/gfx/asset/vkasset.h"
 #include "boa/gfx/vk/initializers.h"
 #include "stb_image.h"
 
 namespace boa::gfx {
 
-VkModel::VkModel(Renderer &renderer, const std::string &model_name, const glTFModel &model_model)
+VkModel::VkModel(ModelManager &model_manager, Renderer &renderer, const std::string &model_name, const glTFModel &model_model)
     : name(std::move(model_name)),
+      model_manager(model_manager),
       renderer(renderer),
       model(model_model),
       root_node_count(model.get_root_node_count())
@@ -108,6 +109,7 @@ void VkModel::add_from_node(const glTFModel::Node &node) {
     VkNode new_node;
     new_node.children.reserve(node.children.size());
     new_node.transform_matrix = node.matrix;
+    new_node.id = node.id;
 
     for (size_t child : node.children)
         new_node.children.push_back(child);
@@ -134,11 +136,11 @@ void VkModel::add_from_node(const glTFModel::Node &node) {
 
                         LOG_INFO("(Asset) Creating new material 'textured_{}_{}'", name, primitive_idx);
 
-                        VkMaterial &textured = renderer.m_materials[renderer.TEXTURED_MATERIAL_INDEX];
+                        VkMaterial &textured = model_manager.get_material(renderer.TEXTURED_MATERIAL_INDEX);
 
-                        size_t new_textured_index = renderer.create_material(textured.pipeline, textured.pipeline_layout,
+                        uint32_t new_textured_index = model_manager.create_material(textured.pipeline, textured.pipeline_layout,
                             fmt::format("textured_{}_{}", name, primitive_idx));
-                        VkMaterial &new_textured = renderer.m_materials[new_textured_index];
+                        VkMaterial &new_textured = model_manager.get_material(new_textured_index);
 
                         new_textured.texture_set = textures_descriptor_set;
                         new_textured.descriptor_number = descriptor_count;
@@ -162,8 +164,6 @@ void VkModel::add_from_node(const glTFModel::Node &node) {
 
             new_vk_primitive.index_count = primitive.indices.size();
             new_vk_primitive.bounding_sphere = primitive.bounding_sphere;
-
-            new_vk_primitive.transform_matrix = node.matrix;
 
             upload_primitive_indices(new_vk_primitive, primitive);
 
@@ -448,9 +448,10 @@ void VkModel::upload_model_vertices(const glTFModel &model) {
         cmd.copyBuffer(staging_buffer.buffer, vertex_buffer.buffer, copy);
     });
 
-    /*renderer.m_deletion_queue.enqueue([=, &allocator = renderer.m_allocator]() {
-        vmaDestroyBuffer(allocator, vertex_buffer.buffer, vertex_buffer.allocation);
-    });*/
+    renderer.m_deletion_queue.enqueue([copy = vertex_buffer, &allocator = renderer.m_allocator]() {
+        vmaDestroyBuffer(allocator, copy.buffer,
+            copy.allocation);
+    });
 
     vmaDestroyBuffer(renderer.m_allocator, staging_buffer.buffer, staging_buffer.allocation);
 }

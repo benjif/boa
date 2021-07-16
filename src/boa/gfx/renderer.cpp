@@ -15,7 +15,9 @@
 
 namespace boa::gfx {
 
-Renderer::Renderer() {
+Renderer::Renderer(ModelManager &model_manager)
+    : m_model_manager(model_manager)
+{
     auto boa_start_time = std::chrono::high_resolution_clock::now();
 
     init_window_user_pointers();
@@ -209,7 +211,7 @@ void Renderer::draw_frame() {
     frame_cmd.setViewport(0, viewport);
     frame_cmd.setScissor(0, scissor);
 
-    draw_models(frame_cmd);
+    draw_renderables(frame_cmd);
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame_cmd);
 
     // END DRAW COMMANDS
@@ -274,7 +276,7 @@ void Renderer::draw_model_node(vk::CommandBuffer cmd, const VkModel &model, cons
         glm::mat4 model_view_projection = transforms.view_projection * local_transform;
         PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
 
-        auto &material = m_materials[vk_primitive.material];
+        auto &material = m_model_manager.get_material(vk_primitive.material);
         if (vk_primitive.material != last_material) {
             cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, material.pipeline);
             last_material = vk_primitive.material;
@@ -311,7 +313,7 @@ void Renderer::draw_model_node(vk::CommandBuffer cmd, const VkModel &model, cons
         draw_model_node(cmd, model, node, transforms, local_transform);
 }
 
-void Renderer::draw_models(vk::CommandBuffer cmd) {
+void Renderer::draw_renderables(vk::CommandBuffer cmd) {
     Transformations transforms{
         .view = glm::lookAt(
             m_camera.get_position(),
@@ -348,18 +350,81 @@ void Renderer::draw_models(vk::CommandBuffer cmd) {
     });*/
 
     entity_group.for_each_entity_with_component<boa::ecs::Renderable>([&](auto &e_id) {
-        uint32_t model_id = entity_group.get_component<boa::ecs::Renderable>(e_id).id;
-        auto &vk_model = m_models[model_id];
+        uint32_t model_id = entity_group.get_component<boa::ecs::Renderable>(e_id).model_id;
+        auto &vk_model = m_model_manager.get_model(model_id);
 
         if (vk_model.nodes.size() == 0)
             return Iteration::Continue;
+
+        bool is_animated = entity_group.has_component<boa::ecs::Animated>(e_id);
+
+        const auto draw_node = [&](const auto &node, glm::mat4 &local_transform) {
+            auto draw_node_impl = [&](const auto &node, glm::mat4 &local_transform, auto &draw_node_ref) mutable -> void {
+                if (is_animated)
+                    local_transform *= entity_group.get_component<boa::ecs::Animated>(e_id).transform_for_node(node.id);
+                else
+                    local_transform *= node.transform_matrix;
+
+                size_t last_material = std::numeric_limits<size_t>::max();
+                for (size_t vk_primitive_idx : node.primitives) {
+                    const auto &vk_primitive = vk_model.primitives[vk_primitive_idx];
+
+                    // probably not right, it won't matter once we do frustum culling on the GPU
+                    // with instanced rendering
+                    glm::vec3 new_bounding_center = local_transform * glm::vec4(vk_primitive.bounding_sphere.center, 1.0f);
+                    double new_bounding_radius = glm::length(local_transform * glm::vec4(0.0f, 0.0f, 0.0f, vk_primitive.bounding_sphere.radius));
+                    if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
+                        continue;
+
+                    glm::mat4 model_view_projection = transforms.view_projection * local_transform;
+                    PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
+
+                    auto &material = m_model_manager.get_material(vk_primitive.material);
+                    if (vk_primitive.material != last_material) {
+                        cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, material.pipeline);
+                        last_material = vk_primitive.material;
+
+                        cmd.bindDescriptorSets(
+                            vk::PipelineBindPoint::eGraphics,
+                            material.pipeline_layout,
+                            0,
+                            current_frame().parent_set,
+                            nullptr);
+
+                        if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE) {
+                            cmd.bindDescriptorSets(
+                                vk::PipelineBindPoint::eGraphics,
+                                material.pipeline_layout,
+                                1,
+                                material.texture_set,
+                                nullptr);
+                            push_constants.extra[0] = material.descriptor_number;
+                        }
+                    }
+
+                    cmd.pushConstants(material.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
+
+                    vk::Buffer vertex_buffers[] = { vk_model.vertex_buffer.buffer };
+                    vk::DeviceSize offsets[] = { 0 };
+                    cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
+                    cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
+
+                    cmd.drawIndexed(vk_primitive.index_count, 1, 0, 0, 0);
+                }
+
+                for (size_t child_idx : node.children)
+                    draw_node_ref(vk_model.nodes[child_idx], local_transform, draw_node_ref);
+            };
+
+            draw_node_impl(node, local_transform, draw_node_impl);
+        };
 
         glm::mat4 entity_transform_matrix{ 1.0f };
         if (entity_group.has_component<boa::ecs::Transformable>(e_id))
             entity_transform_matrix = entity_group.get_component<boa::ecs::Transformable>(e_id).transform_matrix;
 
         for (size_t node_idx : vk_model.root_nodes)
-            draw_model_node(cmd, vk_model, vk_model.nodes[node_idx], transforms, entity_transform_matrix);
+            draw_node(vk_model.nodes[node_idx], entity_transform_matrix);
 
         return Iteration::Continue;
     });
@@ -999,7 +1064,7 @@ void Renderer::create_sync_objects() {
 }
 
 vk::ShaderModule Renderer::load_shader(const char *path) {
-    LOG_INFO("Loading shader module at '{}'", path);
+    LOG_INFO("(Renderer) Loading shader module at '{}'", path);
 
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open())
@@ -1211,7 +1276,8 @@ void Renderer::create_pipelines() {
         pipeline_ctx.pipeline_layout = untextured_pipeline_layout;
 
         untextured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
-        create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
+        //create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
+        m_model_manager.create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
     }
 
     // TEXTURED PIPELINE
@@ -1238,7 +1304,8 @@ void Renderer::create_pipelines() {
         pipeline_ctx.pipeline_layout = textured_pipeline_layout;
 
         textured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
-        create_material(textured_pipeline, textured_pipeline_layout, "textured");
+        //create_material(textured_pipeline, textured_pipeline_layout, "textured");
+        m_model_manager.create_material(textured_pipeline, textured_pipeline_layout, "textured");
     }
 
     // SKYBOX PIPELINE
@@ -1268,30 +1335,6 @@ void Renderer::create_pipelines() {
     m_device.get().destroyShaderModule(textured_vert);
     m_device.get().destroyShaderModule(skybox_frag);
     m_device.get().destroyShaderModule(skybox_vert);
-}
-
-size_t Renderer::create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name) {
-    VkMaterial material;
-    material.pipeline = pipeline;
-    material.pipeline_layout = layout;
-    material.name = name;
-    m_materials.push_back(std::move(material));
-    return m_materials.size() - 1;
-}
-
-uint32_t Renderer::load_model(const glTFModel &model, const std::string &name) {
-    VkModel new_model(*this, name, model);
-
-    // we have to do this here because m_models (std::vector)
-    // will use the copy constructor during resizing
-    m_deletion_queue.enqueue([=]() {
-        vmaDestroyBuffer(m_allocator, new_model.vertex_buffer.buffer,
-            new_model.vertex_buffer.allocation);
-    });
-
-    m_models.push_back(std::move(new_model));
-
-    return m_models.size() - 1;
 }
 
 void Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function) {

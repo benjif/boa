@@ -11,6 +11,7 @@
 #include "boa/gfx/camera.h"
 #include "boa/input/keyboard.h"
 #include "boa/input/mouse.h"
+#include "boa/gfx/asset/model_manager.h"
 #include "glm/gtx/transform.hpp"
 #include <functional>
 #include <optional>
@@ -32,10 +33,10 @@ public:
         input::Mouse *mouse;
     };
 
-    Renderer();
+    explicit Renderer(ModelManager &model_manager);
     ~Renderer();
+
     void run();
-    uint32_t load_model(const glTFModel &model, const std::string &name);
 
     input::Keyboard &get_keyboard() { return m_keyboard; }
     input::Mouse &get_mouse() { return m_mouse; }
@@ -161,17 +162,14 @@ private:
     vk::ImageView m_msaa_image_view;
 
     Frustum m_frustum;
-    std::vector<VkModel> m_models;
-    std::vector<VkMaterial> m_materials;
+    ModelManager &m_model_manager;
 
     static void framebuffer_size_callback(void *user_ptr_v, int w, int h);
-
-    size_t create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name);
 
     PerFrame &current_frame();
 
     void draw_frame();
-    void draw_models(vk::CommandBuffer cmd);
+    void draw_renderables(vk::CommandBuffer cmd);
     void draw_model_node(vk::CommandBuffer cmd, const VkModel &model, const VkNode &node,
         const Transformations &transforms, glm::mat4 &local_transform);
 

@@ -20,8 +20,11 @@ ComponentStore &ComponentStore::get() {
 }
 
 void ComponentStore::grow() {
+    size_t old_size = m_growth * COMPONENTS_START_COUNT * PER_COMPONENT_SIZE;
     m_growth *= COMPONENTS_GROWTH_RATE;
-    m_component_store.reset(new char[m_growth * COMPONENTS_START_COUNT * PER_COMPONENT_SIZE]);
+    char *new_store = new char[m_growth * COMPONENTS_START_COUNT * PER_COMPONENT_SIZE];
+    memcpy(new_store, m_component_store.get(), old_size);
+    m_component_store.reset(new_store);
 }
 
 size_t ComponentStore::size() const {
