@@ -69,8 +69,8 @@ private:
     vk::DescriptorSetLayout m_textures_descriptor_set_layout;
 
     ModelManager &m_model_manager;
-    Renderer &m_renderer;
     const glTFModel &m_model;
+    Renderer &m_renderer;
 
     void add_sampler(const glTFModel::Sampler &sampler);
     void add_from_node(const glTFModel::Node &node);

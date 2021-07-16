@@ -9,10 +9,10 @@ namespace boa::gfx {
 
 VkModel::VkModel(ModelManager &model_manager, Renderer &renderer, const std::string &model_name, const glTFModel &model_model)
     : name(std::move(model_name)),
-      root_node_count(m_model.get_root_node_count()),
+      root_node_count(model_model.get_root_node_count()),
       m_model_manager(model_manager),
-      m_renderer(renderer),
-      m_model(model_model)
+      m_model(model_model),
+      m_renderer(renderer)
 {
     LOG_INFO("(Asset) Loading model '{}'", name);
 
