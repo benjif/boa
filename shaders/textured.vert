@@ -14,6 +14,7 @@ layout(set = 0, binding = 0) uniform Transformations {
     mat4 view;
     mat4 projection;
     mat4 view_projection;
+    mat4 skybox_view_projection;
 } transform;
 
 layout(push_constant) uniform constants {

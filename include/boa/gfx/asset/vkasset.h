@@ -5,13 +5,15 @@
 #include "boa/gfx/linear_types.h"
 #include "boa/gfx/asset/gltf_model.h"
 #include "glm/glm.hpp"
+#include <array>
+#include <string>
 #include <cstdint>
 #include <vulkan/vulkan.hpp>
 
 namespace boa::gfx {
 
 class glTFModel;
-class ModelManager;
+class AssetManager;
 class Renderer;
 
 struct VkMaterial {
@@ -25,6 +27,7 @@ struct VkMaterial {
 struct VkTexture {
     VkTexture(Renderer &renderer, const glTFModel::Image &model_image, bool mipmap = true);
     VkTexture(Renderer &renderer, const char *path, bool mipmap = true);
+    VkTexture(Renderer &renderer, const std::array<std::string, 6> &texture_paths);
 
     VmaImage image;
     vk::ImageView image_view;
@@ -32,6 +35,14 @@ struct VkTexture {
 
 private:
     void init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data, bool mipmap);
+};
+
+struct VkSkybox {
+    VkSkybox(Renderer &renderer, const std::array<std::string, 6> &texture_paths);
+
+    vk::DescriptorSet skybox_set{ VK_NULL_HANDLE };
+    vk::Sampler sampler;
+    VkTexture texture;
 };
 
 struct VkPrimitive {
@@ -50,7 +61,7 @@ struct VkNode {
 };
 
 struct VkModel {
-    VkModel(ModelManager &model_manager, Renderer &renderer, const std::string &model_name, const glTFModel &model_model);
+    VkModel(AssetManager &asset_manager, Renderer &renderer, const std::string &model_name, const glTFModel &model_model);
 
     std::string name;
     std::vector<VkNode> nodes;
@@ -68,7 +79,7 @@ private:
     vk::DescriptorSet m_textures_descriptor_set;
     vk::DescriptorSetLayout m_textures_descriptor_set_layout;
 
-    ModelManager &m_model_manager;
+    AssetManager &m_asset_manager;
     const glTFModel &m_model;
     Renderer &m_renderer;
 

@@ -1,16 +1,67 @@
 #include "boa/macros.h"
 #include "boa/gfx/renderer.h"
-#include "boa/gfx/asset/model_manager.h"
+#include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/asset/vkasset.h"
 #include "boa/gfx/vk/initializers.h"
 #include "stb_image.h"
+#include <assert.h>
 
 namespace boa::gfx {
 
-VkModel::VkModel(ModelManager &model_manager, Renderer &renderer, const std::string &model_name, const glTFModel &model_model)
+VkSkybox::VkSkybox(Renderer &renderer, const std::array<std::string, 6> &texture_paths)
+    : texture(renderer, texture_paths)
+{
+    vk::DescriptorSetAllocateInfo alloc_info{
+        .descriptorPool         = renderer.m_descriptor_pool,
+        .descriptorSetCount     = 1,
+        .pSetLayouts            = &renderer.m_skybox_set_layout,
+    };
+
+    try {
+        skybox_set = renderer.m_device.get().allocateDescriptorSets(alloc_info)[0];
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to allocate descriptor sets");
+    }
+
+    vk::SamplerCreateInfo sampler_info{
+        .magFilter          = vk::Filter::eLinear,
+        .minFilter          = vk::Filter::eLinear,
+        .mipmapMode         = vk::SamplerMipmapMode::eLinear,
+        .addressModeU       = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeV       = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeW       = vk::SamplerAddressMode::eClampToEdge,
+        .anisotropyEnable   = true,
+        .maxAnisotropy      = renderer.m_device_properties.limits.maxSamplerAnisotropy,
+    };
+
+    vk::Sampler new_sampler;
+    try {
+        new_sampler = renderer.m_device.get().createSampler(sampler_info);
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to create sampler");
+    }
+
+    vk::DescriptorImageInfo image_buffer_info{
+        .sampler        = new_sampler,
+        .imageView      = texture.image_view,
+        .imageLayout    = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
+
+    renderer.m_deletion_queue.enqueue([=, device = renderer.m_device.get()]() {
+        device.destroySampler(new_sampler);
+    });
+
+    vk::WriteDescriptorSet write = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
+        skybox_set, &image_buffer_info, 0);
+    renderer.m_device.get().updateDescriptorSets(write, nullptr);
+
+    sampler = new_sampler;
+}
+
+VkModel::VkModel(AssetManager &asset_manager, Renderer &renderer, const std::string &model_name, const glTFModel &model_model)
     : name(std::move(model_name)),
       root_node_count(model_model.get_root_node_count()),
-      m_model_manager(model_manager),
+      m_asset_manager(asset_manager),
       m_model(model_model),
       m_renderer(renderer)
 {
@@ -134,11 +185,11 @@ void VkModel::add_from_node(const glTFModel::Node &node) {
 
                         LOG_INFO("(Asset) Creating new material 'textured_{}_{}'", name, primitive_idx);
 
-                        VkMaterial &textured = m_model_manager.get_material(m_renderer.TEXTURED_MATERIAL_INDEX);
+                        VkMaterial &textured = m_asset_manager.get_material(m_renderer.TEXTURED_MATERIAL_INDEX);
 
-                        uint32_t new_textured_index = m_model_manager.create_material(textured.pipeline, textured.pipeline_layout,
+                        uint32_t new_textured_index = m_asset_manager.create_material(textured.pipeline, textured.pipeline_layout,
                             fmt::format("textured_{}_{}", name, primitive_idx));
-                        VkMaterial &new_textured = m_model_manager.get_material(new_textured_index);
+                        VkMaterial &new_textured = m_asset_manager.get_material(new_textured_index);
 
                         new_textured.texture_set = m_textures_descriptor_set;
                         new_textured.descriptor_number = m_descriptor_count;
@@ -397,10 +448,157 @@ VkTexture::VkTexture(Renderer &renderer, const char *path, bool mipmap) {
         throw std::runtime_error("Failed to load texture file");
 
     init(std::forward<Renderer &>(renderer), w, h, pixels, mipmap);
+
+    stbi_image_free(pixels);
 }
 
 VkTexture::VkTexture(Renderer &renderer, const glTFModel::Image &model_image, bool mipmap) {
     init(std::forward<Renderer &>(renderer), model_image.width, model_image.height, model_image.data, mipmap);
+}
+
+VkTexture::VkTexture(Renderer &renderer, const std::array<std::string, 6> &texture_paths) {
+    int w[6], h[6], channels[6];
+    stbi_uc *pixels[6];
+
+    for (size_t i = 0; i < 6; i++) {
+        pixels[i] = stbi_load(texture_paths[i].c_str(), &w[i], &h[i], &channels[i], STBI_rgb_alpha);
+        assert(w[i] == w[0] && h[i] == h[0]);
+        if (!pixels[i])
+            throw std::runtime_error("Failed to load texture file (skybox)");
+    }
+
+    vk::DeviceSize image_size = w[0] * h[0] * 6 * 4;
+    vk::DeviceSize layer_size = image_size / 6;
+
+    VmaBuffer staging_buffer = renderer.create_buffer(image_size, vk::BufferUsageFlagBits::eTransferSrc,
+        VMA_MEMORY_USAGE_CPU_ONLY);
+
+    void *data;
+    vmaMapMemory(renderer.m_allocator, staging_buffer.allocation, &data);
+
+    for (size_t i = 0; i < 6; i++)
+        memcpy(static_cast<void *>(static_cast<char *>(data) + layer_size * i), pixels[i], layer_size);
+
+    vmaUnmapMemory(renderer.m_allocator, staging_buffer.allocation);
+
+    vk::Extent3D image_extent{
+        .width  = (uint32_t)w[0],
+        .height = (uint32_t)h[0],
+        .depth  = 1,
+    };
+
+    vk::ImageUsageFlags image_usage_flags = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
+
+    vk::ImageCreateInfo image_info = image_create_info(vk::Format::eR8G8B8A8Srgb,
+        image_usage_flags, image_extent, 1);
+    image_info.flags = vk::ImageCreateFlagBits::eCubeCompatible;
+    image_info.arrayLayers = 6;
+
+    VmaImage new_image;
+
+    VmaAllocationCreateInfo image_alloc_info{ .usage = VMA_MEMORY_USAGE_GPU_ONLY };
+    vmaCreateImage(renderer.m_allocator, (VkImageCreateInfo *)&image_info, &image_alloc_info, (VkImage *)&new_image.image,
+        &new_image.allocation, nullptr);
+
+    renderer.immediate_command([&](vk::CommandBuffer cmd) {
+        vk::ImageSubresourceRange range{
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 6,
+        };
+
+        vk::ImageMemoryBarrier image_barrier_to_transfer{
+            .srcAccessMask      = vk::AccessFlagBits::eNoneKHR,
+            .dstAccessMask      = vk::AccessFlagBits::eTransferWrite,
+            .oldLayout          = vk::ImageLayout::eUndefined,
+            .newLayout          = vk::ImageLayout::eTransferDstOptimal,
+            .image              = new_image.image,
+            .subresourceRange   = range,
+        };
+
+        cmd.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::DependencyFlags{},
+            nullptr,
+            nullptr,
+            image_barrier_to_transfer);
+
+        vk::BufferImageCopy copy{
+            .bufferOffset       = 0,
+            .bufferRowLength    = 0,
+            .bufferImageHeight  = 0,
+            .imageSubresource   = {
+                .aspectMask     = vk::ImageAspectFlagBits::eColor,
+                .mipLevel       = 0,
+                .baseArrayLayer = 0,
+                .layerCount     = 6,
+            },
+            .imageExtent        = {
+                .width          = (uint32_t)w[0],
+                .height         = (uint32_t)h[0],
+                .depth          = 1,
+            },
+        };
+
+        cmd.copyBufferToImage(
+            staging_buffer.buffer,
+            new_image.image,
+            vk::ImageLayout::eTransferDstOptimal,
+            copy);
+
+        vk::ImageMemoryBarrier image_barrier_to_readable{
+            .srcAccessMask      = vk::AccessFlagBits::eTransferWrite,
+            .dstAccessMask      = vk::AccessFlagBits::eShaderRead,
+            .oldLayout          = vk::ImageLayout::eTransferDstOptimal,
+            .newLayout          = vk::ImageLayout::eShaderReadOnlyOptimal,
+            .image              = new_image.image,
+            .subresourceRange   = range,
+        };
+
+        cmd.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eFragmentShader,
+            vk::DependencyFlags{},
+            nullptr,
+            nullptr,
+            image_barrier_to_readable);
+    });
+
+    vk::ImageViewCreateInfo view_info{
+        .image              = new_image.image,
+        .viewType           = vk::ImageViewType::eCube,
+        .format             = vk::Format::eR8G8B8A8Srgb,
+        .subresourceRange   = {
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 6,
+        },
+    };
+
+    vk::ImageView new_image_view;
+    try {
+        new_image_view = renderer.m_device.get().createImageView(view_info);
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to create image view");
+    }
+
+    renderer.m_deletion_queue.enqueue([=, allocator = renderer.m_allocator, device = renderer.m_device.get()]() {
+        vmaDestroyImage(allocator, new_image.image, new_image.allocation);
+        device.destroyImageView(new_image_view);
+    });
+
+    vmaDestroyBuffer(renderer.m_allocator, staging_buffer.buffer, staging_buffer.allocation);
+
+    image = new_image;
+    image_view = new_image_view;
+
+    for (size_t i = 0; i < 6; i++)
+        stbi_image_free(pixels[i]);
 }
 
 void VkModel::upload_primitive_indices(VkPrimitive &vk_primitive, const glTFModel::Primitive &primitive) {

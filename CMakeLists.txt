@@ -9,7 +9,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(Vulkan REQUIRED)
 find_package(fmt REQUIRED)
-find_package(Bullet REQUIRED)
+#find_package(Bullet REQUIRED)
 
 file(GLOB SOURCES
     lib/imgui/*.cpp

@@ -11,7 +11,7 @@
 #include "boa/gfx/camera.h"
 #include "boa/input/keyboard.h"
 #include "boa/input/mouse.h"
-#include "boa/gfx/asset/model_manager.h"
+#include "boa/gfx/asset/asset_manager.h"
 #include "glm/gtx/transform.hpp"
 #include <functional>
 #include <optional>
@@ -33,7 +33,7 @@ public:
         input::Mouse *mouse;
     };
 
-    explicit Renderer(ModelManager &model_manager);
+    explicit Renderer(AssetManager &asset_manager);
     ~Renderer();
 
     void run();
@@ -45,6 +45,13 @@ public:
 
     void set_per_frame_callback(std::function<void(float)> callback);
     void set_ui_mouse_enabled(bool mouse_enabled);
+
+    void set_active_skybox(uint32_t id) {
+        if (id >= m_asset_manager.m_skyboxes.size())
+            throw std::runtime_error("Attempted to set to non-existent skybox");
+        m_active_skybox = id;
+    }
+    void reset_active_skybox() { m_active_skybox.reset(); }
 
 private:
     const std::vector<const char *> validation_layers = {
@@ -63,7 +70,7 @@ private:
 #endif
 
     constexpr static uint32_t FRAMES_IN_FLIGHT = 2;
-    constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 500;
+    constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 150;
 
     enum {
         UNTEXTURED_MATERIAL_INDEX   = 0,
@@ -89,6 +96,9 @@ private:
         glm::mat4 view;
         glm::mat4 projection;
         glm::mat4 view_projection;
+        // TODO: move skybox_view_projection into a different uniform/push constant
+        //       struct, I'm too tired right now
+        glm::mat4 skybox_view_projection;
     };
 
     struct PushConstants {
@@ -140,7 +150,13 @@ private:
     vk::Queue m_present_queue;
     vk::DescriptorSetLayout m_descriptor_set_layout;
     vk::DescriptorSetLayout m_textures_set_layout;
+    vk::DescriptorSetLayout m_skybox_set_layout;
     vk::DescriptorPool m_descriptor_pool;
+
+    VmaBuffer m_skybox_vertex_buffer;
+    std::optional<size_t> m_active_skybox;
+    vk::Pipeline m_skybox_pipeline;
+    vk::PipelineLayout m_skybox_pipeline_layout;
 
     vk::SampleCountFlagBits m_msaa_samples{ vk::SampleCountFlagBits::e1 };
 
@@ -162,7 +178,7 @@ private:
     vk::ImageView m_msaa_image_view;
 
     Frustum m_frustum;
-    ModelManager &m_model_manager;
+    AssetManager &m_asset_manager;
 
     static void framebuffer_size_callback(void *user_ptr_v, int w, int h);
 
@@ -189,6 +205,7 @@ private:
     void create_sync_objects();
     void create_pipelines();
     void create_descriptors();
+    void create_skybox_resources();
 
     void immediate_command(std::function<void(vk::CommandBuffer cmd)> &&function);
 
@@ -213,6 +230,7 @@ private:
 
     friend class VkModel;
     friend class VkTexture;
+    friend class VkSkybox;
 };
 
 }

@@ -17,13 +17,11 @@
 
 namespace boa::gfx {
 
-Renderer::Renderer(ModelManager &model_manager)
-    : m_model_manager(model_manager)
-{
+Renderer::Renderer(AssetManager &asset_manager)
+    : m_asset_manager(asset_manager) {
 #ifndef NDEBUG
     auto boa_start_time = std::chrono::high_resolution_clock::now();
 #endif
-
     init_window_user_pointers();
     init_window();
     create_instance();
@@ -39,6 +37,7 @@ Renderer::Renderer(ModelManager &model_manager)
     create_sync_objects();
     create_descriptors();
     create_pipelines();
+    create_skybox_resources();
     init_imgui();
 
 #ifndef NDEBUG
@@ -281,6 +280,76 @@ void Renderer::draw_frame() {
     m_frame++;
 }
 
+static const std::array<Vertex, 36> skybox_vertices = {
+    Vertex{ .position = { -1.0f,  1.0f, -1.0f } },
+    Vertex{ .position = { -1.0f, -1.0f, -1.0f } },
+    Vertex{ .position = {  1.0f, -1.0f, -1.0f } },
+    Vertex{ .position = {  1.0f, -1.0f, -1.0f } },
+    Vertex{ .position = {  1.0f,  1.0f, -1.0f } },
+    Vertex{ .position = { -1.0f,  1.0f, -1.0f } },
+
+    Vertex{ .position = { -1.0f, -1.0f,  1.0f } },
+    Vertex{ .position = { -1.0f, -1.0f, -1.0f } },
+    Vertex{ .position = { -1.0f,  1.0f, -1.0f } },
+    Vertex{ .position = { -1.0f,  1.0f, -1.0f } },
+    Vertex{ .position = { -1.0f,  1.0f,  1.0f } },
+    Vertex{ .position = { -1.0f, -1.0f,  1.0f } },
+
+    Vertex{ .position = {  1.0f, -1.0f, -1.0f } },
+    Vertex{ .position = {  1.0f, -1.0f,  1.0f } },
+    Vertex{ .position = {  1.0f,  1.0f,  1.0f } },
+    Vertex{ .position = {  1.0f,  1.0f,  1.0f } },
+    Vertex{ .position = {  1.0f,  1.0f, -1.0f } },
+    Vertex{ .position = {  1.0f, -1.0f, -1.0f } },
+
+    Vertex{ .position = { -1.0f, -1.0f,  1.0f } },
+    Vertex{ .position = { -1.0f,  1.0f,  1.0f } },
+    Vertex{ .position = {  1.0f,  1.0f,  1.0f } },
+    Vertex{ .position = {  1.0f,  1.0f,  1.0f } },
+    Vertex{ .position = {  1.0f, -1.0f,  1.0f } },
+    Vertex{ .position = { -1.0f, -1.0f,  1.0f } },
+
+    Vertex{ .position = { -1.0f,  1.0f, -1.0f } },
+    Vertex{ .position = {  1.0f,  1.0f, -1.0f } },
+    Vertex{ .position = {  1.0f,  1.0f,  1.0f } },
+    Vertex{ .position = {  1.0f,  1.0f,  1.0f } },
+    Vertex{ .position = { -1.0f,  1.0f,  1.0f } },
+    Vertex{ .position = { -1.0f,  1.0f, -1.0f } },
+
+    Vertex{ .position = { -1.0f, -1.0f, -1.0f } },
+    Vertex{ .position = { -1.0f, -1.0f,  1.0f } },
+    Vertex{ .position = {  1.0f, -1.0f, -1.0f } },
+    Vertex{ .position = {  1.0f, -1.0f, -1.0f } },
+    Vertex{ .position = { -1.0f, -1.0f,  1.0f } },
+    Vertex{ .position = {  1.0f, -1.0f,  1.0  } },
+};
+
+void Renderer::create_skybox_resources() {
+    const size_t size = skybox_vertices.size() * sizeof(Vertex);
+
+    VmaBuffer staging_buffer = create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
+
+    void *data;
+    vmaMapMemory(m_allocator, staging_buffer.allocation, &data);
+    memcpy(data, skybox_vertices.data(), size);
+    vmaUnmapMemory(m_allocator, staging_buffer.allocation);
+
+    m_skybox_vertex_buffer = create_buffer(size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+        VMA_MEMORY_USAGE_GPU_ONLY);
+
+    immediate_command([=](vk::CommandBuffer cmd) {
+        vk::BufferCopy copy{ .srcOffset = 0, .dstOffset = 0, .size = size };
+        cmd.copyBuffer(staging_buffer.buffer, m_skybox_vertex_buffer.buffer, copy);
+    });
+
+    m_deletion_queue.enqueue([=, copy = m_skybox_vertex_buffer]() {
+        vmaDestroyBuffer(m_allocator, copy.buffer,
+            copy.allocation);
+    });
+
+    vmaDestroyBuffer(m_allocator, staging_buffer.buffer, staging_buffer.allocation);
+}
+
 void Renderer::draw_renderables(vk::CommandBuffer cmd) {
     Transformations transforms{
         .view = glm::lookAt(
@@ -298,6 +367,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
     transforms.projection[1][1] *= -1;
     transforms.view_projection = transforms.projection * transforms.view;
+    transforms.skybox_view_projection = transforms.projection * glm::mat4(glm::mat3(transforms.view));
 
     m_frustum.update(transforms.view_projection);
 
@@ -319,7 +389,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
     entity_group.for_each_entity_with_component<boa::ecs::Renderable>([&](auto &e_id) {
         uint32_t model_id = entity_group.get_component<boa::ecs::Renderable>(e_id).model_id;
-        auto &vk_model = m_model_manager.get_model(model_id);
+        auto &vk_model = m_asset_manager.get_model(model_id);
 
         if (vk_model.nodes.size() == 0)
             return Iteration::Continue;
@@ -347,7 +417,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                     glm::mat4 model_view_projection = transforms.view_projection * local_transform;
                     PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
 
-                    auto &material = m_model_manager.get_material(vk_primitive.material);
+                    auto &material = m_asset_manager.get_material(vk_primitive.material);
                     if (vk_primitive.material != last_material) {
                         cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, material.pipeline);
                         last_material = vk_primitive.material;
@@ -396,6 +466,26 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
         return Iteration::Continue;
     });
+
+    if (m_active_skybox.has_value()) {
+        cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_skybox_pipeline);
+        cmd.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            m_skybox_pipeline_layout,
+            0,
+            current_frame().parent_set,
+            nullptr);
+        cmd.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            m_skybox_pipeline_layout,
+            1,
+            m_asset_manager.m_skyboxes[m_active_skybox.value()].skybox_set,
+            nullptr);
+        vk::Buffer vertex_buffers[] = { m_skybox_vertex_buffer.buffer };
+        vk::DeviceSize offsets[] = { 0 };
+        cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
+        cmd.draw(skybox_vertices.size(), 1, 0, 0);
+    }
 }
 
 void Renderer::create_instance() {
@@ -668,7 +758,6 @@ vk::ImageView Renderer::create_image_view(vk::Image image, vk::Format format, vk
         .viewType           = vk::ImageViewType::e2D,
         .format             = format,
         .subresourceRange   = {
-            //.aspectMask     = vk::ImageAspectFlagBits::eColor,
             .aspectMask     = aspect_flags,
             .baseMipLevel   = 0,
             .levelCount     = mip_levels,
@@ -1080,9 +1169,9 @@ VmaBuffer Renderer::create_buffer(size_t size, vk::BufferUsageFlags usage, VmaMe
 
 void Renderer::create_descriptors() {
     std::vector<vk::DescriptorPoolSize> sizes = {
-        { vk::DescriptorType::eUniformBuffer, 10 },
-        { vk::DescriptorType::eSampler, 200 },
-        { vk::DescriptorType::eCombinedImageSampler, 200 },
+        { vk::DescriptorType::eUniformBuffer, 100 },
+        { vk::DescriptorType::eSampler, 150 },
+        { vk::DescriptorType::eCombinedImageSampler, 150 },
     };
 
     vk::DescriptorPoolCreateInfo pool_info{
@@ -1142,6 +1231,25 @@ void Renderer::create_descriptors() {
         throw std::runtime_error("Failed to create descriptor set layout for textures");
     }
 
+    vk::DescriptorSetLayoutBinding skybox_bind{
+        .binding            = 0,
+        .descriptorType     = vk::DescriptorType::eCombinedImageSampler,
+        .descriptorCount    = 1,
+        .stageFlags         = vk::ShaderStageFlagBits::eFragment,
+        .pImmutableSamplers = nullptr,
+    };
+
+    vk::DescriptorSetLayoutCreateInfo skybox_set_info{
+        .bindingCount       = 1,
+        .pBindings          = &skybox_bind,
+    };
+
+    try {
+        m_skybox_set_layout = m_device.get().createDescriptorSetLayout(skybox_set_info);
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to create descriptor set layout for textures");
+    }
+
     for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
         m_frames[i].transformations_buffer
             = create_buffer(sizeof(Transformations), vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -1183,6 +1291,7 @@ void Renderer::create_descriptors() {
     m_deletion_queue.enqueue([&]() {
         m_device.get().destroyDescriptorSetLayout(m_descriptor_set_layout);
         m_device.get().destroyDescriptorSetLayout(m_textures_set_layout);
+        m_device.get().destroyDescriptorSetLayout(m_skybox_set_layout);
         m_device.get().destroyDescriptorPool(m_descriptor_pool);
 
         for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++)
@@ -1240,12 +1349,12 @@ void Renderer::create_pipelines() {
         pipeline_ctx.rasterizer = rasterization_state_create_info(vk::PolygonMode::eFill);
         pipeline_ctx.multisample = multisample_state_create_info(m_msaa_samples);
         pipeline_ctx.color_blend_attachment = color_blend_attachment_state();
-        pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLessOrEqual);
+        pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLess);
         pipeline_ctx.pipeline_layout = untextured_pipeline_layout;
 
         untextured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
         //create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
-        m_model_manager.create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
+        m_asset_manager.create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
     }
 
     // TEXTURED PIPELINE
@@ -1273,28 +1382,46 @@ void Renderer::create_pipelines() {
 
         textured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
         //create_material(textured_pipeline, textured_pipeline_layout, "textured");
-        m_model_manager.create_material(textured_pipeline, textured_pipeline_layout, "textured");
+        m_asset_manager.create_material(textured_pipeline, textured_pipeline_layout, "textured");
     }
 
     // SKYBOX PIPELINE
-    /*{
+    {
         vk::PipelineLayoutCreateInfo skybox_layout_info = pipeline_layout_create_info();
 
-        skybox_layout_info.setLayoutCount = 1;
-        skybox_layout_info.pSetLayouts = &m_skybox_descriptor_set_layout;
+        vk::DescriptorSetLayout skybox_set_layouts[] = { m_descriptor_set_layout, m_skybox_set_layout };
+
+        skybox_layout_info.setLayoutCount = 2;
+        skybox_layout_info.pSetLayouts = skybox_set_layouts;
 
         try {
             skybox_pipeline_layout = m_device.get().createPipelineLayout(skybox_layout_info);
         } catch (const vk::SystemError &err) {
             throw std::runtime_error("Failed to create untextured pipeline layout");
         }
-    }*/
+
+        pipeline_ctx.shader_stages.clear();
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, skybox_vert));
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, skybox_frag));
+
+        pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLessOrEqual);
+        pipeline_ctx.pipeline_layout = skybox_pipeline_layout;
+
+        skybox_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
+
+        m_skybox_pipeline = skybox_pipeline;
+        m_skybox_pipeline_layout = skybox_pipeline_layout;
+    }
 
     m_deletion_queue.enqueue([=]() {
         m_device.get().destroyPipeline(untextured_pipeline);
         m_device.get().destroyPipeline(textured_pipeline);
+        m_device.get().destroyPipeline(skybox_pipeline);
         m_device.get().destroyPipelineLayout(untextured_pipeline_layout);
         m_device.get().destroyPipelineLayout(textured_pipeline_layout);
+        m_device.get().destroyPipelineLayout(skybox_pipeline_layout);
     });
 
     m_device.get().destroyShaderModule(untextured_frag);
