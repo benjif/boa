@@ -426,8 +426,25 @@ void VkTexture::init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data,
             image_barrier_to_readable);
     });
 
-    vk::ImageView new_image_view = renderer.create_image_view(new_image.image, vk::Format::eR8G8B8A8Srgb,
-        vk::ImageAspectFlagBits::eColor, image_mip_levels);
+    vk::ImageViewCreateInfo view_info{
+        .image              = new_image.image,
+        .viewType           = vk::ImageViewType::e2D,
+        .format             = vk::Format::eR8G8B8A8Srgb,
+        .subresourceRange   = {
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = 0,
+            .levelCount     = image_mip_levels,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        },
+    };
+
+    vk::ImageView new_image_view;
+    try {
+        new_image_view = renderer.m_device.get().createImageView(view_info);
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to create image view");
+    }
 
     renderer.m_deletion_queue.enqueue([=, &allocator = renderer.m_allocator, &device = renderer.m_device]() {
         vmaDestroyImage(allocator, new_image.image, new_image.allocation);

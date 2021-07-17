@@ -66,18 +66,18 @@ public:
 
     void load_skyboxes() {
         default_skybox = asset_manager.load_skybox(renderer, std::array<std::string, 6>{
-            "skybox/mountains/front.jpg",
-            "skybox/mountains/back.jpg",
-            "skybox/mountains/top.jpg",
-            "skybox/mountains/bottom.jpg",
-            "skybox/mountains/right.jpg",
-            "skybox/mountains/left.jpg",
-            //"skybox/day/front.png",
-            //"skybox/day/back.png",
-            //"skybox/day/top.png",
-            //"skybox/day/bottom.png",
-            //"skybox/day/left.png",
-            //"skybox/day/right.png",
+            "skybox/mountains/right.png",
+            "skybox/mountains/left.png",
+            "skybox/mountains/top.png",
+            "skybox/mountains/bottom.png",
+            "skybox/mountains/front.png",
+            "skybox/mountains/back.png",
+            /*"skybox/day/right.png",
+            "skybox/day/left.png",
+            "skybox/day/top.png",
+            "skybox/day/bottom.png",
+            "skybox/day/front.png",
+            "skybox/day/back.png",*/
         });
 
         renderer.set_active_skybox(default_skybox);

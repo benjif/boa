@@ -344,7 +344,7 @@ void Renderer::create_skybox_resources() {
     staging_buffer = create_buffer(index_buffer_size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
 
     vmaMapMemory(m_allocator, staging_buffer.allocation, &data);
-    memcpy(data, skybox_indices.data(), vertex_buffer_size);
+    memcpy(data, skybox_indices.data(), index_buffer_size);
     vmaUnmapMemory(m_allocator, staging_buffer.allocation);
 
     m_skybox_index_buffer = create_buffer(index_buffer_size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
