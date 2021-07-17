@@ -76,8 +76,8 @@ public:
             //"skybox/day/back.png",
             //"skybox/day/top.png",
             //"skybox/day/bottom.png",
-            //"skybox/day/right.png",
             //"skybox/day/left.png",
+            //"skybox/day/right.png",
         });
 
         renderer.set_active_skybox(default_skybox);

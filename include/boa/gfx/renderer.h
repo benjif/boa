@@ -153,6 +153,7 @@ private:
     vk::DescriptorSetLayout m_skybox_set_layout;
     vk::DescriptorPool m_descriptor_pool;
 
+    VmaBuffer m_skybox_index_buffer;
     VmaBuffer m_skybox_vertex_buffer;
     std::optional<size_t> m_active_skybox;
     vk::Pipeline m_skybox_pipeline;

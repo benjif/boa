@@ -382,9 +382,9 @@ void glTFModel::open_gltf_file(const char *path) {
                     if (data_color0) {
                         if (type_color0 == TINYGLTF_TYPE_VEC3) {
                             vertex.color0 = glm::vec4{
-                                data_color0[i * stride_color0 + 0 * sizeof(float)],
-                                data_color0[i * stride_color0 + 1 * sizeof(float)],
-                                data_color0[i * stride_color0 + 2 * sizeof(float)],
+                                data_color0[i * stride_color0 + 0],
+                                data_color0[i * stride_color0 + 1],
+                                data_color0[i * stride_color0 + 2],
                                 1.0f,
                             };
                         } else if (type_color0 == TINYGLTF_TYPE_VEC4) {
