@@ -10,11 +10,12 @@
 class BoaExampleApplication {
 public:
     BoaExampleApplication()
-        : renderer(asset_manager),
+        : renderer(),
           window(renderer.get_window()),
           camera(renderer.get_camera()),
           keyboard(renderer.get_keyboard()),
-          mouse (renderer.get_mouse())
+          mouse(renderer.get_mouse()),
+          asset_manager(renderer.get_asset_manager())
     {
         /*sponza_entity = entity_group.new_entity();
         entity_group.enable<boa::ecs::Renderable>(sponza_entity);
@@ -41,31 +42,26 @@ public:
         }
     }    
 
-    void open_assets() {
+    void load_assets() {
+        auto &asset_manager = renderer.get_asset_manager();
+
         //sponza_model.open_gltf_file("models/sponza/glTF/Sponza.gltf");
         box_animated_model.open_gltf_file("models/BoxAnimated.gltf");
-        //box_animated_model.open_gltf_file("models/animated_cube/AnimatedCube.gltf");
-    }
 
-    void load_models() {
-        /*uint32_t sponza_model_id = asset_manager.load_model(renderer, sponza_model, "sponza");
+        /*uint32_t sponza_model_id = asset_manager.load_model(sponza_model, "sponza");
         {
             auto &model_component = entity_group.get_component<boa::ecs::Renderable>(sponza_entity);
             model_component.model_id = sponza_model_id;
         }*/
-        uint32_t box_animated_model_id = asset_manager.load_model(renderer, box_animated_model, "box_animated");
+        uint32_t box_animated_model_id = asset_manager.load_model(box_animated_model, "box_animated");
         {
             auto &model_component = entity_group.get_component<boa::ecs::Renderable>(box_animated_entity);
             model_component.model_id = box_animated_model_id;
         }
-    }
 
-    void load_animations() {
         animation_controller.load_animations(box_animated_model, box_animated_entity);
-    }
 
-    void load_skyboxes() {
-        default_skybox = asset_manager.load_skybox(renderer, std::array<std::string, 6>{
+        default_skybox = asset_manager.load_skybox(std::array<std::string, 6>{
             "skybox/mountains/right.png",
             "skybox/mountains/left.png",
             "skybox/mountains/top.png",
@@ -148,29 +144,26 @@ private:
     boa::ecs::ComponentStore component_store;
     boa::ecs::EntityGroup entity_group;
 
-    boa::gfx::AssetManager asset_manager;
-    boa::gfx::AnimationController animation_controller;
     boa::gfx::Renderer renderer;
-
-    uint32_t sponza_entity, box_animated_entity;
-    uint32_t default_skybox;
-    boa::gfx::glTFModel sponza_model, box_animated_model;
 
     boa::gfx::Window &window;
     boa::gfx::Camera &camera;
     boa::input::Keyboard &keyboard;
     boa::input::Mouse &mouse;
+
+    boa::gfx::AssetManager &asset_manager;
+    boa::gfx::AnimationController animation_controller;
+
+    uint32_t sponza_entity, box_animated_entity;
+    uint32_t default_skybox;
+    boa::gfx::glTFModel sponza_model, box_animated_model;
 };
 
 int main(int argc, char **argv) {
     LOG_INFO("(Global) Started");
 
     BoaExampleApplication app;
-
-    app.open_assets();
-    app.load_models();
-    app.load_animations();
-    app.load_skyboxes();
+    app.load_assets();
 
     app.setup_per_frame();
     app.play_animations();

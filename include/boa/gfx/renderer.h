@@ -20,6 +20,21 @@
 
 namespace boa::gfx {
 
+struct RenderContext {
+    vk::PhysicalDeviceProperties device_properties;
+    vk::FormatProperties device_format_properties;
+    vk::Queue graphics_queue, present_queue;
+    vk::Device device;
+
+    VmaAllocator allocator;
+    DeletionQueue deletion_queue;
+
+    struct {
+        vk::Fence upload_fence;
+        vk::CommandPool command_pool;
+    } upload_context;
+};
+
 class Renderer {
     REMOVE_COPY_AND_ASSIGN(Renderer);
 public:
@@ -33,7 +48,7 @@ public:
         input::Mouse *mouse;
     };
 
-    explicit Renderer(AssetManager &asset_manager);
+    Renderer();
     ~Renderer();
 
     void run();
@@ -42,6 +57,8 @@ public:
     input::Mouse &get_mouse() { return m_mouse; }
     Camera &get_camera() { return m_camera; }
     Window &get_window() { return m_window; }
+
+    AssetManager &get_asset_manager() { return m_asset_manager; }
 
     void set_per_frame_callback(std::function<void(float)> callback);
     void set_ui_mouse_enabled(bool mouse_enabled);
@@ -179,7 +196,7 @@ private:
     vk::ImageView m_msaa_image_view;
 
     Frustum m_frustum;
-    AssetManager &m_asset_manager;
+    AssetManager m_asset_manager;
 
     static void framebuffer_size_callback(void *user_ptr_v, int w, int h);
 

@@ -13,23 +13,31 @@ class Renderer;
 class AssetManager {
     REMOVE_COPY_AND_ASSIGN(AssetManager);
 public:
-    AssetManager() {}
+    AssetManager(Renderer &renderer)
+        : m_renderer(renderer)
+    {
+    }
 
     // TODO: take vulkan context-specific handles out of Renderer class so we can instead pass
     // a `VulkanContext` class/struct here instead of the entire Renderer
-    uint32_t load_model(Renderer &renderer, const glTFModel &model, const std::string &name);
-    uint32_t load_skybox(Renderer &renderer, const std::array<std::string, 6> &texture_paths);
+    uint32_t load_model(const glTFModel &model, const std::string &name);
+
+    // loads in order of: X+, X-, Y+, Y-, Z+, Z-
+    // (right, left, top, bottom, front, back)
+    uint32_t load_skybox(const std::array<std::string, 6> &texture_paths);
 
     VkModel &get_model(size_t index) { return m_models.at(index); }
     VkMaterial &get_material(size_t index) { return m_materials.at(index); }
     VkSkybox &get_skybox(size_t index) { return m_skyboxes.at(index); }
 
 private:
-    uint32_t create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name);
+    Renderer &m_renderer;
 
     std::vector<VkMaterial> m_materials;
     std::vector<VkModel> m_models;
     std::vector<VkSkybox> m_skyboxes;
+
+    uint32_t create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name);
 
     friend class Renderer;
     friend class VkModel;

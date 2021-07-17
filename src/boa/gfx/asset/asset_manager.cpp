@@ -4,15 +4,15 @@
 
 namespace boa::gfx {
 
-uint32_t AssetManager::load_model(Renderer &renderer, const glTFModel &model, const std::string &name) {
-    VkModel new_model(*this, renderer, name, model);
+uint32_t AssetManager::load_model(const glTFModel &model, const std::string &name) {
+    VkModel new_model(*this, m_renderer, name, model);
     m_models.push_back(std::move(new_model));
 
     return m_models.size() - 1;
 }
 
-uint32_t AssetManager::load_skybox(Renderer &renderer, const std::array<std::string, 6> &texture_paths) {
-    VkSkybox new_skybox(renderer, texture_paths);
+uint32_t AssetManager::load_skybox(const std::array<std::string, 6> &texture_paths) {
+    VkSkybox new_skybox(m_renderer, texture_paths);
     m_skyboxes.push_back(std::move(new_skybox));
     return m_skyboxes.size() - 1;
 }

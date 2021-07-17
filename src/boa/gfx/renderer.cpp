@@ -17,8 +17,9 @@
 
 namespace boa::gfx {
 
-Renderer::Renderer(AssetManager &asset_manager)
-    : m_asset_manager(asset_manager) {
+Renderer::Renderer()
+    : m_asset_manager(*this)
+{
 #ifndef NDEBUG
     auto boa_start_time = std::chrono::high_resolution_clock::now();
 #endif
@@ -1468,7 +1469,6 @@ void Renderer::immediate_command(std::function<void(vk::CommandBuffer cmd)> &&fu
     }
 
     vk::SubmitInfo submit_info = { .commandBufferCount = 1, .pCommandBuffers = &cmd };
-
     try {
         m_graphics_queue.submit(submit_info, m_upload_context.upload_fence);
     } catch (const vk::SystemError &err) {
