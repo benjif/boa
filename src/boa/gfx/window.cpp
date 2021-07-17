@@ -10,7 +10,8 @@ Window::Window(int w, int h, const char *name)
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     m_window = glfwCreateWindow(m_width, m_height, m_window_name.c_str(), nullptr, nullptr);
 
@@ -39,6 +40,14 @@ void Window::wait_events() const {
 
 bool Window::should_close() const {
     return glfwWindowShouldClose(m_window);
+}
+
+void Window::show() const {
+    glfwShowWindow(m_window);
+}
+
+void Window::hide() const {
+    glfwHideWindow(m_window);
 }
 
 void Window::set_cursor_disabled(bool hidden) {

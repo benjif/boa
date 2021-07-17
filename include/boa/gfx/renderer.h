@@ -63,13 +63,6 @@ public:
     void set_per_frame_callback(std::function<void(float)> callback);
     void set_ui_mouse_enabled(bool mouse_enabled);
 
-    void set_active_skybox(uint32_t id) {
-        if (id >= m_asset_manager.m_skyboxes.size())
-            throw std::runtime_error("Attempted to set to non-existent skybox");
-        m_active_skybox = id;
-    }
-    void reset_active_skybox() { m_active_skybox.reset(); }
-
 private:
     const std::vector<const char *> validation_layers = {
         "VK_LAYER_KHRONOS_validation"
@@ -172,7 +165,6 @@ private:
 
     VmaBuffer m_skybox_index_buffer;
     VmaBuffer m_skybox_vertex_buffer;
-    std::optional<size_t> m_active_skybox;
     vk::Pipeline m_skybox_pipeline;
     vk::PipelineLayout m_skybox_pipeline_layout;
 

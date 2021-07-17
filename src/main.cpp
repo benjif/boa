@@ -76,10 +76,10 @@ public:
             "skybox/day/back.png",*/
         });
 
-        renderer.set_active_skybox(default_skybox);
+        asset_manager.set_active_skybox(default_skybox);
     }
 
-    void play_animations() {
+    void play_looped_animations() {
         animation_controller.play_animation(box_animated_entity, 0, true);
     }
 
@@ -137,6 +137,7 @@ public:
     }
 
     void run() {
+        window.show();
         renderer.run();
     }
 
@@ -166,7 +167,7 @@ int main(int argc, char **argv) {
     app.load_assets();
 
     app.setup_per_frame();
-    app.play_animations();
+    app.play_looped_animations();
 
     app.run();
 

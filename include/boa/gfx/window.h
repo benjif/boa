@@ -27,6 +27,9 @@ public:
     bool should_close() const;
     void wait_events() const;
 
+    void show() const;
+    void hide() const;
+
     void set_cursor_disabled(bool hidden);
     void set_window_user_pointer(void *ptr);
     void set_framebuffer_size_callback(resize_callback_type callback);

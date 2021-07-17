@@ -65,8 +65,6 @@ VkModel::VkModel(AssetManager &asset_manager, Renderer &renderer, const std::str
       m_model(model_model),
       m_renderer(renderer)
 {
-    LOG_INFO("(Asset) Loading model '{}'", name);
-
     root_nodes = m_model.get_root_nodes();
     nodes.reserve(m_model.get_node_count());
     primitives.reserve(m_model.get_primitive_count());

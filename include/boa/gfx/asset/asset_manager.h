@@ -30,12 +30,22 @@ public:
     VkMaterial &get_material(size_t index) { return m_materials.at(index); }
     VkSkybox &get_skybox(size_t index) { return m_skyboxes.at(index); }
 
+    std::optional<uint32_t> get_active_skybox() { return m_skybox; }
+    void set_active_skybox(uint32_t id) {
+        if (id >= m_skyboxes.size())
+            throw std::runtime_error("Attempted to set to non-existent skybox");
+        m_skybox = id;
+    }
+    void reset_active_skybox() { m_skybox.reset(); }
+
 private:
     Renderer &m_renderer;
 
     std::vector<VkMaterial> m_materials;
     std::vector<VkModel> m_models;
     std::vector<VkSkybox> m_skyboxes;
+
+    std::optional<uint32_t> m_skybox;
 
     uint32_t create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name);
 

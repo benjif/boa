@@ -317,53 +317,6 @@ static const std::array<uint32_t, 36> skybox_indices = {
     20, 21, 22, 22, 23, 20,
 };
 
-void Renderer::create_skybox_resources() {
-    const size_t vertex_buffer_size = skybox_vertices.size() * sizeof(Vertex);
-    VmaBuffer staging_buffer = create_buffer(vertex_buffer_size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
-
-    void *data;
-    vmaMapMemory(m_allocator, staging_buffer.allocation, &data);
-    memcpy(data, skybox_vertices.data(), vertex_buffer_size);
-    vmaUnmapMemory(m_allocator, staging_buffer.allocation);
-
-    m_skybox_vertex_buffer = create_buffer(vertex_buffer_size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-        VMA_MEMORY_USAGE_GPU_ONLY);
-
-    immediate_command([=](vk::CommandBuffer cmd) {
-        vk::BufferCopy copy{ .srcOffset = 0, .dstOffset = 0, .size = vertex_buffer_size };
-        cmd.copyBuffer(staging_buffer.buffer, m_skybox_vertex_buffer.buffer, copy);
-    });
-
-    m_deletion_queue.enqueue([=, copy = m_skybox_vertex_buffer]() {
-        vmaDestroyBuffer(m_allocator, copy.buffer,
-            copy.allocation);
-    });
-
-    vmaDestroyBuffer(m_allocator, staging_buffer.buffer, staging_buffer.allocation);
-
-    const size_t index_buffer_size = skybox_indices.size() * sizeof(uint32_t);
-    staging_buffer = create_buffer(index_buffer_size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
-
-    vmaMapMemory(m_allocator, staging_buffer.allocation, &data);
-    memcpy(data, skybox_indices.data(), index_buffer_size);
-    vmaUnmapMemory(m_allocator, staging_buffer.allocation);
-
-    m_skybox_index_buffer = create_buffer(index_buffer_size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-        VMA_MEMORY_USAGE_GPU_ONLY);
-
-    immediate_command([=](vk::CommandBuffer cmd) {
-        vk::BufferCopy copy{ .srcOffset = 0, .dstOffset = 0, .size = index_buffer_size };
-        cmd.copyBuffer(staging_buffer.buffer, m_skybox_index_buffer.buffer, copy);
-    });
-
-    m_deletion_queue.enqueue([=, copy = m_skybox_index_buffer]() {
-        vmaDestroyBuffer(m_allocator, copy.buffer,
-            copy.allocation);
-    });
-
-    vmaDestroyBuffer(m_allocator, staging_buffer.buffer, staging_buffer.allocation);
-}
-
 void Renderer::draw_renderables(vk::CommandBuffer cmd) {
     Transformations transforms{
         .view = glm::lookAt(
@@ -481,7 +434,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
         return Iteration::Continue;
     });
 
-    if (m_active_skybox.has_value()) {
+    if (m_asset_manager.m_skybox.has_value()) {
         cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_skybox_pipeline);
         cmd.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
@@ -493,7 +446,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
             vk::PipelineBindPoint::eGraphics,
             m_skybox_pipeline_layout,
             1,
-            m_asset_manager.m_skyboxes[m_active_skybox.value()].skybox_set,
+            m_asset_manager.m_skyboxes[m_asset_manager.m_skybox.value()].skybox_set,
             nullptr);
 
         vk::Buffer vertex_buffers[] = { m_skybox_vertex_buffer.buffer };
@@ -503,6 +456,53 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
         cmd.drawIndexed(skybox_indices.size(), 1, 0, 0, 0);
     }
+}
+
+void Renderer::create_skybox_resources() {
+    const size_t vertex_buffer_size = skybox_vertices.size() * sizeof(Vertex);
+    VmaBuffer staging_buffer = create_buffer(vertex_buffer_size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
+
+    void *data;
+    vmaMapMemory(m_allocator, staging_buffer.allocation, &data);
+    memcpy(data, skybox_vertices.data(), vertex_buffer_size);
+    vmaUnmapMemory(m_allocator, staging_buffer.allocation);
+
+    m_skybox_vertex_buffer = create_buffer(vertex_buffer_size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+        VMA_MEMORY_USAGE_GPU_ONLY);
+
+    immediate_command([=](vk::CommandBuffer cmd) {
+        vk::BufferCopy copy{ .srcOffset = 0, .dstOffset = 0, .size = vertex_buffer_size };
+        cmd.copyBuffer(staging_buffer.buffer, m_skybox_vertex_buffer.buffer, copy);
+    });
+
+    m_deletion_queue.enqueue([=, copy = m_skybox_vertex_buffer]() {
+        vmaDestroyBuffer(m_allocator, copy.buffer,
+            copy.allocation);
+    });
+
+    vmaDestroyBuffer(m_allocator, staging_buffer.buffer, staging_buffer.allocation);
+
+    const size_t index_buffer_size = skybox_indices.size() * sizeof(uint32_t);
+    staging_buffer = create_buffer(index_buffer_size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
+
+    vmaMapMemory(m_allocator, staging_buffer.allocation, &data);
+    memcpy(data, skybox_indices.data(), index_buffer_size);
+    vmaUnmapMemory(m_allocator, staging_buffer.allocation);
+
+    m_skybox_index_buffer = create_buffer(index_buffer_size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+        VMA_MEMORY_USAGE_GPU_ONLY);
+
+    immediate_command([=](vk::CommandBuffer cmd) {
+        vk::BufferCopy copy{ .srcOffset = 0, .dstOffset = 0, .size = index_buffer_size };
+        cmd.copyBuffer(staging_buffer.buffer, m_skybox_index_buffer.buffer, copy);
+    });
+
+    m_deletion_queue.enqueue([=, copy = m_skybox_index_buffer]() {
+        vmaDestroyBuffer(m_allocator, copy.buffer,
+            copy.allocation);
+    });
+
+    vmaDestroyBuffer(m_allocator, staging_buffer.buffer, staging_buffer.allocation);
 }
 
 void Renderer::create_instance() {
