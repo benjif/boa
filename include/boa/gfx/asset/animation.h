@@ -4,7 +4,7 @@
 #include "boa/macros.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
-#include <stdint.h>
+#include <cstdint>
 #include <variant>
 #include <vector>
 

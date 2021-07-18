@@ -33,7 +33,6 @@ void AnimationController::load_animations(uint32_t e_id, const glTFModel &model)
 
             Animated::Animation::Component new_component;
             new_component.current_sub_component = 0;
-            new_component.sub_components.clear();
             new_component.node_id = channel.target.node;
             new_component.interpolation = static_cast<Animated::Animation::Component::Interpolation>(sampler.interpolation);
             new_component.type = static_cast<Animated::Animation::Component::Type>(channel.target.path);
@@ -122,7 +121,7 @@ bool Animated::Animation::Component::update(float time_change, float progress) {
     assert(interpolation == Interpolation::Linear);
     assert(type != Type::Weights);
 
-    if (progress + time_change >= sub_components[current_sub_component].end_time) {
+    while (progress + time_change >= sub_components[current_sub_component].end_time) {
         if (current_sub_component + 1 >= sub_components.size())
             return false;
         current_sub_component++;
@@ -134,15 +133,16 @@ bool Animated::Animation::Component::update(float time_change, float progress) {
     float sub_duration = active_sub_component.end_time - active_sub_component.start_time;
     float sub_progress = (progress + time_change - active_sub_component.start_time) / sub_duration;
 
+    assert(sub_progress >= 0.0f);
+    assert(sub_progress <= 1.0f);
+
     switch (type) {
+    case Type::Scale:
     case Type::Translation:
         target_progress = glm::mix(std::get<glm::vec3>(active_sub_component.target_start), std::get<glm::vec3>(active_sub_component.target_end), sub_progress);
         break;
     case Type::Rotation:
         target_progress = glm::slerp(std::get<glm::quat>(active_sub_component.target_start), std::get<glm::quat>(active_sub_component.target_end), sub_progress);
-        break;
-    case Type::Scale:
-        target_progress = glm::mix(std::get<glm::vec3>(active_sub_component.target_start), std::get<glm::vec3>(active_sub_component.target_end), sub_progress);
         break;
     default:
         TODO();
@@ -162,7 +162,6 @@ bool Animated::Animation::update(float time_change, float progress) {
 }
 
 void Animated::reset() {
-    progress = 0.0f;
     for (auto &animation : animations) {
         for (auto &component : animation.animation_components) {
             component.current_sub_component = 0;
@@ -193,6 +192,7 @@ void Animated::reset() {
             }
         }
     }
+    progress = 0.0f;
 }
 
 void Animated::update(float time_change) {

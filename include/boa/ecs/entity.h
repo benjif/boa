@@ -3,7 +3,7 @@
 
 #include "boa/iteration.h"
 #include "boa/ecs/component.h"
-#include <stdint.h>
+#include <cstdint>
 #include <vector>
 #include <bitset>
 #include <algorithm>

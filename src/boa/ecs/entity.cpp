@@ -1,5 +1,5 @@
 #include "boa/ecs/entity.h"
-#include <assert.h>
+#include <cassert>
 
 namespace boa::ecs {
 

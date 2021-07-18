@@ -1,14 +1,13 @@
 #ifndef BOA_GFX_ASSET_ASSET_H
 #define BOA_GFX_ASSET_ASSET_H
 
-#include "boa/gfx/vk/types.h"
 #include "boa/gfx/linear.h"
+#include "boa/gfx/vk/types.h"
+#include "boa/gfx/lighting_type.h"
 #include "boa/gfx/asset/gltf_model.h"
-#include "boa/gfx/asset/lighting_type.h"
 #include "glm/glm.hpp"
 #include <array>
 #include <string>
-#include <cstdint>
 #include <vulkan/vulkan.hpp>
 
 namespace boa::gfx {

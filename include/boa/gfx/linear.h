@@ -2,6 +2,7 @@
 #define BOA_GFX_LINEAR_H
 
 #include "glm/glm.hpp"
+#include "glm/matrix.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include <vulkan/vulkan.hpp>
 #include <fmt/format.h>
@@ -123,6 +124,17 @@ template <> struct fmt::formatter<glm::vec4> {
     template <typename FormatContext>
     auto format(const glm::vec4 &v, FormatContext &ctx) {
         return fmt::format_to(ctx.out(), "({: f}, {: f}, {: f}, {: f})", v.x, v.y, v.z, v.w);
+    }
+};
+
+template <> struct fmt::formatter<glm::mat4> {
+    constexpr auto parse(format_parse_context &ctx) {
+        return ctx.begin();
+    }
+
+    template <typename FormatContext>
+    auto format(const glm::mat4 &m, FormatContext &ctx) {
+        return fmt::format_to(ctx.out(), "\n{},\n{},\n{},\n{}\n", m[0], m[1], m[2], m[3]);
     }
 };
 

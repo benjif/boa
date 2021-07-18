@@ -3,7 +3,7 @@
 
 #include "boa/macros.h"
 #include "boa/gfx/asset/asset.h"
-#include "boa/gfx/asset/lighting_type.h"
+#include "boa/gfx/lighting_type.h"
 #include <string>
 #include <array>
 

@@ -2,7 +2,7 @@
 #define BOA_ECS_COMPONENT_H
 
 #include "boa/macros.h"
-#include <stdint.h>
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 

@@ -67,7 +67,6 @@ void Renderer::run() {
         current_time = std::chrono::high_resolution_clock::now();
         float time_change
             = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
-
         last_time = current_time;
 
         m_per_frame_callback(time_change);

@@ -35,16 +35,18 @@ public:
         asset_manager.load_model(box_animated_entity, box_animated_model, "box_animated");
         animation_controller.load_animations(box_animated_entity, box_animated_model);
 
-        uint32_t box_animated_entity2 =
-            entity_group.copy_entity<boa::gfx::Transformable, boa::gfx::RenderableModel, boa::gfx::Animated>(box_animated_entity);
+        for (size_t i = 1; i < 42; i++) {
+            uint32_t box_animated_entity_copy =
+                entity_group.copy_entity<boa::gfx::Transformable, boa::gfx::RenderableModel, boa::gfx::Animated>(box_animated_entity);
 
-        auto &new_transform = entity_group.get_component<boa::gfx::Transformable>(box_animated_entity2);
-        {
-            new_transform.translation = glm::vec3(1.0f, 0.0f, 0.0f);
-            new_transform.update();
+            auto &new_transform = entity_group.get_component<boa::gfx::Transformable>(box_animated_entity_copy);
+            {
+                new_transform.translation = glm::vec3(i * 1.0f, 0.0f, 0.0f);
+                new_transform.update();
+            }
+
+            animation_controller.play_animation(box_animated_entity_copy, 0, true);
         }
-
-        animation_controller.play_animation(box_animated_entity2, 0, true);
 
         asset_manager.load_skybox(default_skybox, std::array<std::string, 6>{
             "skybox/mountains/right.png",

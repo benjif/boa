@@ -15,8 +15,8 @@ public:
         Right       = 1 << 1,
         Backward    = 1 << 2,
         Forward     = 1 << 3,
-        //Up          = 1 << 4,
-        //Down        = 1 << 5,
+        Up          = 1 << 4,
+        Down        = 1 << 5,
     };
 
     void update_position(float time_change, DirectionFlags directions);

@@ -4,7 +4,7 @@
 #include "boa/gfx/asset/asset.h"
 #include "boa/gfx/vk/initializers.h"
 #include "stb_image.h"
-#include <assert.h>
+#include <cassert>
 
 namespace boa::gfx {
 
