@@ -1,8 +1,10 @@
 #include "boa/macros.h"
 #include "boa/iteration.h"
+#include "boa/gfx/linear.h"
+#include "boa/gfx/lighting.h"
 #include "boa/gfx/asset/gltf_model.h"
 #include "boa/gfx/asset/asset_manager.h"
-#include "boa/gfx/asset/animation_controller.h"
+#include "boa/gfx/asset/animation.h"
 #include "boa/gfx/renderer.h"
 #include "boa/ecs/ecs.h"
 #include <chrono>
@@ -17,51 +19,34 @@ public:
           mouse(renderer.get_mouse()),
           asset_manager(renderer.get_asset_manager())
     {
-        /*sponza_entity = entity_group.new_entity();
-        entity_group.enable<boa::ecs::Renderable>(sponza_entity);
-        entity_group.enable<boa::ecs::Transformable>(sponza_entity);
-
-        auto &sponza_transform_component = entity_group.get_component<boa::ecs::Transformable>(sponza_entity);
-        {
-            sponza_transform_component.orientation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
-            sponza_transform_component.translation = glm::vec3(0.0f, 0.0f, 0.0f);
-            sponza_transform_component.scale = glm::vec3(1.0f, 1.0f, 1.0f);
-            sponza_transform_component.update();
-        }*/
+        default_skybox = entity_group.new_entity();
 
         box_animated_entity = entity_group.new_entity();
-        entity_group.enable<boa::ecs::Renderable>(box_animated_entity);
-        entity_group.enable<boa::ecs::Transformable>(box_animated_entity);
-
-        auto &box_transform_component = entity_group.get_component<boa::ecs::Transformable>(box_animated_entity);
-        {
-            box_transform_component.orientation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
-            box_transform_component.translation = glm::vec3(0.0f, 0.0f, 0.0f);
-            box_transform_component.scale = glm::vec3(0.6f, 0.6f, 0.6f);
-            box_transform_component.update();
-        }
-    }    
+        entity_group.enable<boa::gfx::Transformable>(box_animated_entity);
+        entity_group.enable_and_make<boa::gfx::Transformable>(box_animated_entity,
+            glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
+            glm::vec3{ 0.0f, 0.0f, 0.0f },
+            glm::vec3{ 0.6f, 0.6f, 0.6f });
+    }
 
     void load_assets() {
-        auto &asset_manager = renderer.get_asset_manager();
-
-        //sponza_model.open_gltf_file("models/sponza/glTF/Sponza.gltf");
         box_animated_model.open_gltf_file("models/BoxAnimated.gltf");
 
-        /*uint32_t sponza_model_id = asset_manager.load_model(sponza_model, "sponza");
+        asset_manager.load_model(box_animated_entity, box_animated_model, "box_animated");
+        animation_controller.load_animations(box_animated_entity, box_animated_model);
+
+        uint32_t box_animated_entity2 =
+            entity_group.copy_entity<boa::gfx::Transformable, boa::gfx::RenderableModel, boa::gfx::Animated>(box_animated_entity);
+
+        auto &new_transform = entity_group.get_component<boa::gfx::Transformable>(box_animated_entity2);
         {
-            auto &model_component = entity_group.get_component<boa::ecs::Renderable>(sponza_entity);
-            model_component.model_id = sponza_model_id;
-        }*/
-        uint32_t box_animated_model_id = asset_manager.load_model(box_animated_model, "box_animated");
-        {
-            auto &model_component = entity_group.get_component<boa::ecs::Renderable>(box_animated_entity);
-            model_component.model_id = box_animated_model_id;
+            new_transform.translation = glm::vec3(1.0f, 0.0f, 0.0f);
+            new_transform.update();
         }
 
-        animation_controller.load_animations(box_animated_model, box_animated_entity);
+        animation_controller.play_animation(box_animated_entity2, 0, true);
 
-        default_skybox = asset_manager.load_skybox(std::array<std::string, 6>{
+        asset_manager.load_skybox(default_skybox, std::array<std::string, 6>{
             "skybox/mountains/right.png",
             "skybox/mountains/left.png",
             "skybox/mountains/top.png",
@@ -79,6 +64,15 @@ public:
         asset_manager.set_active_skybox(default_skybox);
     }
 
+    void load_lighting() {
+        global_light = entity_group.new_entity();
+        entity_group.enable_and_make<boa::gfx::GlobalLight>(global_light,
+            glm::vec3{ 0.0f, 0.0f, 0.0f },
+            glm::vec3{ 1.0f, 1.0f, 1.0f },
+            glm::vec3{ 1.0f, 1.0f, 1.0f },
+            glm::vec3{ 1.0f, 1.0f, 1.0f });
+    }
+
     void play_looped_animations() {
         animation_controller.play_animation(box_animated_entity, 0, true);
     }
@@ -88,12 +82,13 @@ public:
             static float time = 0.0f;
             time += time_change;
 
-            animation_controller.update(time_change);
-            auto &box_transform_component = entity_group.get_component<boa::ecs::Transformable>(box_animated_entity);
+            auto &box_transform_component = entity_group.get_component<boa::gfx::Transformable>(box_animated_entity);
 
             box_transform_component.translation.x = sin(time) / 8;
             box_transform_component.translation.y = 0.75f + cos(time) / 8;
             box_transform_component.update();
+
+            animation_controller.update(time_change);
 
             time_change *= 60.0f;
 
@@ -157,6 +152,7 @@ private:
 
     uint32_t sponza_entity, box_animated_entity;
     uint32_t default_skybox;
+    uint32_t global_light;
     boa::gfx::glTFModel sponza_model, box_animated_model;
 };
 
@@ -165,14 +161,12 @@ int main(int argc, char **argv) {
 
     BoaExampleApplication app;
     app.load_assets();
+    app.load_lighting();
 
     app.setup_per_frame();
     app.play_looped_animations();
 
     app.run();
-
-    //boa::gfx::Skybox daytime = renderer.load_skybox("skybox/daytime.png");
-    //renderer.set_skybox(daytime);
 
     LOG_INFO("(Global) Exiting");
     return EXIT_SUCCESS;

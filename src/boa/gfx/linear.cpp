@@ -1,7 +1,16 @@
 #include "boa/macros.h"
-#include "boa/gfx/linear_types.h"
+#include "boa/gfx/linear.h"
+#include "glm/gtx/quaternion.hpp"
+#include "glm/gtx/transform.hpp"
 
 namespace boa::gfx {
+
+void Transformable::update() {
+    transform_matrix = glm::mat4(1.0f);
+    transform_matrix *= glm::translate(translation);
+    transform_matrix *= glm::toMat4(orientation);
+    transform_matrix *= glm::scale(scale);
+}
 
 Sphere Sphere::bounding_sphere_from_bounding_box(const Box &box) {
     Sphere new_sphere;

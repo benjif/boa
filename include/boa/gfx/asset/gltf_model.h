@@ -3,7 +3,7 @@
 
 #include "boa/macros.h"
 #include "boa/iteration.h"
-#include "boa/gfx/linear_types.h"
+#include "boa/gfx/linear.h"
 #include "glm/gtc/quaternion.hpp"
 #include "tiny_gltf.h"
 #include <vector>

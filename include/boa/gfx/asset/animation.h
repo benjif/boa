@@ -1,24 +1,25 @@
-#ifndef BOA_ECS_COMPONENT_DEF_H
-#define BOA_ECS_COMPONENT_DEF_H
+#ifndef BOA_GFX_ASSET_ANIMATION_H
+#define BOA_GFX_ASSET_ANIMATION_H
 
+#include "boa/macros.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
-#include <vector>
+#include <stdint.h>
 #include <variant>
+#include <vector>
 
-namespace boa::ecs {
+namespace boa::gfx {
 
-struct Transformable {
-    glm::mat4 transform_matrix{ 1.0f };
-    glm::vec3 translation{ 0.0f, 0.0f, 0.0f };
-    glm::quat orientation{ 0.0f, 0.0f, 0.0f, 0.0f };
-    glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
+class glTFModel;
 
-    void update();
-};
+class AnimationController {
+    REMOVE_COPY_AND_ASSIGN(AnimationController);
+public:
+    AnimationController() {}
 
-struct Renderable {
-    uint32_t model_id;
+    void load_animations(uint32_t e_id, const boa::gfx::glTFModel &model);
+    void play_animation(uint32_t e_id, uint32_t animation_id, bool loop = false);
+    void update(float time_change);
 };
 
 struct Animated {
@@ -50,15 +51,13 @@ struct Animated {
             std::variant<glm::vec3, glm::quat> target_progress;
 
             uint32_t node_id;
-            Animated *parent;
 
-            bool update(float time_change);
+            bool update(float time_change, float progress);
         };
 
         std::vector<Component> animation_components;
-        Animated *parent;
 
-        bool update(float time_change);
+        bool update(float time_change, float progress);
     };
 
     std::vector<Animation> animations;

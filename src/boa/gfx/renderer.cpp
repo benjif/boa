@@ -2,6 +2,7 @@
 #include "boa/ecs/ecs.h"
 #include "boa/iteration.h"
 #include "boa/gfx/renderer.h"
+#include "boa/gfx/asset/animation.h"
 #include "boa/gfx/vk/initializers.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
@@ -343,7 +344,9 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
     memcpy(data, &transforms, sizeof(Transformations));
     vmaUnmapMemory(m_allocator, current_frame().transformations_buffer.allocation);
 
-    auto &entity_group = boa::ecs::EntityGroup::get();
+    auto &entity_group = ecs::EntityGroup::get();
+    //auto global_light_e = entity_group.find_first_entity_with_component<ecs::GlobalLight>();
+    //if (global_light_e.has_value())
 
     // TODO: instanced rendering (entities that share the same Model)
     /*std::unordered_map<uint32_t, std::vector<uint32_t>> model_instance_groups;
@@ -354,40 +357,39 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
         return Iteration::Continue;
     });*/
 
-    entity_group.for_each_entity_with_component<boa::ecs::Renderable>([&](auto &e_id) {
-        uint32_t model_id = entity_group.get_component<boa::ecs::Renderable>(e_id).model_id;
-        auto &vk_model = m_asset_manager.get_model(model_id);
+    entity_group.for_each_entity_with_component<RenderableModel>([&](auto &e_id) {
+        auto &model = entity_group.get_component<RenderableModel>(e_id);
 
-        if (vk_model.nodes.size() == 0)
+        if (model.nodes.size() == 0)
             return Iteration::Continue;
 
-        bool is_animated = entity_group.has_component<boa::ecs::Animated>(e_id);
+        bool is_animated = entity_group.has_component<Animated>(e_id);
 
         const auto draw_node = [&](const auto &node, glm::mat4 &local_transform) {
             auto draw_node_impl = [&](const auto &node, glm::mat4 &local_transform, auto &draw_node_ref) mutable -> void {
                 if (is_animated)
-                    local_transform *= entity_group.get_component<boa::ecs::Animated>(e_id).transform_for_node(node.id);
+                    local_transform *= entity_group.get_component<Animated>(e_id).transform_for_node(node.id);
                 else
                     local_transform *= node.transform_matrix;
 
                 size_t last_material = std::numeric_limits<size_t>::max();
-                for (size_t vk_primitive_idx : node.primitives) {
-                    const auto &vk_primitive = vk_model.primitives[vk_primitive_idx];
+                for (size_t primitive_idx : node.primitives) {
+                    const auto &primitive = model.primitives[primitive_idx];
 
                     // probably not right, it won't matter once we do frustum culling on the GPU
                     // with instanced rendering
-                    glm::vec3 new_bounding_center = local_transform * glm::vec4(vk_primitive.bounding_sphere.center, 1.0f);
-                    double new_bounding_radius = glm::length(local_transform * glm::vec4(0.0f, 0.0f, 0.0f, vk_primitive.bounding_sphere.radius));
+                    glm::vec3 new_bounding_center = local_transform * glm::vec4(primitive.bounding_sphere.center, 1.0f);
+                    double new_bounding_radius = glm::length(local_transform * glm::vec4(0.0f, 0.0f, 0.0f, primitive.bounding_sphere.radius));
                     if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
                         continue;
 
                     glm::mat4 model_view_projection = transforms.view_projection * local_transform;
                     PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
 
-                    auto &material = m_asset_manager.get_material(vk_primitive.material);
-                    if (vk_primitive.material != last_material) {
+                    auto &material = m_asset_manager.get_material(primitive.material);
+                    if (primitive.material != last_material) {
                         cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, material.pipeline);
-                        last_material = vk_primitive.material;
+                        last_material = primitive.material;
 
                         cmd.bindDescriptorSets(
                             vk::PipelineBindPoint::eGraphics,
@@ -409,32 +411,34 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
                     cmd.pushConstants(material.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
-                    vk::Buffer vertex_buffers[] = { vk_model.vertex_buffer.buffer };
+                    vk::Buffer vertex_buffers[] = { model.vertex_buffer.buffer };
                     vk::DeviceSize offsets[] = { 0 };
                     cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
-                    cmd.bindIndexBuffer(vk_primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
+                    cmd.bindIndexBuffer(primitive.index_buffer.buffer, 0, vk::IndexType::eUint32);
 
-                    cmd.drawIndexed(vk_primitive.index_count, 1, 0, 0, 0);
+                    cmd.drawIndexed(primitive.index_count, 1, 0, 0, 0);
                 }
 
                 for (size_t child_idx : node.children)
-                    draw_node_ref(vk_model.nodes[child_idx], local_transform, draw_node_ref);
+                    draw_node_ref(model.nodes[child_idx], local_transform, draw_node_ref);
             };
 
             draw_node_impl(node, local_transform, draw_node_impl);
         };
 
         glm::mat4 entity_transform_matrix{ 1.0f };
-        if (entity_group.has_component<boa::ecs::Transformable>(e_id))
-            entity_transform_matrix = entity_group.get_component<boa::ecs::Transformable>(e_id).transform_matrix;
+        if (entity_group.has_component<Transformable>(e_id))
+            entity_transform_matrix = entity_group.get_component<Transformable>(e_id).transform_matrix;
 
-        for (size_t node_idx : vk_model.root_nodes)
-            draw_node(vk_model.nodes[node_idx], entity_transform_matrix);
+        for (size_t node_idx : model.root_nodes)
+            draw_node(model.nodes[node_idx], entity_transform_matrix);
 
         return Iteration::Continue;
     });
 
-    if (m_asset_manager.m_skybox.has_value()) {
+    auto skybox_e = m_asset_manager.get_active_skybox();
+    if (skybox_e.has_value()) {
+        auto &skybox = entity_group.get_component<Skybox>(skybox_e.value());
         cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_skybox_pipeline);
         cmd.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
@@ -446,7 +450,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
             vk::PipelineBindPoint::eGraphics,
             m_skybox_pipeline_layout,
             1,
-            m_asset_manager.m_skyboxes[m_asset_manager.m_skybox.value()].skybox_set,
+            skybox.skybox_set,
             nullptr);
 
         vk::Buffer vertex_buffers[] = { m_skybox_vertex_buffer.buffer };
@@ -1317,17 +1321,26 @@ void Renderer::create_descriptors() {
 }
 
 void Renderer::create_pipelines() {
-    vk::ShaderModule untextured_frag = load_shader("shaders/untextured_frag.spv");
-    vk::ShaderModule untextured_vert = load_shader("shaders/untextured_vert.spv");
-    vk::ShaderModule textured_frag = load_shader("shaders/textured_frag.spv");
-    vk::ShaderModule textured_vert = load_shader("shaders/textured_vert.spv");
-    vk::ShaderModule skybox_frag = load_shader("shaders/skybox_frag.spv");
-    vk::ShaderModule skybox_vert = load_shader("shaders/skybox_vert.spv");
+    LOG_INFO("(Renderer) Creating pipelines");
+
+    vk::ShaderModule untextured_frag = load_shader("shaders/untextured/untextured_frag.spv");
+    vk::ShaderModule untextured_vert = load_shader("shaders/untextured/untextured_vert.spv");
+    vk::ShaderModule textured_frag = load_shader("shaders/textured/textured_frag.spv");
+    vk::ShaderModule textured_vert = load_shader("shaders/textured/textured_vert.spv");
+    //vk::ShaderModule untextured_blinn_phong_frag = load_shader("shaders/untextured_blinn_phong/untextured_blinn_phong_frag.spv");
+    //vk::ShaderModule untextured_blinn_phong_vert = load_shader("shaders/untextured_blinn_phong/untextured_blinn_phong_vert.spv");
+    vk::ShaderModule skybox_frag = load_shader("shaders/skybox/skybox_frag.spv");
+    vk::ShaderModule skybox_vert = load_shader("shaders/skybox/skybox_vert.spv");
 
     PipelineContext pipeline_ctx;
+
     vk::PipelineLayoutCreateInfo untextured_layout_info = pipeline_layout_create_info();
-    vk::Pipeline untextured_pipeline, textured_pipeline, skybox_pipeline;
-    vk::PipelineLayout untextured_pipeline_layout, textured_pipeline_layout, skybox_pipeline_layout;
+    vk::Pipeline untextured_pipeline,
+        textured_pipeline,
+        skybox_pipeline;
+    vk::PipelineLayout untextured_pipeline_layout,
+        textured_pipeline_layout,
+        skybox_pipeline_layout;
 
     vk::PushConstantRange push_constants{
         .stageFlags = vk::ShaderStageFlagBits::eVertex,
@@ -1373,6 +1386,22 @@ void Renderer::create_pipelines() {
         //create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
         m_asset_manager.create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
     }
+
+    // UNTEXTURED BLINN-PHONG PIPELINE
+    /*{
+        vk::PipelineLayoutCreateInfo untextured_blinn_phong_layout_info = untextured_layout_info;
+
+        vk::DescriptorSetLayout untextured_blinn_phong_set_layouts[] = { m_descriptor_set_layout };
+
+        textured_layout_info.setLayoutCount = 2;
+        textured_layout_info.pSetLayouts = untextured_blinn_phong_set_layouts;
+
+        pipeline_ctx.shader_stages.clear();
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, untextured_blinn_phong_vert));
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, untextured_blinn_phong_frag));
+    }*/
 
     // TEXTURED PIPELINE
     {
@@ -1426,7 +1455,7 @@ void Renderer::create_pipelines() {
         pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLessOrEqual);
         pipeline_ctx.rasterizer.cullMode = vk::CullModeFlagBits::eNone;
         //pipeline_ctx.rasterizer.frontFace = vk::FrontFace::eClockwise;
-        pipeline_ctx.depth_stencil.stencilTestEnable = false;
+        //pipeline_ctx.depth_stencil.stencilTestEnable = false;
         pipeline_ctx.pipeline_layout = skybox_pipeline_layout;
 
         skybox_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);

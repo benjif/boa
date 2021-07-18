@@ -1,10 +1,13 @@
 #!/bin/sh
 
-glslc skybox.vert -o skybox_vert.spv
-glslc skybox.frag -o skybox_frag.spv
+glslc skybox/skybox.vert -o skybox/skybox_vert.spv
+glslc skybox/skybox.frag -o skybox/skybox_frag.spv
 
-glslc untextured.vert -o untextured_vert.spv
-glslc untextured.frag -o untextured_frag.spv
+glslc untextured/untextured.vert -o untextured/untextured_vert.spv
+glslc untextured/untextured.frag -o untextured/untextured_frag.spv
 
-glslc textured.vert -o textured_vert.spv
-glslc textured.frag -o textured_frag.spv
+glslc untextured_blinn_phong/untextured_blinn_phong.vert -o untextured_blinn_phong/untextured_blinn_phong_vert.spv
+glslc untextured_blinn_phong/untextured_blinn_phong.frag -o untextured_blinn_phong/untextured_blinn_phong_frag.spv
+
+glslc textured/textured.vert -o textured/textured_vert.spv
+glslc textured/textured.frag -o textured/textured_frag.spv

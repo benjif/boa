@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(boa)
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -Wall")
+set(CMAKE_CXX_FLAGS "-std=c++17")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 
@@ -12,9 +12,9 @@ find_package(fmt REQUIRED)
 #find_package(Bullet REQUIRED)
 
 file(GLOB SOURCES
-    lib/imgui/*.cpp
     lib/imgui/backends/imgui_impl_glfw.cpp
     lib/imgui/backends/imgui_impl_vulkan.cpp
+    lib/imgui/*.cpp
     src/*.cpp
     src/boa/*.cpp
     src/boa/input/*.cpp
@@ -49,6 +49,7 @@ set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
 target_include_directories(boa
     PUBLIC "${PROJECT_SOURCE_DIR}/lib/imgui/backends"
     PUBLIC "${PROJECT_SOURCE_DIR}/lib/imgui"
+    PUBLIC "${PROJECT_SOURCE_DIR}/lib/include"
     PUBLIC "${PROJECT_SOURCE_DIR}/include"
     PUBLIC ${Vulkan_INCLUDE_DIRS}
 )

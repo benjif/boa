@@ -9,7 +9,7 @@
 namespace boa::ecs {
 
 const size_t COMPONENTS_START_COUNT = 64;
-const size_t PER_COMPONENT_SIZE = 10 * KiB;
+const size_t COMPONENT_ZONE_SIZE = 10 * KiB;
 const uint32_t COMPONENTS_GROWTH_RATE = 2;
 
 extern uint32_t component_type_count;
@@ -25,7 +25,11 @@ public:
     template <typename Component>
     Component *get_component_zone() {
         uint32_t c_id = component_id<Component>();
-        return (Component *)(m_component_store.get() + c_id * PER_COMPONENT_SIZE);
+        return (Component *)(m_component_store.get() + c_id * COMPONENT_ZONE_SIZE);
+    }
+
+    void *get_component_zone_from_component_id(uint32_t c_id) {
+        return (void *)(m_component_store.get() + c_id * COMPONENT_ZONE_SIZE);
     }
 
     void grow();

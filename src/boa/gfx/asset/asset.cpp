@@ -1,14 +1,14 @@
 #include "boa/macros.h"
 #include "boa/gfx/renderer.h"
 #include "boa/gfx/asset/asset_manager.h"
-#include "boa/gfx/asset/vkasset.h"
+#include "boa/gfx/asset/asset.h"
 #include "boa/gfx/vk/initializers.h"
 #include "stb_image.h"
 #include <assert.h>
 
 namespace boa::gfx {
 
-VkSkybox::VkSkybox(Renderer &renderer, const std::array<std::string, 6> &texture_paths)
+Skybox::Skybox(Renderer &renderer, const std::array<std::string, 6> &texture_paths)
     : texture(renderer, texture_paths)
 {
     vk::DescriptorSetAllocateInfo alloc_info{
@@ -58,9 +58,11 @@ VkSkybox::VkSkybox(Renderer &renderer, const std::array<std::string, 6> &texture
     sampler = new_sampler;
 }
 
-VkModel::VkModel(AssetManager &asset_manager, Renderer &renderer, const std::string &model_name, const glTFModel &model_model)
+RenderableModel::RenderableModel(AssetManager &asset_manager, Renderer &renderer, const std::string &model_name,
+    const glTFModel &model_model, LightingInteractivity preferred_lighting)
     : name(std::move(model_name)),
       root_node_count(model_model.get_root_node_count()),
+      m_preferred_lighting(preferred_lighting),
       m_asset_manager(asset_manager),
       m_model(model_model),
       m_renderer(renderer)
@@ -128,7 +130,7 @@ static inline vk::SamplerAddressMode tinygltf_to_vulkan_address_mode(int gltf) {
     }
 }
 
-void VkModel::add_sampler(const glTFModel::Sampler &sampler) {
+void RenderableModel::add_sampler(const glTFModel::Sampler &sampler) {
     vk::SamplerCreateInfo sampler_info{
         .magFilter          = tinygltf_to_vulkan_filter(sampler.mag_filter),
         .minFilter          = tinygltf_to_vulkan_filter(sampler.min_filter),
@@ -153,23 +155,31 @@ void VkModel::add_sampler(const glTFModel::Sampler &sampler) {
     });
 }
 
-void VkModel::add_from_node(const glTFModel::Node &node) {
-    VkNode new_node;
-    new_node.children.reserve(node.children.size());
-    new_node.transform_matrix = node.matrix;
-    new_node.id = node.id;
+void RenderableModel::add_from_node(const glTFModel::Node &node) {
+    Node new_boa_node;
+    new_boa_node.children.reserve(node.children.size());
+    new_boa_node.transform_matrix = node.matrix;
+    new_boa_node.id = node.id;
 
     for (size_t child : node.children)
-        new_node.children.push_back(child);
+        new_boa_node.children.push_back(child);
 
     if (node.mesh.has_value()) {
         const auto &mesh = m_model.get_mesh(node.mesh.value());
-        new_node.children.reserve(mesh.primitives.size());
+        new_boa_node.children.reserve(mesh.primitives.size());
 
         for (size_t primitive_idx : mesh.primitives) {
             const auto &primitive = m_model.get_primitive(primitive_idx);
-            VkPrimitive new_vk_primitive;
-            new_vk_primitive.material = m_renderer.UNTEXTURED_MATERIAL_INDEX;
+            Primitive new_boa_primitive;
+
+            switch (m_preferred_lighting) {
+            case LightingInteractivity::Unlit:
+                new_boa_primitive.material = m_renderer.UNTEXTURED_MATERIAL_INDEX;
+                break;
+            case LightingInteractivity::BlinnPhong:
+                new_boa_primitive.material = m_renderer.UNTEXTURED_BLINN_PHONG_MATERIAL_INDEX;
+                break;
+            }
 
             if (primitive.material.has_value()) {
                 const auto &material = m_model.get_material(primitive.material.value());
@@ -178,16 +188,27 @@ void VkModel::add_from_node(const glTFModel::Node &node) {
                     if (base_texture.sampler.has_value() && base_texture.source.has_value()) {
                         const auto &image = m_model.get_image(base_texture.source.value());
 
-                        VkTexture new_texture(m_renderer, image);
+                        Texture new_texture(m_renderer, image);
                         textures.push_back(std::move(new_texture));
 
                         LOG_INFO("(Asset) Creating new material 'textured_{}_{}'", name, primitive_idx);
 
-                        VkMaterial &textured = m_asset_manager.get_material(m_renderer.TEXTURED_MATERIAL_INDEX);
+                        size_t material_index = 0;
+                        switch (m_preferred_lighting) {
+                        case LightingInteractivity::BlinnPhong:
+                            material_index = m_renderer.TEXTURED_BLINN_PHONG_MATERIAL_INDEX;
+                            break;
+                        case LightingInteractivity::Unlit:
+                        default:
+                            material_index = m_renderer.TEXTURED_MATERIAL_INDEX;
+                            break;
+                        }
+
+                        Material &textured = m_asset_manager.get_material(material_index);
 
                         uint32_t new_textured_index = m_asset_manager.create_material(textured.pipeline, textured.pipeline_layout,
                             fmt::format("textured_{}_{}", name, primitive_idx));
-                        VkMaterial &new_textured = m_asset_manager.get_material(new_textured_index);
+                        Material &new_textured = m_asset_manager.get_material(new_textured_index);
 
                         new_textured.texture_set = m_textures_descriptor_set;
                         new_textured.descriptor_number = m_descriptor_count;
@@ -203,26 +224,26 @@ void VkModel::add_from_node(const glTFModel::Node &node) {
                         write.dstArrayElement = m_descriptor_count;
                         m_renderer.m_device.get().updateDescriptorSets(write, nullptr);
 
-                        new_vk_primitive.material = new_textured_index;
+                        new_boa_primitive.material = new_textured_index;
                         m_descriptor_count++;
                     }
                 }
             }
 
-            new_vk_primitive.index_count = primitive.indices.size();
-            new_vk_primitive.bounding_sphere = primitive.bounding_sphere;
+            new_boa_primitive.index_count = primitive.indices.size();
+            new_boa_primitive.bounding_sphere = primitive.bounding_sphere;
 
-            upload_primitive_indices(new_vk_primitive, primitive);
+            upload_primitive_indices(new_boa_primitive, primitive);
 
-            new_node.primitives.push_back(primitives.size());
-            primitives.push_back(std::move(new_vk_primitive));
+            new_boa_node.primitives.push_back(primitives.size());
+            primitives.push_back(std::move(new_boa_primitive));
         }
     }
 
-    nodes.push_back(std::move(new_node));
+    nodes.push_back(std::move(new_boa_node));
 }
 
-void VkTexture::init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data, bool mipmap) {
+void Texture::init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data, bool mipmap) {
     uint32_t image_mip_levels = 1;
     if (mipmap) {
         if (!(renderer.m_device_format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
@@ -456,7 +477,7 @@ void VkTexture::init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data,
     mip_levels = image_mip_levels;
 }
 
-VkTexture::VkTexture(Renderer &renderer, const char *path, bool mipmap) {
+Texture::Texture(Renderer &renderer, const char *path, bool mipmap) {
     int w, h, channels;
     stbi_uc *pixels = stbi_load(path, &w, &h, &channels, STBI_rgb_alpha);
     if (!pixels)
@@ -467,11 +488,11 @@ VkTexture::VkTexture(Renderer &renderer, const char *path, bool mipmap) {
     stbi_image_free(pixels);
 }
 
-VkTexture::VkTexture(Renderer &renderer, const glTFModel::Image &model_image, bool mipmap) {
+Texture::Texture(Renderer &renderer, const glTFModel::Image &model_image, bool mipmap) {
     init(std::forward<Renderer &>(renderer), model_image.width, model_image.height, model_image.data, mipmap);
 }
 
-VkTexture::VkTexture(Renderer &renderer, const std::array<std::string, 6> &texture_paths) {
+Texture::Texture(Renderer &renderer, const std::array<std::string, 6> &texture_paths) {
     int w[6], h[6], channels[6];
     stbi_uc *pixels[6];
 
@@ -616,7 +637,7 @@ VkTexture::VkTexture(Renderer &renderer, const std::array<std::string, 6> &textu
         stbi_image_free(pixels[i]);
 }
 
-void VkModel::upload_primitive_indices(VkPrimitive &vk_primitive, const glTFModel::Primitive &primitive) {
+void RenderableModel::upload_primitive_indices(Primitive &vk_primitive, const glTFModel::Primitive &primitive) {
     const size_t size = primitive.indices.size() * sizeof(uint32_t);
 
     VmaBuffer staging_buffer = m_renderer.create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -641,7 +662,7 @@ void VkModel::upload_primitive_indices(VkPrimitive &vk_primitive, const glTFMode
     vmaDestroyBuffer(m_renderer.m_allocator, staging_buffer.buffer, staging_buffer.allocation);
 }
 
-void VkModel::upload_model_vertices(const glTFModel &model) {
+void RenderableModel::upload_model_vertices(const glTFModel &model) {
     const size_t size = model.get_vertices().size() * sizeof(Vertex);
 
     VmaBuffer staging_buffer = m_renderer.create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);

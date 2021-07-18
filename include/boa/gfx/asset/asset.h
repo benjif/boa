@@ -1,9 +1,10 @@
-#ifndef BOA_GFX_ASSET_VKASSET_H
-#define BOA_GFX_ASSET_VKASSET_H
+#ifndef BOA_GFX_ASSET_ASSET_H
+#define BOA_GFX_ASSET_ASSET_H
 
 #include "boa/gfx/vk/types.h"
-#include "boa/gfx/linear_types.h"
+#include "boa/gfx/linear.h"
 #include "boa/gfx/asset/gltf_model.h"
+#include "boa/gfx/asset/lighting_type.h"
 #include "glm/glm.hpp"
 #include <array>
 #include <string>
@@ -16,7 +17,7 @@ class glTFModel;
 class AssetManager;
 class Renderer;
 
-struct VkMaterial {
+struct Material {
     std::string name;
     uint32_t descriptor_number;
     vk::DescriptorSet texture_set{ VK_NULL_HANDLE };
@@ -24,10 +25,10 @@ struct VkMaterial {
     vk::PipelineLayout pipeline_layout{ VK_NULL_HANDLE };
 };
 
-struct VkTexture {
-    VkTexture(Renderer &renderer, const glTFModel::Image &model_image, bool mipmap = true);
-    VkTexture(Renderer &renderer, const char *path, bool mipmap = true);
-    VkTexture(Renderer &renderer, const std::array<std::string, 6> &texture_paths);
+struct Texture {
+    Texture(Renderer &renderer, const glTFModel::Image &model_image, bool mipmap = true);
+    Texture(Renderer &renderer, const char *path, bool mipmap = true);
+    Texture(Renderer &renderer, const std::array<std::string, 6> &texture_paths);
 
     VmaImage image;
     vk::ImageView image_view;
@@ -37,15 +38,15 @@ private:
     void init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data, bool mipmap);
 };
 
-struct VkSkybox {
-    VkSkybox(Renderer &renderer, const std::array<std::string, 6> &texture_paths);
+struct Skybox {
+    Skybox(Renderer &renderer, const std::array<std::string, 6> &texture_paths);
 
     vk::DescriptorSet skybox_set{ VK_NULL_HANDLE };
     vk::Sampler sampler;
-    VkTexture texture;
+    Texture texture;
 };
 
-struct VkPrimitive {
+struct Primitive {
     uint32_t index_count;
     VmaBuffer index_buffer;
     size_t material;
@@ -53,20 +54,21 @@ struct VkPrimitive {
     Sphere bounding_sphere;
 };
 
-struct VkNode {
+struct Node {
     size_t id;
     std::vector<size_t> primitives;
     std::vector<size_t> children;
     glm::mat4 transform_matrix;
 };
 
-struct VkModel {
-    VkModel(AssetManager &asset_manager, Renderer &renderer, const std::string &model_name, const glTFModel &model_model);
+struct RenderableModel {
+    RenderableModel(AssetManager &asset_manager, Renderer &renderer, const std::string &model_name,
+        const glTFModel &model_model, LightingInteractivity preferred_lighting);
 
     std::string name;
-    std::vector<VkNode> nodes;
-    std::vector<VkPrimitive> primitives;
-    std::vector<VkTexture> textures;
+    std::vector<Node> nodes;
+    std::vector<Primitive> primitives;
+    std::vector<Texture> textures;
     std::vector<vk::Sampler> samplers;
 
     std::vector<size_t> root_nodes;
@@ -79,6 +81,8 @@ private:
     vk::DescriptorSet m_textures_descriptor_set;
     vk::DescriptorSetLayout m_textures_descriptor_set_layout;
 
+    LightingInteractivity m_preferred_lighting;
+
     AssetManager &m_asset_manager;
     const glTFModel &m_model;
     Renderer &m_renderer;
@@ -86,7 +90,7 @@ private:
     void add_sampler(const glTFModel::Sampler &sampler);
     void add_from_node(const glTFModel::Node &node);
 
-    void upload_primitive_indices(VkPrimitive &vk_primitive,
+    void upload_primitive_indices(Primitive &vk_primitive,
         const glTFModel::Primitive &primitive);
     void upload_model_vertices(const glTFModel &model);
 };

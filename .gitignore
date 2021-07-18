@@ -1,8 +1,9 @@
+callgrind.out.*
 Doxyfile
 cmake
 run
 tags
-shaders/*.spv
+**/*.spv
 imgui.ini
 lib/imgui/examples
 lib/imgui/docs

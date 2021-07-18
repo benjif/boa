@@ -23,12 +23,33 @@ struct EntityMeta {
     std::vector<bool> component_mask;
 };
 
-// TODO: support more than one EntityGroup and ComponentStore?
 struct EntityGroup {
     EntityGroup();
     static EntityGroup &get();
 
     uint32_t new_entity();
+
+    template <typename ...C>
+    uint32_t copy_entity(uint32_t copy_e_id) {
+        const EntityMeta &other = entities[copy_e_id];
+        uint32_t c_ids[] = { component_id<C>()... };
+        uint32_t c_size[] = { sizeof(C)... };
+
+        uint32_t new_e_id = entities.size();
+
+        for (size_t i = 0; i < sizeof...(C); i++) {
+            auto &component_store = ComponentStore::get();
+            void *component_zone = component_store.get_component_zone_from_component_id(c_ids[i]);
+            memcpy((char *)component_zone + c_size[i] * new_e_id, (char *)component_zone + c_size[i] * copy_e_id, c_size[i]);
+        }
+
+        EntityMeta new_entity_meta(new_e_id);
+        new_entity_meta.component_mask = other.component_mask;
+        entities.push_back(std::move(new_entity_meta));
+
+        return new_e_id;
+    }
+
     void delete_entity(uint32_t e_id);
 
     template <typename C>
@@ -39,24 +60,27 @@ struct EntityGroup {
     }
 
     template <typename C, typename ...Args>
-    void make(uint32_t e_id, Args ...args) {
+    void make(uint32_t e_id, Args &&...args) {
         uint32_t c_id = component_id<C>();
+        if (!has_component<C>(e_id))
+            throw std::runtime_error("Attempted to make disabled component for entity");
+
         entities[e_id].grow_if_needed(c_id);
         auto &component_store = ComponentStore::get();
         C *component_zone = component_store.get_component_zone<C>();
-        C *component = component_zone + c_id;
-        new (component) C(args...); 
+        C *component = &component_zone[e_id];
+        new(component) C(std::forward<Args>(args)...); 
     }
 
     template <typename C, typename ...Args>
-    void enable_and_make(uint32_t e_id, Args ...args) {
+    void enable_and_make(uint32_t e_id, Args &&...args) {
         uint32_t c_id = component_id<C>();
         entities[e_id].grow_if_needed(c_id);
         entities[e_id].component_mask[c_id] = true;
         auto &component_store = ComponentStore::get();
         C *component_zone = component_store.get_component_zone<C>();
-        C *component = component_zone + c_id;
-        new (component) C(args...); 
+        void *component = &component_zone[e_id];
+        new(component) C(std::forward<Args>(args)...); 
     }
 
     template <typename C>
@@ -95,12 +119,13 @@ struct EntityGroup {
     }
 
     template <typename ...C>
-    uint32_t find_first_entity_with_component() const {
+    std::optional<uint32_t> find_first_entity_with_component() const {
         uint32_t c_ids[] = { component_id<C>()... };
         for (auto &entity : entities) {
             if (std::all_of(std::begin(c_ids), std::end(c_ids), [&](uint32_t c_id) { return entity.component_mask[c_id]; }))
                 return entity.id;
         }
+        return std::nullopt;
     }
 
     std::vector<EntityMeta> entities;

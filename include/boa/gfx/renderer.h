@@ -6,7 +6,7 @@
 #include "boa/gfx/vk/util.h"
 #include "boa/gfx/vk/types.h"
 #include "boa/gfx/asset/gltf_model.h"
-#include "boa/gfx/asset/vkasset.h"
+#include "boa/gfx/asset/asset.h"
 #include "boa/macros.h"
 #include "boa/gfx/camera.h"
 #include "boa/input/keyboard.h"
@@ -83,8 +83,10 @@ private:
     constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 150;
 
     enum {
-        UNTEXTURED_MATERIAL_INDEX   = 0,
-        TEXTURED_MATERIAL_INDEX     = 1,
+        UNTEXTURED_MATERIAL_INDEX               = 0,
+        TEXTURED_MATERIAL_INDEX                 = 1,
+        UNTEXTURED_BLINN_PHONG_MATERIAL_INDEX   = 2,
+        TEXTURED_BLINN_PHONG_MATERIAL_INDEX     = 3,
     };
 
     struct QueueFamilyIndices {
@@ -238,9 +240,9 @@ private:
         const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
         void *p_user_data);
 
-    friend class VkModel;
-    friend class VkTexture;
-    friend class VkSkybox;
+    friend class RenderableModel;
+    friend class Texture;
+    friend class Skybox;
 };
 
 }

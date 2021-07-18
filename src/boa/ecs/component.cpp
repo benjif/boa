@@ -9,7 +9,7 @@ static ComponentStore *component_store_instance = nullptr;
 ComponentStore::ComponentStore() {
     if (component_store_instance)
         return;
-    m_component_store = std::make_unique<char[]>(COMPONENTS_START_COUNT * PER_COMPONENT_SIZE);
+    m_component_store = std::make_unique<char[]>(COMPONENTS_START_COUNT * COMPONENT_ZONE_SIZE);
     component_store_instance = this;
 }
 
@@ -20,9 +20,9 @@ ComponentStore &ComponentStore::get() {
 }
 
 void ComponentStore::grow() {
-    size_t old_size = m_growth * COMPONENTS_START_COUNT * PER_COMPONENT_SIZE;
+    size_t old_size = m_growth * COMPONENTS_START_COUNT * COMPONENT_ZONE_SIZE;
     m_growth *= COMPONENTS_GROWTH_RATE;
-    char *new_store = new char[m_growth * COMPONENTS_START_COUNT * PER_COMPONENT_SIZE];
+    char *new_store = new char[m_growth * COMPONENTS_START_COUNT * COMPONENT_ZONE_SIZE];
     memcpy(new_store, m_component_store.get(), old_size);
     m_component_store.reset(new_store);
 }

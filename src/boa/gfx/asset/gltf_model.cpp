@@ -140,7 +140,7 @@ void glTFModel::open_gltf_file(const char *path) {
 
             uint32_t in_stride = in_accessor.ByteStride(in_buffer_view) ?
                 (in_accessor.ByteStride(in_buffer_view) / sizeof(float)) : 1;
-            uint32_t out_stride, out_floats;
+            uint32_t out_stride = 0, out_floats = 0;
             switch (new_channel.target.path) {
             case AnimationChannel::Path::Translation:
                 out_stride = out_accessor.ByteStride(out_buffer_view) ?

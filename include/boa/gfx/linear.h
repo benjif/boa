@@ -1,5 +1,5 @@
-#ifndef BOA_GFX_LINEAR_TYPES_H
-#define BOA_GFX_LINEAR_TYPES_H
+#ifndef BOA_GFX_LINEAR_H
+#define BOA_GFX_LINEAR_H
 
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
@@ -8,6 +8,25 @@
 #include <string>
 
 namespace boa::gfx {
+
+struct Transformable {
+    Transformable() {}
+
+    Transformable(glm::quat &&ori, glm::vec3 &&trn, glm::vec3 && scl)
+        : orientation(std::move(ori)),
+          translation(std::move(trn)),
+          scale(std::move(scl))
+    {
+        update();
+    }
+
+    glm::mat4 transform_matrix{ 1.0f };
+    glm::quat orientation{ 0.0f, 0.0f, 0.0f, 0.0f };
+    glm::vec3 translation{ 0.0f, 0.0f, 0.0f };
+    glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
+
+    void update();
+};
 
 struct Vertex {
     glm::vec3 position, normal;

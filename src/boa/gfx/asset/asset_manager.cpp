@@ -1,29 +1,27 @@
 #include "boa/macros.h"
-#include "boa/gfx/linear_types.h"
+#include "boa/ecs/ecs.h"
+#include "boa/gfx/linear.h"
 #include "boa/gfx/asset/asset_manager.h"
 #include <array>
 
 namespace boa::gfx {
 
-uint32_t AssetManager::load_model(const glTFModel &model, const std::string &name) {
-    LOG_INFO("(Asset) Loading model '{}'", name);
+void AssetManager::load_model(uint32_t e_id, const glTFModel &model, const std::string &name, LightingInteractivity preferred_lighting) {
+    LOG_INFO("(Asset) Loading model '{}' into entity {}", name, e_id);
 
-    VkModel new_model(*this, m_renderer, name, model);
-    m_models.push_back(std::move(new_model));
-
-    return m_models.size() - 1;
+    auto &entity_group = ecs::EntityGroup::get();
+    entity_group.enable_and_make<RenderableModel>(e_id, *this, m_renderer, name, model, preferred_lighting);
 }
 
-uint32_t AssetManager::load_skybox(const std::array<std::string, 6> &texture_paths) {
-    LOG_INFO("(Asset) Loading skybox {}", m_skyboxes.size());
+void AssetManager::load_skybox(uint32_t e_id, const std::array<std::string, 6> &texture_paths) {
+    LOG_INFO("(Asset) Loading skybox into entity {}", e_id);
 
-    VkSkybox new_skybox(m_renderer, texture_paths);
-    m_skyboxes.push_back(std::move(new_skybox));
-    return m_skyboxes.size() - 1;
+    auto &entity_group = ecs::EntityGroup::get();
+    entity_group.enable_and_make<Skybox>(e_id, m_renderer, std::forward<const std::array<std::string, 6> &>(texture_paths));
 }
 
 uint32_t AssetManager::create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name) {
-    VkMaterial material;
+    Material material;
     material.pipeline = pipeline;
     material.pipeline_layout = layout;
     material.name = name;
