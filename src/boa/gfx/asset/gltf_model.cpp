@@ -1,5 +1,6 @@
 #define TINYGLTF_IMPLEMENTATION
 #define TINYGLTF_USE_CPP14
+#define TINYGLTF_USE_RAPIDJSON
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "boa/macros.h"
@@ -200,20 +201,19 @@ void glTFModel::open_gltf_file(const char *path) {
         m_animations.push_back(std::move(new_animation));
     }
 
-    m_root_node_count = scene.nodes.size();
     std::copy(scene.nodes.begin(), scene.nodes.end(), std::back_inserter(m_root_nodes));
 
     for (const auto &node : m_model.nodes) {
         Node new_node;
-        if (node.rotation.size() == 4)
-            new_node.rotation = glm::make_quat<double>(&node.rotation.data()[0]);
-        else
-            new_node.rotation = glm::dquat(0.0f, 0.0f, 0.0f, 0.0f);
-
         if (node.translation.size() == 3)
             new_node.translation = glm::make_vec3<double>(&node.translation.data()[0]);
         else
             new_node.translation = glm::dvec3(0.0f, 0.0f, 0.0f);
+
+        if (node.rotation.size() == 4)
+            new_node.rotation = glm::make_quat<double>(&node.rotation.data()[0]);
+        else
+            new_node.rotation = glm::dquat(0.0f, 0.0f, 0.0f, 0.0f);
 
         if (node.scale.size() == 3)
             new_node.scale = glm::make_vec3<double>(&node.scale.data()[0]);
@@ -377,7 +377,7 @@ void glTFModel::open_gltf_file(const char *path) {
                     vertex.position = glm::make_vec3(&data_position[i * stride_position]);
                     vertex.normal = data_normal ? glm::normalize(glm::make_vec3(&data_normal[i * stride_normal])) : glm::vec3(0.0f);
                     vertex.texture_coord0 = data_texcoord0 ? glm::make_vec2(&data_texcoord0[i * stride_texcoord0]) : glm::vec2(0.0f);
-                    vertex.texture_coord1 = data_texcoord1 ? glm::make_vec2(&data_texcoord1[i * stride_texcoord1]) : glm::vec2(0.0f);
+                    //vertex.texture_coord1 = data_texcoord1 ? glm::make_vec2(&data_texcoord1[i * stride_texcoord1]) : glm::vec2(0.0f);
 
                     if (data_color0) {
                         if (type_color0 == TINYGLTF_TYPE_VEC3) {
@@ -423,27 +423,26 @@ void glTFModel::debug_print_node(const Node &node, uint32_t indent) const {
         }
     }
 
-    for (size_t child_idx : node.children) {
+    for (size_t child_idx : node.children)
         debug_print_node(m_nodes[child_idx], indent + 4);
-    }
 }
 
 void glTFModel::debug_print() const {
     LOG_INFO("(glTF) Size of nodes: {}", m_nodes.size());
-    for (size_t i = 0; i < m_root_node_count; i++)
-        debug_print_node(m_nodes[i], 0);
+    for (size_t node_idx : m_root_nodes)
+        debug_print_node(m_nodes[node_idx], 0);
 }
 
 const std::vector<Vertex> &glTFModel::get_vertices() const {
     return m_vertices;
 }
 
-std::vector<size_t> glTFModel::get_root_nodes() const {
+const std::vector<size_t> &glTFModel::get_root_nodes() const {
     return m_root_nodes;
 }
 
 size_t glTFModel::get_root_node_count() const {
-    return m_root_node_count;
+    return m_root_nodes.size();
 }
 
 size_t glTFModel::get_node_count() const {

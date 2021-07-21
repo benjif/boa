@@ -32,10 +32,10 @@ struct Transformable {
 struct Vertex {
     glm::vec3 position, normal;
     glm::vec4 color0;
-    glm::vec2 texture_coord0, texture_coord1;
+    glm::vec2 texture_coord0;
 
     // others?
-    // tangent, joint0, weights0
+    // texcoord1, tangent, joint0, weights0
 
     static vk::VertexInputBindingDescription get_binding_description() {
         return {
@@ -45,8 +45,8 @@ struct Vertex {
         };
     }
 
-    static std::array<vk::VertexInputAttributeDescription, 5> get_attribute_descriptions() {
-        return std::array<vk::VertexInputAttributeDescription, 5>{
+    static std::array<vk::VertexInputAttributeDescription, 4> get_attribute_descriptions() {
+        return std::array<vk::VertexInputAttributeDescription, 4>{
             vk::VertexInputAttributeDescription{
                 .location   = 0,
                 .binding    = 0,
@@ -71,12 +71,6 @@ struct Vertex {
                 .format     = vk::Format::eR32G32Sfloat,
                 .offset     = offsetof(Vertex, texture_coord0),
             },
-            vk::VertexInputAttributeDescription{
-                .location   = 4,
-                .binding    = 0,
-                .format     = vk::Format::eR32G32Sfloat,
-                .offset     = offsetof(Vertex, texture_coord1),
-            },
         };
     }
 
@@ -86,7 +80,10 @@ struct Vertex {
 };
 
 struct Box {
-    glm::dvec3 min, max;
+    glm::vec3 min{ 0.0f }, max{ 0.0f };
+
+    glm::vec3 center() const;
+    void center_on_origin();
 };
 
 struct Sphere {

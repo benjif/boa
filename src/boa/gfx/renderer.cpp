@@ -70,19 +70,6 @@ void Renderer::run() {
         last_time = current_time;
 
         m_per_frame_callback(time_change);
-
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        ImGui::Begin("Example window");
-        ImGui::Button("Hello!");
-        static float pos[3] = { 0.0f, 0.0f, 0.0f };
-        static char buf[6];
-        ImGui::InputText("string", buf, IM_ARRAYSIZE(buf));
-        ImGui::InputFloat3("Position", &pos[0]);
-        ImGui::End();
-
         draw_frame();
 
 #ifdef BENCHMARK
@@ -336,26 +323,45 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
     transforms.view_projection = transforms.projection * transforms.view;
     transforms.skybox_view_projection = transforms.projection * glm::mat4(glm::mat3(transforms.view));
 
-    m_frustum.update(transforms.view_projection);
-
     void *data;
     vmaMapMemory(m_allocator, current_frame().transformations_buffer.allocation, &data);
     memcpy(data, &transforms, sizeof(Transformations));
     vmaUnmapMemory(m_allocator, current_frame().transformations_buffer.allocation);
 
     auto &entity_group = ecs::EntityGroup::get();
-    //auto global_light_e = entity_group.find_first_entity_with_component<ecs::GlobalLight>();
-    //if (global_light_e.has_value())
 
-    // TODO: instanced rendering (entities that share the same Model)
-    /*std::unordered_map<uint32_t, std::vector<uint32_t>> model_instance_groups;
+    BlinnPhong blinn_phong;
 
-    entity_group.for_each_entity_with_component<boa::ecs::Model>([&](auto &e_id) {
-        uint32_t model_id = entity_group.get_component<boa::ecs::Model>(e_id).id;
-        model_instance_groups[model_id].push_back(e_id);
+    auto global_light = entity_group.find_first_entity_with_component<GlobalLight>();
+    if (global_light.has_value()) {
+        blinn_phong.global_light = entity_group.get_component<GlobalLight>(global_light.value());
+    } else {
+        blinn_phong.global_light.direction  = { 0.0f, 0.0f, 0.0f };
+        blinn_phong.global_light.ambient    = { 1.0f, 1.0f, 1.0f };
+        blinn_phong.global_light.diffuse    = { 1.0f, 1.0f, 1.0f };
+        blinn_phong.global_light.specular   = { 1.0f, 1.0f, 1.0f };
+    }
+
+    size_t count = 0;
+    entity_group.for_each_entity_with_component<PointLight>([&](auto &e_id) {
+        if (count >= MAX_POINT_LIGHTS)
+            return Iteration::Break;
+
+        blinn_phong.point_lights[count] = entity_group.get_component<PointLight>(e_id);
+
+        count++;
         return Iteration::Continue;
-    });*/
+    });
+    blinn_phong.point_lights_count = count;
+    blinn_phong.camera_position = m_camera.get_position();
 
+    vmaMapMemory(m_allocator, current_frame().blinn_phong_buffer.allocation, &data);
+    memcpy(data, &blinn_phong, sizeof(BlinnPhong));
+    vmaUnmapMemory(m_allocator, current_frame().blinn_phong_buffer.allocation);
+
+    m_frustum.update(transforms.view_projection);
+
+    // TODO: figure out how to do instanced rendering
     entity_group.for_each_entity_with_component<RenderableModel>([&](auto &e_id) {
         auto &model = entity_group.get_component<RenderableModel>(e_id);
 
@@ -383,19 +389,31 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                         continue;
 
                     glm::mat4 model_view_projection = transforms.view_projection * local_transform;
-                    PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model_view_projection = model_view_projection };
+                    PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model = local_transform, .model_view_projection = model_view_projection };
 
                     auto &material = m_asset_manager.get_material(primitive.material);
                     if (primitive.material != last_material) {
                         cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, material.pipeline);
                         last_material = primitive.material;
 
-                        cmd.bindDescriptorSets(
-                            vk::PipelineBindPoint::eGraphics,
-                            material.pipeline_layout,
-                            0,
-                            current_frame().parent_set,
-                            nullptr);
+                        switch (model.lighting) {
+                        case LightingInteractivity::BlinnPhong:
+                            cmd.bindDescriptorSets(
+                                vk::PipelineBindPoint::eGraphics,
+                                material.pipeline_layout,
+                                0,
+                                current_frame().parent_blinn_phong_set,
+                                nullptr);
+                            break;
+                        case LightingInteractivity::Unlit:
+                            cmd.bindDescriptorSets(
+                                vk::PipelineBindPoint::eGraphics,
+                                material.pipeline_layout,
+                                0,
+                                current_frame().parent_set,
+                                nullptr);
+                            break;
+                        }
 
                         if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE) {
                             cmd.bindDescriptorSets(
@@ -1206,7 +1224,7 @@ void Renderer::create_descriptors() {
         throw std::runtime_error("Failed to create descriptor pool");
     }
 
-    vk::DescriptorSetLayoutBinding gpu_data_binding{
+    vk::DescriptorSetLayoutBinding transform_binding{
         .binding            = 0,
         .descriptorType     = vk::DescriptorType::eUniformBuffer,
         .descriptorCount    = 1,
@@ -1216,11 +1234,31 @@ void Renderer::create_descriptors() {
 
     vk::DescriptorSetLayoutCreateInfo set_info{
         .bindingCount   = 1,
-        .pBindings      = &gpu_data_binding,
+        .pBindings      = &transform_binding,
     };
 
     try {
         m_descriptor_set_layout = m_device.get().createDescriptorSetLayout(set_info);
+    } catch (const vk::SystemError &err) {
+        throw std::runtime_error("Failed to create descriptor set layout");
+    }
+
+    vk::DescriptorSetLayoutBinding blinn_phong_binding{
+        .binding            = 1,
+        .descriptorType     = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount    = 1,
+        .stageFlags         = vk::ShaderStageFlagBits::eFragment,
+        .pImmutableSamplers = nullptr,
+    };
+
+    vk::DescriptorSetLayoutBinding blinn_phong_bindings[] = { transform_binding, blinn_phong_binding };
+    vk::DescriptorSetLayoutCreateInfo blinn_phong_set_info{
+        .bindingCount   = 2,
+        .pBindings      = blinn_phong_bindings,
+    };
+
+    try {
+        m_blinn_phong_set_layout = m_device.get().createDescriptorSetLayout(blinn_phong_set_info);
     } catch (const vk::SystemError &err) {
         throw std::runtime_error("Failed to create descriptor set layout");
     }
@@ -1271,8 +1309,10 @@ void Renderer::create_descriptors() {
     }
 
     for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
-        m_frames[i].transformations_buffer
-            = create_buffer(sizeof(Transformations), vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        m_frames[i].transformations_buffer =
+            create_buffer(sizeof(Transformations), vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        m_frames[i].blinn_phong_buffer =
+            create_buffer(sizeof(BlinnPhong), vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         vk::DescriptorSetAllocateInfo alloc_info{
             .descriptorPool     = m_descriptor_pool,
@@ -1280,8 +1320,15 @@ void Renderer::create_descriptors() {
             .pSetLayouts        = &m_descriptor_set_layout,
         };
 
+        vk::DescriptorSetAllocateInfo blinn_phong_alloc_info{
+            .descriptorPool     = m_descriptor_pool,
+            .descriptorSetCount = 1,
+            .pSetLayouts        = &m_blinn_phong_set_layout,
+        };
+
         try {
             m_frames[i].parent_set = m_device.get().allocateDescriptorSets(alloc_info)[0];
+            m_frames[i].parent_blinn_phong_set = m_device.get().allocateDescriptorSets(blinn_phong_alloc_info)[0];
         } catch (const vk::SystemError &err) {
             throw std::runtime_error("Failed to allocate descriptor set");
         }
@@ -1292,7 +1339,13 @@ void Renderer::create_descriptors() {
             .range  = sizeof(Transformations),
         };
 
-        std::array<vk::WriteDescriptorSet, 1> set_writes{
+        vk::DescriptorBufferInfo blinn_phong_buffer_info{
+            .buffer = m_frames[i].blinn_phong_buffer.buffer,
+            .offset = 0,
+            .range  = sizeof(BlinnPhong),
+        };
+
+        std::array<vk::WriteDescriptorSet, 3> set_writes{
             vk::WriteDescriptorSet{
                 .dstSet             = m_frames[i].parent_set,
                 .dstBinding         = 0,
@@ -1302,7 +1355,27 @@ void Renderer::create_descriptors() {
                 .pImageInfo         = nullptr,
                 .pBufferInfo        = &buffer_info,
                 .pTexelBufferView   = nullptr,
-            }
+            },
+            vk::WriteDescriptorSet{
+                .dstSet             = m_frames[i].parent_blinn_phong_set,
+                .dstBinding         = 0,
+                .dstArrayElement    = 0,
+                .descriptorCount    = 1,
+                .descriptorType     = vk::DescriptorType::eUniformBuffer,
+                .pImageInfo         = nullptr,
+                .pBufferInfo        = &buffer_info,
+                .pTexelBufferView   = nullptr,
+            },
+            vk::WriteDescriptorSet{
+                .dstSet             = m_frames[i].parent_blinn_phong_set,
+                .dstBinding         = 1,
+                .dstArrayElement    = 0,
+                .descriptorCount    = 1,
+                .descriptorType     = vk::DescriptorType::eUniformBuffer,
+                .pImageInfo         = nullptr,
+                .pBufferInfo        = &blinn_phong_buffer_info,
+                .pTexelBufferView   = nullptr,
+            },
         };
 
         m_device.get().updateDescriptorSets(set_writes, 0);
@@ -1311,11 +1384,14 @@ void Renderer::create_descriptors() {
     m_deletion_queue.enqueue([&]() {
         m_device.get().destroyDescriptorSetLayout(m_descriptor_set_layout);
         m_device.get().destroyDescriptorSetLayout(m_textures_set_layout);
+        m_device.get().destroyDescriptorSetLayout(m_blinn_phong_set_layout);
         m_device.get().destroyDescriptorSetLayout(m_skybox_set_layout);
         m_device.get().destroyDescriptorPool(m_descriptor_pool);
 
-        for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++)
+        for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
             vmaDestroyBuffer(m_allocator, m_frames[i].transformations_buffer.buffer, m_frames[i].transformations_buffer.allocation);
+            vmaDestroyBuffer(m_allocator, m_frames[i].blinn_phong_buffer.buffer, m_frames[i].blinn_phong_buffer.allocation);
+        }
     });
 }
 
@@ -1326,8 +1402,8 @@ void Renderer::create_pipelines() {
     vk::ShaderModule untextured_vert = load_shader("shaders/untextured/untextured_vert.spv");
     vk::ShaderModule textured_frag = load_shader("shaders/textured/textured_frag.spv");
     vk::ShaderModule textured_vert = load_shader("shaders/textured/textured_vert.spv");
-    //vk::ShaderModule untextured_blinn_phong_frag = load_shader("shaders/untextured_blinn_phong/untextured_blinn_phong_frag.spv");
-    //vk::ShaderModule untextured_blinn_phong_vert = load_shader("shaders/untextured_blinn_phong/untextured_blinn_phong_vert.spv");
+    vk::ShaderModule blinn_phong_frag = load_shader("shaders/blinn_phong/blinn_phong_frag.spv");
+    vk::ShaderModule blinn_phong_vert = load_shader("shaders/blinn_phong/blinn_phong_vert.spv");
     vk::ShaderModule skybox_frag = load_shader("shaders/skybox/skybox_frag.spv");
     vk::ShaderModule skybox_vert = load_shader("shaders/skybox/skybox_vert.spv");
 
@@ -1336,9 +1412,11 @@ void Renderer::create_pipelines() {
     vk::PipelineLayoutCreateInfo untextured_layout_info = pipeline_layout_create_info();
     vk::Pipeline untextured_pipeline,
         textured_pipeline,
+        blinn_phong_pipeline,
         skybox_pipeline;
     vk::PipelineLayout untextured_pipeline_layout,
         textured_pipeline_layout,
+        blinn_phong_pipeline_layout,
         skybox_pipeline_layout;
 
     vk::PushConstantRange push_constants{
@@ -1382,25 +1460,8 @@ void Renderer::create_pipelines() {
         pipeline_ctx.pipeline_layout = untextured_pipeline_layout;
 
         untextured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
-        //create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
-        m_asset_manager.create_material(untextured_pipeline, untextured_pipeline_layout, "untextured");
+        m_asset_manager.create_material(untextured_pipeline, untextured_pipeline_layout);
     }
-
-    // UNTEXTURED BLINN-PHONG PIPELINE
-    /*{
-        vk::PipelineLayoutCreateInfo untextured_blinn_phong_layout_info = untextured_layout_info;
-
-        vk::DescriptorSetLayout untextured_blinn_phong_set_layouts[] = { m_descriptor_set_layout };
-
-        textured_layout_info.setLayoutCount = 2;
-        textured_layout_info.pSetLayouts = untextured_blinn_phong_set_layouts;
-
-        pipeline_ctx.shader_stages.clear();
-        pipeline_ctx.shader_stages.push_back(
-            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, untextured_blinn_phong_vert));
-        pipeline_ctx.shader_stages.push_back(
-            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, untextured_blinn_phong_frag));
-    }*/
 
     // TEXTURED PIPELINE
     {
@@ -1426,8 +1487,34 @@ void Renderer::create_pipelines() {
         pipeline_ctx.pipeline_layout = textured_pipeline_layout;
 
         textured_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
-        //create_material(textured_pipeline, textured_pipeline_layout, "textured");
-        m_asset_manager.create_material(textured_pipeline, textured_pipeline_layout, "textured");
+        m_asset_manager.create_material(textured_pipeline, textured_pipeline_layout);
+    }
+
+    // BLINN-PHONG PIPELINE
+    {
+        vk::PipelineLayoutCreateInfo blinn_phong_layout_info = untextured_layout_info;
+
+        vk::DescriptorSetLayout blinn_phong_set_layouts[] = { m_blinn_phong_set_layout, m_textures_set_layout };
+
+        blinn_phong_layout_info.setLayoutCount = 2;
+        blinn_phong_layout_info.pSetLayouts = blinn_phong_set_layouts;
+
+        try {
+            blinn_phong_pipeline_layout = m_device.get().createPipelineLayout(blinn_phong_layout_info);
+        } catch (const vk::SystemError &err) {
+            throw std::runtime_error("Failed to create Blinn-Phong pipeline layout");
+        }
+
+        pipeline_ctx.shader_stages.clear();
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, blinn_phong_vert));
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, blinn_phong_frag));
+
+        pipeline_ctx.pipeline_layout = blinn_phong_pipeline_layout;
+
+        blinn_phong_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
+        m_asset_manager.create_material(blinn_phong_pipeline, blinn_phong_pipeline_layout);
     }
 
     // SKYBOX PIPELINE
@@ -1466,9 +1553,11 @@ void Renderer::create_pipelines() {
     m_deletion_queue.enqueue([=]() {
         m_device.get().destroyPipeline(untextured_pipeline);
         m_device.get().destroyPipeline(textured_pipeline);
+        m_device.get().destroyPipeline(blinn_phong_pipeline);
         m_device.get().destroyPipeline(skybox_pipeline);
         m_device.get().destroyPipelineLayout(untextured_pipeline_layout);
         m_device.get().destroyPipelineLayout(textured_pipeline_layout);
+        m_device.get().destroyPipelineLayout(blinn_phong_pipeline_layout);
         m_device.get().destroyPipelineLayout(skybox_pipeline_layout);
     });
 
@@ -1476,6 +1565,8 @@ void Renderer::create_pipelines() {
     m_device.get().destroyShaderModule(untextured_vert);
     m_device.get().destroyShaderModule(textured_frag);
     m_device.get().destroyShaderModule(textured_vert);
+    m_device.get().destroyShaderModule(blinn_phong_frag);
+    m_device.get().destroyShaderModule(blinn_phong_vert);
     m_device.get().destroyShaderModule(skybox_frag);
     m_device.get().destroyShaderModule(skybox_vert);
 }

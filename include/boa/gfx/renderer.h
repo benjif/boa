@@ -5,6 +5,7 @@
 #include "boa/gfx/window.h"
 #include "boa/gfx/vk/util.h"
 #include "boa/gfx/vk/types.h"
+#include "boa/gfx/lighting.h"
 #include "boa/gfx/asset/gltf_model.h"
 #include "boa/gfx/asset/asset.h"
 #include "boa/macros.h"
@@ -19,21 +20,6 @@
 #include <string>
 
 namespace boa::gfx {
-
-struct RenderContext {
-    vk::PhysicalDeviceProperties device_properties;
-    vk::FormatProperties device_format_properties;
-    vk::Queue graphics_queue, present_queue;
-    vk::Device device;
-
-    VmaAllocator allocator;
-    DeletionQueue deletion_queue;
-
-    struct {
-        vk::Fence upload_fence;
-        vk::CommandPool command_pool;
-    } upload_context;
-};
 
 class Renderer {
     REMOVE_COPY_AND_ASSIGN(Renderer);
@@ -85,8 +71,7 @@ private:
     enum {
         UNTEXTURED_MATERIAL_INDEX               = 0,
         TEXTURED_MATERIAL_INDEX                 = 1,
-        UNTEXTURED_BLINN_PHONG_MATERIAL_INDEX   = 2,
-        TEXTURED_BLINN_PHONG_MATERIAL_INDEX     = 3,
+        BLINN_PHONG_MATERIAL_INDEX              = 2,
     };
 
     struct QueueFamilyIndices {
@@ -113,8 +98,18 @@ private:
         glm::mat4 skybox_view_projection;
     };
 
+    constexpr static uint32_t MAX_POINT_LIGHTS = 16;
+
+    struct BlinnPhong {
+        GlobalLight global_light;
+        PointLight point_lights[MAX_POINT_LIGHTS];
+        uint32_t point_lights_count;
+        glm::vec3 camera_position;
+    };
+
     struct PushConstants {
         glm::ivec4 extra;
+        glm::mat4 model;
         glm::mat4 model_view_projection;
     };
 
@@ -124,7 +119,9 @@ private:
         vk::CommandPool command_pool;
         vk::CommandBuffer command_buffer;
         vk::DescriptorSet parent_set;
+        vk::DescriptorSet parent_blinn_phong_set;
         VmaBuffer transformations_buffer;
+        VmaBuffer blinn_phong_buffer;
 
         DeletionQueue deletion_queue;
     };
@@ -162,6 +159,7 @@ private:
     vk::Queue m_present_queue;
     vk::DescriptorSetLayout m_descriptor_set_layout;
     vk::DescriptorSetLayout m_textures_set_layout;
+    vk::DescriptorSetLayout m_blinn_phong_set_layout;
     vk::DescriptorSetLayout m_skybox_set_layout;
     vk::DescriptorPool m_descriptor_pool;
 

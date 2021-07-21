@@ -12,6 +12,20 @@ void Transformable::update() {
     transform_matrix *= glm::scale(scale);
 }
 
+glm::vec3 Box::center() const {
+    return glm::vec3{
+        (min.x + max.x) / 2,
+        (min.y + max.y) / 2,
+        (min.z + max.z) / 2
+    };
+}
+
+void Box::center_on_origin() {
+    glm::vec3 box_center = center();
+    min = min - box_center;
+    max = max - box_center;
+}
+
 Sphere Sphere::bounding_sphere_from_bounding_box(const Box &box) {
     Sphere new_sphere;
 

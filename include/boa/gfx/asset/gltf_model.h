@@ -138,7 +138,7 @@ public:
     void debug_print() const;
 
     const std::vector<Vertex> &get_vertices() const;
-    std::vector<size_t> get_root_nodes() const;
+    const std::vector<size_t> &get_root_nodes() const;
     size_t get_root_node_count() const;
     size_t get_node_count() const;
     size_t get_primitive_count() const;
@@ -251,7 +251,6 @@ private:
     std::vector<Animation> m_animations;
 
     std::vector<size_t> m_root_nodes;
-    size_t m_root_node_count{ 0 };
 
     tinygltf::TinyGLTF m_loader;
     tinygltf::Model m_model;

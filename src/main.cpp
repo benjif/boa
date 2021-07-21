@@ -6,6 +6,8 @@
 #include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/asset/animation.h"
 #include "boa/gfx/renderer.h"
+#include "boa/gfx/engine_interface.h"
+#include "boa/phy/physics_controller.h"
 #include "boa/ecs/ecs.h"
 #include <chrono>
 
@@ -20,22 +22,37 @@ public:
           asset_manager(renderer.get_asset_manager())
     {
         default_skybox = entity_group.new_entity();
-
-        box_animated_entity = entity_group.new_entity();
-        entity_group.enable<boa::gfx::Transformable>(box_animated_entity);
-        entity_group.enable_and_make<boa::gfx::Transformable>(box_animated_entity,
+        sponza_entity = entity_group.new_entity();
+        entity_group.enable_and_make<boa::gfx::Transformable>(sponza_entity,
             glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
             glm::vec3{ 0.0f, 0.0f, 0.0f },
-            glm::vec3{ 0.6f, 0.6f, 0.6f });
+            glm::vec3{ 1.0f, 1.0f, 1.0f });
+        box_animated_entity = entity_group.new_entity();
+        /*entity_group.enable_and_make<boa::gfx::Transformable>(box_animated_entity,
+            glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
+            glm::vec3{ 0.0f, 0.0f, 0.0f },
+            glm::vec3{ 0.6f, 0.6f, 0.6f });*/
+        entity_group.enable_and_make<boa::gfx::Transformable>(box_animated_entity,
+            glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
+            glm::vec3{ 0.0f, 30.0f, 0.0f },
+            glm::vec3{ 1.0f, 1.0f, 1.0f });
     }
 
     void load_assets() {
-        box_animated_model.open_gltf_file("models/BoxAnimated.gltf");
+        //box_animated_model.open_gltf_file("models/BoxAnimated.gltf");
+        //sponza_model.open_gltf_file("models/sponza/Sponza.gltf");
+        box_animated_model.open_gltf_file("models/domino_crown.gltf");
+        sponza_model.open_gltf_file("models/primitives/plane.gltf");
 
-        asset_manager.load_model(box_animated_entity, box_animated_model, "box_animated");
-        animation_controller.load_animations(box_animated_entity, box_animated_model);
+        asset_manager.load_model(box_animated_entity, box_animated_model, boa::gfx::LightingInteractivity::BlinnPhong);
+        asset_manager.load_model(sponza_entity, sponza_model);
 
-        for (size_t i = 1; i < 42; i++) {
+        physics_controller.add_entity(box_animated_entity, 50.0f);
+        physics_controller.add_entity(sponza_entity, 0.0f);
+
+        //animation_controller.load_animations(box_animated_entity, box_animated_model);
+
+        /*for (size_t i = 1; i < 32; i++) {
             uint32_t box_animated_entity_copy =
                 entity_group.copy_entity<boa::gfx::Transformable, boa::gfx::RenderableModel, boa::gfx::Animated>(box_animated_entity);
 
@@ -46,7 +63,7 @@ public:
             }
 
             animation_controller.play_animation(box_animated_entity_copy, 0, true);
-        }
+        }*/
 
         asset_manager.load_skybox(default_skybox, std::array<std::string, 6>{
             "skybox/mountains/right.png",
@@ -55,12 +72,6 @@ public:
             "skybox/mountains/bottom.png",
             "skybox/mountains/front.png",
             "skybox/mountains/back.png",
-            /*"skybox/day/right.png",
-            "skybox/day/left.png",
-            "skybox/day/top.png",
-            "skybox/day/bottom.png",
-            "skybox/day/front.png",
-            "skybox/day/back.png",*/
         });
 
         asset_manager.set_active_skybox(default_skybox);
@@ -70,9 +81,23 @@ public:
         global_light = entity_group.new_entity();
         entity_group.enable_and_make<boa::gfx::GlobalLight>(global_light,
             glm::vec3{ 0.0f, 0.0f, 0.0f },
-            glm::vec3{ 1.0f, 1.0f, 1.0f },
-            glm::vec3{ 1.0f, 1.0f, 1.0f },
-            glm::vec3{ 1.0f, 1.0f, 1.0f });
+            glm::vec3{ 0.15f, 0.15f, 0.15f },
+            glm::vec3{ 0.2f, 0.2f, 0.2f },
+            glm::vec3{ 0.1f, 0.1f, 0.1f });
+        point_light = entity_group.new_entity();
+        entity_group.enable_and_make<boa::gfx::PointLight>(point_light,
+            glm::vec3{ 0.0f, 0.0f, 0.0f },
+            glm::vec3{ 0.05f, 0.05f, 0.05f },
+            glm::vec3{ 0.4f, 0.4f, 0.4f },
+            glm::vec3{ 0.5f, 0.5f, 0.5f },
+            0.4f, 0.07f, 0.031f);
+        /*point_light = entity_group.new_entity();
+        entity_group.enable_and_make<boa::gfx::PointLight>(point_light,
+            glm::vec3{ 1.0f, 2.3f, 0.0f },
+            glm::vec3{ 0.5f, 1.0f, 1.0f },
+            glm::vec3{ 1.0f, 1.0f, 0.5f },
+            glm::vec3{ 1.0f, 0.5f, 0.5f },
+            1.0f, 0.09f, 0.032f);*/
     }
 
     void play_looped_animations() {
@@ -84,13 +109,11 @@ public:
             static float time = 0.0f;
             time += time_change;
 
-            auto &box_transform_component = entity_group.get_component<boa::gfx::Transformable>(box_animated_entity);
-
-            box_transform_component.translation.x = sin(time) / 8;
-            box_transform_component.translation.y = 0.75f + cos(time) / 8;
-            box_transform_component.update();
+            auto &light_comp = entity_group.get_component<boa::gfx::PointLight>(point_light);
+            light_comp.position = camera.get_position();
 
             animation_controller.update(time_change);
+            physics_controller.update(time_change);
 
             time_change *= 60.0f;
 
@@ -111,6 +134,8 @@ public:
                 glm::dvec2 cursor_change = mouse.last_movement();
                 camera.update_target(cursor_change);
             }
+
+            boa::gfx::draw_engine_interface();
         });
 
         keyboard.set_callback([&](int key, int action, int mods) {
@@ -128,6 +153,14 @@ public:
                     }
                 } else if (key == boa::input::KEY_LEFT_SHIFT) {
                     camera.set_movement_speed(0.20f);
+                } else if (key == boa::input::KEY_SPACE) {
+                    uint32_t new_light = entity_group.new_entity();
+                    entity_group.enable_and_make<boa::gfx::PointLight>(new_light,
+                        glm::vec3(camera.get_position()),
+                        glm::vec3{ 0.05f, 0.05f, 0.05f },
+                        glm::vec3{ 0.4f, 0.4f, 0.4f },
+                        glm::vec3{ 0.5f, 0.5f, 0.5f },
+                        1.0f, 0.09f, 0.034f);
                 }
             }
         });
@@ -151,10 +184,11 @@ private:
 
     boa::gfx::AssetManager &asset_manager;
     boa::gfx::AnimationController animation_controller;
+    boa::phy::PhysicsController physics_controller;
 
     uint32_t sponza_entity, box_animated_entity;
     uint32_t default_skybox;
-    uint32_t global_light;
+    uint32_t global_light, point_light;
     boa::gfx::glTFModel sponza_model, box_animated_model;
 };
 

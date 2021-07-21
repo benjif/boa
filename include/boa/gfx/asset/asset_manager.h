@@ -19,14 +19,13 @@ public:
     {
     }
 
-    void load_model(uint32_t e_id, const glTFModel &model, const std::string &name,
-        LightingInteractivity preferred_lighting = LightingInteractivity::Unlit);
+    void load_model(uint32_t e_id, const glTFModel &model, LightingInteractivity preferred_lighting = LightingInteractivity::Unlit);
 
     // loads in order of: X+, X-, Y+, Y-, Z+, Z-
     // (right, left, top, bottom, front, back)
     void load_skybox(uint32_t e_id, const std::array<std::string, 6> &texture_paths);
 
-    uint32_t create_material(vk::Pipeline pipeline, vk::PipelineLayout layout, const std::string &name);
+    uint32_t create_material(vk::Pipeline pipeline, vk::PipelineLayout layout);
     Material &get_material(size_t index) { return m_materials.at(index); }
 
     std::optional<uint32_t> get_active_skybox() { return m_active_skybox; }

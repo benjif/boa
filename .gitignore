@@ -9,4 +9,5 @@ lib/imgui/examples
 lib/imgui/docs
 models/minecraft*
 models/sponza
+models/gearbox
 textures/minecraft*

@@ -19,6 +19,7 @@ public:
 
     void load_animations(uint32_t e_id, const boa::gfx::glTFModel &model);
     void play_animation(uint32_t e_id, uint32_t animation_id, bool loop = false);
+    void stop_animation(uint32_t e_id);
     void update(float time_change);
 };
 
@@ -26,13 +27,17 @@ struct Animated {
     struct Animation {
         struct Component {
             struct SubComponent {
-                float start_time, end_time;
                 std::variant<glm::vec3, glm::quat> target_start;
                 std::variant<glm::vec3, glm::quat> target_end;
+                float start_time, end_time;
             };
 
             std::vector<SubComponent> sub_components;
-            size_t current_sub_component{ 0 };
+            std::variant<glm::vec3, glm::quat> target_start;
+            std::variant<glm::vec3, glm::quat> target_progress;
+
+            uint32_t current_sub_component{ 0 };
+            uint32_t node_id;
 
             enum class Type {
                 Translation,
@@ -47,11 +52,6 @@ struct Animated {
                 CubicSpline,
             } interpolation;
 
-            std::variant<glm::vec3, glm::quat> target_start;
-            std::variant<glm::vec3, glm::quat> target_progress;
-
-            uint32_t node_id;
-
             bool update(float time_change, float progress);
         };
 
@@ -62,10 +62,10 @@ struct Animated {
 
     std::vector<Animation> animations;
 
+    float progress{ 0.0f };
+    uint32_t active_animation;
     bool active{ false };
     bool loop{ false };
-    size_t active_animation;
-    float progress{ 0.0f };
 
     void reset();
     void update(float time_change);

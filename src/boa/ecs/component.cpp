@@ -2,6 +2,8 @@
 
 uint32_t boa::ecs::component_type_count = 0;
 
+#include "boa/macros.h"
+
 namespace boa::ecs {
 
 static ComponentStore *component_store_instance = nullptr;
@@ -27,7 +29,7 @@ void ComponentStore::grow() {
     m_component_store.reset(new_store);
 }
 
-size_t ComponentStore::size() const {
+size_t ComponentStore::max_components() const {
     return m_growth * COMPONENTS_START_COUNT;
 }
 

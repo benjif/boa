@@ -117,6 +117,18 @@ void AnimationController::play_animation(uint32_t e_id, uint32_t animation_id, b
     animated.loop = loop;
 }
 
+void AnimationController::stop_animation(uint32_t e_id) {
+    auto &entity_group = boa::ecs::EntityGroup::get();
+
+    if (!entity_group.has_component<Animated>(e_id))
+        return;
+
+    auto &animated = entity_group.get_component<Animated>(e_id);
+    animated.active = false;
+    animated.loop = false;
+    animated.reset();
+}
+
 bool Animated::Animation::Component::update(float time_change, float progress) {
     assert(interpolation == Interpolation::Linear);
     assert(type != Type::Weights);
@@ -137,8 +149,8 @@ bool Animated::Animation::Component::update(float time_change, float progress) {
     assert(sub_progress <= 1.0f);
 
     switch (type) {
-    case Type::Scale:
     case Type::Translation:
+    case Type::Scale:
         target_progress = glm::mix(std::get<glm::vec3>(active_sub_component.target_start), std::get<glm::vec3>(active_sub_component.target_end), sub_progress);
         break;
     case Type::Rotation:

@@ -7,6 +7,7 @@
 #include <vector>
 #include <bitset>
 #include <algorithm>
+#include <queue>
 
 namespace boa::ecs {
 
@@ -28,6 +29,7 @@ struct EntityGroup {
     static EntityGroup &get();
 
     uint32_t new_entity();
+    void delete_entity(uint32_t e_id);
 
     template <typename ...C>
     uint32_t copy_entity(uint32_t copy_e_id) {
@@ -37,9 +39,16 @@ struct EntityGroup {
 
         uint32_t new_e_id = entities.size();
 
+        if (free_entities.size() > 0) {
+            new_e_id = free_entities.top();
+            free_entities.pop();
+        }
+
         for (size_t i = 0; i < sizeof...(C); i++) {
             auto &component_store = ComponentStore::get();
             void *component_zone = component_store.get_component_zone_from_component_id(c_ids[i]);
+            if (new_e_id * c_size[i] >= COMPONENT_ZONE_SIZE)
+                throw std::runtime_error(fmt::format("Component overflow for entity {}", new_e_id));
             memcpy((char *)component_zone + c_size[i] * new_e_id, (char *)component_zone + c_size[i] * copy_e_id, c_size[i]);
         }
 
@@ -49,8 +58,6 @@ struct EntityGroup {
 
         return new_e_id;
     }
-
-    void delete_entity(uint32_t e_id);
 
     template <typename C>
     void enable(uint32_t e_id) {
@@ -67,8 +74,7 @@ struct EntityGroup {
 
         entities[e_id].grow_if_needed(c_id);
         auto &component_store = ComponentStore::get();
-        C *component_zone = component_store.get_component_zone<C>();
-        C *component = &component_zone[e_id];
+        C *component = component_store.get_component<C>(e_id);
         new(component) C(std::forward<Args>(args)...); 
     }
 
@@ -78,8 +84,7 @@ struct EntityGroup {
         entities[e_id].grow_if_needed(c_id);
         entities[e_id].component_mask[c_id] = true;
         auto &component_store = ComponentStore::get();
-        C *component_zone = component_store.get_component_zone<C>();
-        void *component = &component_zone[e_id];
+        C *component = component_store.get_component<C>(e_id);
         new(component) C(std::forward<Args>(args)...); 
     }
 
@@ -129,6 +134,7 @@ struct EntityGroup {
     }
 
     std::vector<EntityMeta> entities;
+    std::priority_queue<uint32_t> free_entities;
 };
 
 }

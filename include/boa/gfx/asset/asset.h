@@ -17,11 +17,10 @@ class AssetManager;
 class Renderer;
 
 struct Material {
-    std::string name;
-    uint32_t descriptor_number;
     vk::DescriptorSet texture_set{ VK_NULL_HANDLE };
     vk::Pipeline pipeline{ VK_NULL_HANDLE };
     vk::PipelineLayout pipeline_layout{ VK_NULL_HANDLE };
+    uint32_t descriptor_number;
 };
 
 struct Texture {
@@ -46,52 +45,49 @@ struct Skybox {
 };
 
 struct Primitive {
-    uint32_t index_count;
-    VmaBuffer index_buffer;
-    size_t material;
-
     Sphere bounding_sphere;
+    uint32_t index_count;
+    uint32_t material;
+    VmaBuffer index_buffer;
 };
 
 struct Node {
-    size_t id;
-    std::vector<size_t> primitives;
-    std::vector<size_t> children;
+    std::vector<uint32_t> primitives;
+    std::vector<uint32_t> children;
     glm::mat4 transform_matrix;
+    uint32_t id;
 };
 
 struct RenderableModel {
-    RenderableModel(AssetManager &asset_manager, Renderer &renderer, const std::string &model_name,
-        const glTFModel &model_model, LightingInteractivity preferred_lighting);
+    RenderableModel(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, LightingInteractivity preferred_lighting);
 
-    std::string name;
     std::vector<Node> nodes;
     std::vector<Primitive> primitives;
-    std::vector<Texture> textures;
-    std::vector<vk::Sampler> samplers;
+    std::vector<uint32_t> root_nodes;
 
-    std::vector<size_t> root_nodes;
-    size_t root_node_count{ 0 };
+    Box bounding_box;
 
     VmaBuffer vertex_buffer;
+    LightingInteractivity lighting;
 
 private:
-    uint32_t m_descriptor_count{ 0 };
     vk::DescriptorSet m_textures_descriptor_set;
     vk::DescriptorSetLayout m_textures_descriptor_set_layout;
 
-    LightingInteractivity m_preferred_lighting;
+    uint32_t m_descriptor_count{ 0 };
 
-    AssetManager &m_asset_manager;
-    const glTFModel &m_model;
-    Renderer &m_renderer;
+    // We pass references as parameters and avoid storing any references
+    // (for Renderer, glTFModel, or AssetManager) because this is a component
+    // and memory space is critical.
+    // The references are only used during construction.
 
-    void add_sampler(const glTFModel::Sampler &sampler);
-    void add_from_node(const glTFModel::Node &node);
+    vk::Sampler create_sampler(Renderer &renderer, const glTFModel::Sampler &sampler);
+    void add_from_node(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, const glTFModel::Node &node);
+    void calculate_model_bounding_box(const glTFModel &model, const glTFModel::Node &node, glm::mat4 transform_matrix);
 
-    void upload_primitive_indices(Primitive &vk_primitive,
+    void upload_primitive_indices(Renderer &renderer, Primitive &vk_primitive,
         const glTFModel::Primitive &primitive);
-    void upload_model_vertices(const glTFModel &model);
+    void upload_model_vertices(Renderer &renderer, const glTFModel &model);
 };
 
 }
