@@ -4,24 +4,39 @@ PROJECT(boa)
 SET(CMAKE_CXX_FLAGS "-std=c++17")
 SET(CMAKE_CXX_FLAGS_RELEASE "-march=native -O3 -DNDEBUG")
 SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
-SET(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
-SET(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
 
 LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 INCLUDE(FetchContent)
 FIND_PACKAGE(Vulkan REQUIRED)
-FIND_PACKAGE(fmt REQUIRED)
+
+IF(NOT VULKAN_FOUND)
+    message(FATAL_ERROR "Failed to find Vulkan")
+ENDIF()
 
 FIND_PROGRAM(CCACHE "ccache")
 IF(CCACHE)
     SET_PROPERTY(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE}")
 ENDIF(CCACHE)
 
+# ***********
+# ** IMGUI **
+# ***********
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY          "https://github.com/eliasdaler/imgui"
+    GIT_TAG                 "6facc66e30e3971437c22f0646d5540bc059479c"
+    GIT_PROGRESS            TRUE
+    GIT_SHALLOW             TRUE
+    USES_TERMINAL_DOWNLOAD  TRUE
+)
+FetchContent_GetProperties(imgui)
+IF(NOT imgui_POPULATED)
+    FetchContent_Populate(imgui)
+ENDIF()
+SET(IMGUI_INCLUDE_DIRS "${imgui_SOURCE_DIR}")
+
 FILE(GLOB SOURCES
-    lib/imgui/backends/imgui_impl_glfw.cpp
-    lib/imgui/backends/imgui_impl_vulkan.cpp
-    lib/imgui/*.cpp
     src/*.cpp
     src/boa/*.cpp
     src/boa/input/*.cpp
@@ -30,6 +45,9 @@ FILE(GLOB SOURCES
     src/boa/gfx/vk/*.cpp
     src/boa/gfx/asset/*.cpp
     src/boa/phy/*.cpp
+    "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_glfw.cpp"
+    "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_vulkan.cpp"
+    "${IMGUI_INCLUDE_DIRS}/*.cpp"
 )
 ADD_EXECUTABLE(boa ${SOURCES})
 
@@ -50,6 +68,22 @@ ADD_DEFINITIONS(
 
 SET(FETCHCONTENT_QUIET FALSE)
 
+# *********
+# ** FMT **
+# *********
+FetchContent_Declare(
+    fmt
+    GIT_REPOSITORY          "https://github.com/fmtlib/fmt"
+    GIT_TAG                 "8.0.1"
+    GIT_PROGRESS            TRUE
+    GIT_SHALLOW             TRUE
+    USES_TERMINAL_DOWNLOAD  TRUE
+)
+FetchContent_GetProperties(fmt)
+SET(FMT_DOC OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(fmt)
+SET(FMT_INCLUDE_DIRS "${fmt_SOURCE_DIR}/include")
+
 # ************
 # **  GLFW  **
 # ************
@@ -61,9 +95,14 @@ FetchContent_Declare(
     GIT_SHALLOW             TRUE
     USES_TERMINAL_DOWNLOAD  TRUE
 )
+FetchContent_GetProperties(glfw)
 OPTION(GLFW_BUILD_DOCS "Build the GLFW documentation" OFF)
 OPTION(GLFW_INSTALL "Generate installation target" OFF)
-#ADD_SUBDIRECTORY(${glfw_SOURCE_DIR} ${glfw_BINARY_DIR})
+OPTION(GLFW_BUILD_TESTS "Build GLFW tests" OFF)
+OPTION(GLFW_BUILD_EXAMPLES "Build GLFW examples" OFF)
+SET(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+SET(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+SET(BENCHMARK_ENABLE_LTO OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(glfw)
 SET(GLFW_INCLUDE_DIRS "${glfw_SOURCE_DIR}/include")
 
@@ -98,6 +137,8 @@ FetchContent_GetProperties(tinygltf)
 IF(NOT tinygltf_POPULATED)
     FetchContent_Populate(tinygltf)
 ENDIF()
+SET(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
+SET(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
 SET(TINYGLTF_INCLUDE_DIRS "${tinygltf_SOURCE_DIR}")
 
 # *********
@@ -171,44 +212,27 @@ IF(NOT rapidjson_POPULATED)
 ENDIF()
 SET(RAPIDJSON_INCLUDE_DIRS "${rapidjson_SOURCE_DIR}/include/rapidjson")
 
-# ***********
-# ** IMGUI **
-# ***********
-FetchContent_Declare(
-    imgui
-    GIT_REPOSITORY          "https://github.com/eliasdaler/imgui"
-    GIT_TAG                 "6facc66e30e3971437c22f0646d5540bc059479c"
-    GIT_PROGRESS            TRUE
-    GIT_SHALLOW             TRUE
-    USES_TERMINAL_DOWNLOAD  TRUE
-)
-FetchContent_GetProperties(imgui)
-IF(NOT imgui_POPULATED)
-    FetchContent_Populate(imgui)
-ENDIF()
-SET(IMGUI_INCLUDE_DIRS "${imgui_SOURCE_DIR}")
-#ADD_SUBDIRECTORY(${imgui_SOURCE_DIR})
-
 INCLUDE_DIRECTORIES(
     "${PROJECT_SOURCE_DIR}/include"
+    ${IMGUI_INCLUDE_DIRS}
     ${GLM_INCLUDE_DIRS}
     ${GLFW_INCLUDE_DIRS}
     ${VMA_INCLUDE_DIRS}
     ${TINYGLTF_INCLUDE_DIRS}
     ${BULLET_INCLUDE_DIRS}
     ${RAPIDJSON_INCLUDE_DIRS}
-    ${IMGUI_INCLUDE_DIRS}
+    ${FMT_INCLUDE_DIRS}
     ${Vulkan_INCLUDE_DIRS}
 )
 
 TARGET_LINK_LIBRARIES(boa
     ${Vulkan_LIBRARIES}
-    fmt::fmt
+    fmt
+    glfw
     LinearMath
     Bullet3Common
     BulletDynamics
     BulletSoftBody
-    glfw
 )
 
 IF(WIN32)
