@@ -1,23 +1,25 @@
-cmake_minimum_required(VERSION 2.8.12)
-project(boa)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
+PROJECT(boa)
 
-set(CMAKE_CXX_FLAGS "-std=c++17")
-set(CMAKE_CXX_FLAGS_RELEASE "-march=native -O3 -DNDEBUG")
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+SET(CMAKE_CXX_FLAGS "-std=c++17")
+SET(CMAKE_CXX_FLAGS_RELEASE "-march=native -O3 -DNDEBUG")
+SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 #set(CMAKE_CXX_LINKER_FLAGS "-fsanitize=address")
+SET(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
+SET(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
 
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-find_package(Vulkan REQUIRED)
-find_package(fmt CONFIG REQUIRED)
-find_package(Bullet CONFIG REQUIRED)
+FIND_PACKAGE(Vulkan REQUIRED)
+FIND_PACKAGE(fmt REQUIRED)
+FIND_PACKAGE(Bullet REQUIRED)
 
-find_program(CCACHE "ccache")
+FIND_PROGRAM(CCACHE "ccache")
 if(CCACHE)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE}")
+    SET_PROPERTY(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE}")
 endif(CCACHE)
 
-file(GLOB SOURCES
+FILE(GLOB SOURCES
     lib/imgui/backends/imgui_impl_glfw.cpp
     lib/imgui/backends/imgui_impl_vulkan.cpp
     lib/imgui/*.cpp
@@ -30,22 +32,20 @@ file(GLOB SOURCES
     src/boa/gfx/asset/*.cpp
     src/boa/phy/*.cpp
 )
+ADD_EXECUTABLE(boa ${SOURCES})
 
-add_executable(boa ${SOURCES})
-
-option(BENCHMARK "BENCHMARK" OFF)
-
+OPTION(BENCHMARK "BENCHMARK" OFF)
 if(BENCHMARK)
-    add_definitions(
+    ADD_DEFINITIONS(
         -DBENCHMARK
     )
 else()
-    add_definitions(
+    ADD_DEFINITIONS(
         -UBENCHMARK
     )
 endif(BENCHMARK)
 
-add_definitions(
+ADD_DEFINITIONS(
     ${BULLET_DEFINITIONS}
     -DVULKAN_HPP_NO_NODISCARD_WARNINGS
     -DVULKAN_HPP_NO_STRUCT_CONSTRUCTORS
@@ -56,44 +56,42 @@ add_definitions(
     -DBT_USE_DOUBLE_PRECISION=1
 )
 
-set(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
-set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
-
-target_include_directories(boa
-    PRIVATE ${BULLET_INCLUDE_DIRS}
-    PRIVATE "${PROJECT_SOURCE_DIR}/lib/imgui/backends"
-    PRIVATE "${PROJECT_SOURCE_DIR}/lib/imgui"
-    PRIVATE "${PROJECT_SOURCE_DIR}/lib/include"
-    PRIVATE "${PROJECT_SOURCE_DIR}/lib/rapidjson/include/rapidjson"
-    PRIVATE "${PROJECT_SOURCE_DIR}/include"
+INCLUDE_DIRECTORIES(
+    ${BULLET_INCLUDE_DIRS}
+    ${}
+    "${PROJECT_SOURCE_DIR}/lib/imgui/backends"
+    "${PROJECT_SOURCE_DIR}/lib/imgui"
+    "${PROJECT_SOURCE_DIR}/lib/include"
+    "${PROJECT_SOURCE_DIR}/lib/rapidjson/include/rapidjson"
+    "${PROJECT_SOURCE_DIR}/include"
 )
 
-target_link_libraries(
+TARGET_LINK_LIBRARIES(boa
     ${BULLET_LIBRARIES}
-    INTERFACE fmt::fmt
+    fmt::fmt
     -lglfw3
 )
 
 if(WIN32)
-    target_include_directories(boa
+    INCLUDE_DIRECTORIES(
         PRIVATE "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/include"
         PRIVATE "${PROJECT_SOURCE_DIR}/lib/glm"
         PRIVATE "$ENV{VULKAN_SDK}/Include"
     )
-    target_link_directories(boa
+    LINK_DIRECTORIES(
         PRIVATE "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/lib-mingw-w64"
         PRIVATE "$ENV{VULKAN_SDK}/Lib"
     )
-    target_link_libraries(boa
+    TARGET_LINK_LIBRARIES(boa
         -lvulkan-1
         -lgdi32
         -limm32
     )
 else()
-    target_include_directories(boa
+    INCLUDE_DIRECTORIES(
         ${Vulkan_INCLUDE_DIRS}
     )
-    target_link_libraries(boa
+    TARGET_LINK_LIBRARIES(boa
         ${Vulkan_LIBRARIES}
         -lX11
         -lXxf86vm
