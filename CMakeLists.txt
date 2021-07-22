@@ -9,11 +9,8 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(Vulkan REQUIRED)
-find_package(fmt REQUIRED)
-
-if(!WIN32)
-    find_package(Bullet REQUIRED)
-endif()
+find_package(fmt CONFIG REQUIRED)
+find_package(Bullet CONFIG REQUIRED)
 
 find_program(CCACHE "ccache")
 if(CCACHE)
@@ -49,6 +46,7 @@ else()
 endif(BENCHMARK)
 
 add_definitions(
+    ${BULLET_DEFINITIONS}
     -DVULKAN_HPP_NO_NODISCARD_WARNINGS
     -DVULKAN_HPP_NO_STRUCT_CONSTRUCTORS
     -DGLM_FORCE_RADIANS
@@ -62,41 +60,41 @@ set(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
 set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
 
 target_include_directories(boa
-    PUBLIC "${PROJECT_SOURCE_DIR}/lib/imgui/backends"
-    PUBLIC "${PROJECT_SOURCE_DIR}/lib/imgui"
-    PUBLIC "${PROJECT_SOURCE_DIR}/lib/include"
-    PUBLIC "${PROJECT_SOURCE_DIR}/lib/rapidjson/include/rapidjson"
-    PUBLIC "${PROJECT_SOURCE_DIR}/include"
-    PUBLIC ${Vulkan_INCLUDE_DIRS}
+    PRIVATE ${BULLET_INCLUDE_DIRS}
+    PRIVATE "${PROJECT_SOURCE_DIR}/lib/imgui/backends"
+    PRIVATE "${PROJECT_SOURCE_DIR}/lib/imgui"
+    PRIVATE "${PROJECT_SOURCE_DIR}/lib/include"
+    PRIVATE "${PROJECT_SOURCE_DIR}/lib/rapidjson/include/rapidjson"
+    PRIVATE "${PROJECT_SOURCE_DIR}/include"
+)
+
+target_link_libraries(
+    ${BULLET_LIBRARIES}
+    INTERFACE fmt::fmt
+    -lglfw3
 )
 
 if(WIN32)
     target_include_directories(boa
-        PUBLIC "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/include"
-        PUBLIC "${PROJECT_SOURCE_DIR}/lib/glm"
-        PUBLIC "${PROJECT_SOURCE_DIR}/lib/bullet3/include"
+        PRIVATE "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/include"
+        PRIVATE "${PROJECT_SOURCE_DIR}/lib/glm"
+        PRIVATE "$ENV{VULKAN_SDK}/Include"
     )
     target_link_directories(boa
-        PUBLIC "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/lib-mingw-w64"
-        PUBLIC "${PROJECT_SOURCE_DIR}/lib/bullet3/lib"
+        PRIVATE "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/lib-mingw-w64"
+        PRIVATE "$ENV{VULKAN_SDK}/Lib"
     )
     target_link_libraries(boa
-        ${Vulkan_LIBRARIES}
-        ${BULLET_LIBRARIES}
-        fmt::fmt
-        -lglfw3
+        -lvulkan-1
         -lgdi32
         -limm32
     )
 else()
-    target_include_directories(
-        PUBLIC ${BULLET_INCLUDE_DIRS}
+    target_include_directories(boa
+        ${Vulkan_INCLUDE_DIRS}
     )
     target_link_libraries(boa
         ${Vulkan_LIBRARIES}
-        ${BULLET_LIBRARIES}
-        fmt::fmt
-        -lglfw3
         -lX11
         -lXxf86vm
         -lpthread
