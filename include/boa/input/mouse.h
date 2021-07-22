@@ -12,7 +12,7 @@ public:
     static void cursor_callback(void *user_ptr_v, double x, double y);
     static void scroll_callback(void *user_ptr_v, double x_offset, double y_offset);
 
-    glm::dvec2 position() const;
+    glm::dvec2 get_position() const;
     glm::dvec2 last_movement();
     glm::dvec2 last_scroll_movement();
     void set_position(const glm::dvec2 &pos);
@@ -23,12 +23,17 @@ public:
     void set_button(uint8_t button);
     void unset_button(uint8_t button);
 
+    bool is_first_move();
+    void reset_first_move();
+
 private:
     glm::dvec2 m_position;
     glm::dvec2 m_movement{ 0.0f, 0.0f };
     glm::dvec2 m_scroll_movement{ 0.0f, 0.0f };
 
     std::bitset<8> m_buttons;
+
+    bool m_first_move{ true };
 };
 
 }

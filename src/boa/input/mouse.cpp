@@ -19,15 +19,13 @@ void Mouse::cursor_callback(void *user_ptr_v, double x, double y) {
     auto user_pointers = reinterpret_cast<boa::gfx::Renderer::WindowUserPointers *>(user_ptr_v);
     auto mouse = user_pointers->mouse;
 
-    static bool first_mouse = true;
-    if (first_mouse) {
+    if (mouse->is_first_move()) {
         mouse->set_movement(glm::dvec2(0));
         mouse->set_position(glm::dvec2{ x, y });
-        first_mouse = false;
         return;
     }
 
-    mouse->set_movement(glm::dvec2{ x, y } - mouse->position());
+    mouse->set_movement(glm::dvec2{ x, y } - mouse->get_position());
     mouse->set_position(glm::dvec2{ x, y });
 }
 
@@ -38,7 +36,7 @@ void Mouse::scroll_callback(void *user_ptr_v, double x_offset, double y_offset) 
     mouse->set_scroll_movement(glm::dvec2{ x_offset, y_offset });
 }
 
-glm::dvec2 Mouse::position() const {
+glm::dvec2 Mouse::get_position() const {
     return m_position;
 }
 
@@ -79,6 +77,16 @@ void Mouse::set_button(uint8_t button) {
 void Mouse::unset_button(uint8_t button) {
     assert(button < 8);
     m_buttons[button] = false;
+}
+
+bool Mouse::is_first_move() {
+    bool tmp = m_first_move;
+    m_first_move = false;
+    return tmp;
+}
+
+void Mouse::reset_first_move() {
+    m_first_move = true;
 }
 
 }
