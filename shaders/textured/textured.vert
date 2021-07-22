@@ -17,7 +17,8 @@ layout(set = 0, binding = 0) uniform Transformations {
 } transform;
 
 layout(push_constant) uniform constants {
-    ivec4 extra;
+    ivec4 image_descriptor_and_padding;
+    vec4 extra1;
     mat4 model;
     mat4 model_view_projection;
 } PushConstants;
@@ -26,5 +27,5 @@ void main() {
     gl_Position = PushConstants.model_view_projection * vec4(inPosition, 1.0f);
     outColor = inColor;
     outTexCoord = inTexCoord;
-    imageDescriptor = PushConstants.extra.x;
+    imageDescriptor = PushConstants.image_descriptor_and_padding.x;
 }

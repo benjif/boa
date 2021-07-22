@@ -26,6 +26,11 @@ void Box::center_on_origin() {
     max = max - box_center;
 }
 
+void Box::transform(const glm::mat4 &transform) {
+    min = transform * glm::vec4(min, 1.0f);
+    max = transform * glm::vec4(max, 1.0f);
+}
+
 Sphere Sphere::bounding_sphere_from_bounding_box(const Box &box) {
     Sphere new_sphere;
 

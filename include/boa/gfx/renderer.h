@@ -46,6 +46,8 @@ public:
 
     AssetManager &get_asset_manager() { return m_asset_manager; }
 
+    void set_draw_bounding_boxes(bool draw) { m_draw_bounding_boxes = draw; }
+    bool get_draw_bounding_boxes() const { return m_draw_bounding_boxes; }
     void set_per_frame_callback(std::function<void(float)> callback);
     void set_ui_mouse_enabled(bool mouse_enabled);
 
@@ -71,7 +73,9 @@ private:
     enum {
         UNTEXTURED_MATERIAL_INDEX               = 0,
         TEXTURED_MATERIAL_INDEX                 = 1,
-        BLINN_PHONG_MATERIAL_INDEX              = 2,
+        BOUNDING_BOX_MATERIAL_INDEX             = 2,
+        UNTEXTURED_BLINN_PHONG_MATERIAL_INDEX   = 3,
+        TEXTURED_BLINN_PHONG_MATERIAL_INDEX     = 4,
     };
 
     struct QueueFamilyIndices {
@@ -108,7 +112,8 @@ private:
     };
 
     struct PushConstants {
-        glm::ivec4 extra;
+        glm::ivec4 extra0;
+        glm::vec4 extra1;
         glm::mat4 model;
         glm::mat4 model_view_projection;
     };
@@ -189,6 +194,7 @@ private:
 
     Frustum m_frustum;
     AssetManager m_asset_manager;
+    bool m_draw_bounding_boxes{ false };
 
     static void framebuffer_size_callback(void *user_ptr_v, int w, int h);
 

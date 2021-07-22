@@ -15,10 +15,10 @@ void draw_engine_interface() {
     
     ImGui::Begin("Boa Window");
 
-    static float ambient_lighting[3] = { 0.15f, 0.15f, 0.15f };
-    static float diffuse_lighting[3] = { 0.2f, 0.2f, 0.2f };
-    static float specular_lighting[3] = { 0.1f, 0.1f, 0.1f };
-    static float direction[3] = { 0.0f, 0.0f, 0.0f };
+    static float ambient_lighting[3] = { 0.1f, 0.1f, 0.1f };
+    static float diffuse_lighting[3] = { 0.68f, 0.68f, 0.68f };
+    static float specular_lighting[3] = { 0.3f, 0.3f, 0.3f };
+    static float direction[3] = { -0.2f, -1.0f, -0.3f };
 
     ImGui::BeginChild("Global Lighting");
 

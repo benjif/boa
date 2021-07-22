@@ -56,6 +56,7 @@ public:
         Sphere bounding_sphere;
         std::optional<size_t> material;
         std::vector<uint32_t> indices;
+        bool has_vertex_coloring{ false };
     };
 
     struct Texture {

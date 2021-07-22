@@ -315,7 +315,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
             glm::radians(90.0f),
             m_window_extent.width / (float)m_window_extent.height,
             0.1f,
-            100.0f
+            500.0f
         )
     };
 
@@ -370,8 +370,8 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
         bool is_animated = entity_group.has_component<Animated>(e_id);
 
-        const auto draw_node = [&](const auto &node, glm::mat4 &local_transform) {
-            auto draw_node_impl = [&](const auto &node, glm::mat4 &local_transform, auto &draw_node_ref) mutable -> void {
+        const auto draw_node = [&](const auto &node, glm::mat4 local_transform) {
+            auto draw_node_impl = [&](const auto &node, glm::mat4 local_transform, auto &draw_node_ref) mutable -> void {
                 if (is_animated)
                     local_transform *= entity_group.get_component<Animated>(e_id).transform_for_node(node.id);
                 else
@@ -383,13 +383,18 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
                     // probably not right, it won't matter once we do frustum culling on the GPU
                     // with instanced rendering
-                    glm::vec3 new_bounding_center = local_transform * glm::vec4(primitive.bounding_sphere.center, 1.0f);
-                    double new_bounding_radius = glm::length(local_transform * glm::vec4(0.0f, 0.0f, 0.0f, primitive.bounding_sphere.radius));
-                    if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
-                        continue;
+                    //glm::vec3 new_bounding_center = local_transform * glm::vec4(primitive.bounding_sphere.center, 1.0f);
+                    //double new_bounding_radius = glm::length(local_transform * glm::vec4(0.0f, 0.0f, 0.0f, primitive.bounding_sphere.radius));
+                    //if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
+                        //continue;
 
                     glm::mat4 model_view_projection = transforms.view_projection * local_transform;
-                    PushConstants push_constants = { .extra = { -1, -1, -1, -1 }, .model = local_transform, .model_view_projection = model_view_projection };
+                    PushConstants push_constants = {
+                        .extra0 = { -1, -1, -1, -1 },
+                        .extra1 = { 0.f, 0.f, 0.f, 0.f },
+                        .model = local_transform,
+                        .model_view_projection = model_view_projection
+                    };
 
                     auto &material = m_asset_manager.get_material(primitive.material);
                     if (primitive.material != last_material) {
@@ -415,14 +420,18 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                             break;
                         }
 
-                        if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE) {
+                        push_constants.extra0[1] = static_cast<int32_t>(material.color_type);
+
+                        if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE && material.color_type == Material::ColorType::Texture) {
                             cmd.bindDescriptorSets(
                                 vk::PipelineBindPoint::eGraphics,
                                 material.pipeline_layout,
                                 1,
                                 material.texture_set,
                                 nullptr);
-                            push_constants.extra[0] = material.descriptor_number;
+                            push_constants.extra0[0] = material.descriptor_number;
+                        } else {
+                            push_constants.extra0[0] = -1;
                         }
                     }
 
@@ -449,6 +458,25 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
         for (size_t node_idx : model.root_nodes)
             draw_node(model.nodes[node_idx], entity_transform_matrix);
+
+        //Sphere bounding_sphere = Sphere::bounding_sphere_from_bounding_box(model.bounding_box);;
+        if (m_draw_bounding_boxes /*&& m_frustum.is_sphere_within(bounding_sphere.center, bounding_sphere.radius)*/) {
+            auto &bounding_box_material = m_asset_manager.get_material(BOUNDING_BOX_MATERIAL_INDEX);
+            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, bounding_box_material.pipeline);
+
+            cmd.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                bounding_box_material.pipeline_layout,
+                0,
+                current_frame().parent_set,
+                nullptr);
+
+            vk::Buffer vertex_buffers[] = { model.bounding_box_vertex_buffer.buffer };
+            vk::DeviceSize offsets[] = { 0 };
+            cmd.bindVertexBuffers(0, 1, vertex_buffers, offsets);
+
+            cmd.draw(24, 1, 0, 0);
+        }
 
         return Iteration::Continue;
     });
@@ -1402,8 +1430,12 @@ void Renderer::create_pipelines() {
     vk::ShaderModule untextured_vert = load_shader("shaders/untextured/untextured_vert.spv");
     vk::ShaderModule textured_frag = load_shader("shaders/textured/textured_frag.spv");
     vk::ShaderModule textured_vert = load_shader("shaders/textured/textured_vert.spv");
-    vk::ShaderModule blinn_phong_frag = load_shader("shaders/blinn_phong/blinn_phong_frag.spv");
-    vk::ShaderModule blinn_phong_vert = load_shader("shaders/blinn_phong/blinn_phong_vert.spv");
+    vk::ShaderModule bounding_box_frag = load_shader("shaders/bounding_box/bounding_box_frag.spv");
+    vk::ShaderModule bounding_box_vert = load_shader("shaders/bounding_box/bounding_box_vert.spv");
+    vk::ShaderModule textured_blinn_phong_frag = load_shader("shaders/blinn_phong/textured_blinn_phong_frag.spv");
+    vk::ShaderModule textured_blinn_phong_vert = load_shader("shaders/blinn_phong/textured_blinn_phong_vert.spv");
+    vk::ShaderModule untextured_blinn_phong_frag = load_shader("shaders/blinn_phong/untextured_blinn_phong_frag.spv");
+    vk::ShaderModule untextured_blinn_phong_vert = load_shader("shaders/blinn_phong/untextured_blinn_phong_vert.spv");
     vk::ShaderModule skybox_frag = load_shader("shaders/skybox/skybox_frag.spv");
     vk::ShaderModule skybox_vert = load_shader("shaders/skybox/skybox_vert.spv");
 
@@ -1412,11 +1444,15 @@ void Renderer::create_pipelines() {
     vk::PipelineLayoutCreateInfo untextured_layout_info = pipeline_layout_create_info();
     vk::Pipeline untextured_pipeline,
         textured_pipeline,
-        blinn_phong_pipeline,
+        bounding_box_pipeline,
+        untextured_blinn_phong_pipeline,
+        textured_blinn_phong_pipeline,
         skybox_pipeline;
     vk::PipelineLayout untextured_pipeline_layout,
         textured_pipeline_layout,
-        blinn_phong_pipeline_layout,
+        bounding_box_pipeline_layout,
+        untextured_blinn_phong_pipeline_layout,
+        textured_blinn_phong_pipeline_layout,
         skybox_pipeline_layout;
 
     vk::PushConstantRange push_constants{
@@ -1490,7 +1526,65 @@ void Renderer::create_pipelines() {
         m_asset_manager.create_material(textured_pipeline, textured_pipeline_layout);
     }
 
-    // BLINN-PHONG PIPELINE
+    // BOUNDING BOX LINES PIPELINE
+    {
+        vk::PipelineLayoutCreateInfo bounding_box_layout_info = untextured_layout_info;
+
+        vk::DescriptorSetLayout bounding_box_set_layouts[] = { m_descriptor_set_layout };
+
+        bounding_box_layout_info.setLayoutCount = 1;
+        bounding_box_layout_info.pSetLayouts = bounding_box_set_layouts;
+
+        try {
+            bounding_box_pipeline_layout = m_device.get().createPipelineLayout(bounding_box_layout_info);
+        } catch (const vk::SystemError &err) {
+            throw std::runtime_error("Failed to create bounding box pipeline layout");
+        }
+
+        pipeline_ctx.shader_stages.clear();
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, bounding_box_vert));
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, bounding_box_frag));
+        pipeline_ctx.input_assembly = input_assembly_create_info(vk::PrimitiveTopology::eLineList);
+        pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLess);
+
+        pipeline_ctx.pipeline_layout = bounding_box_pipeline_layout;
+
+        bounding_box_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
+        m_asset_manager.create_material(bounding_box_pipeline, bounding_box_pipeline_layout);
+    }
+
+    // UNTEXTURED BLINN-PHONG PIPELINE
+    {
+        vk::PipelineLayoutCreateInfo blinn_phong_layout_info = untextured_layout_info;
+
+        vk::DescriptorSetLayout blinn_phong_set_layouts[] = { m_blinn_phong_set_layout };
+
+        blinn_phong_layout_info.setLayoutCount = 1;
+        blinn_phong_layout_info.pSetLayouts = blinn_phong_set_layouts;
+
+        try {
+            untextured_blinn_phong_pipeline_layout = m_device.get().createPipelineLayout(blinn_phong_layout_info);
+        } catch (const vk::SystemError &err) {
+            throw std::runtime_error("Failed to create untextured Blinn-Phong pipeline layout");
+        }
+
+        pipeline_ctx.shader_stages.clear();
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, untextured_blinn_phong_vert));
+        pipeline_ctx.shader_stages.push_back(
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, untextured_blinn_phong_frag));
+        pipeline_ctx.input_assembly = input_assembly_create_info(vk::PrimitiveTopology::eTriangleList);
+        pipeline_ctx.depth_stencil = depth_stencil_create_info(true, true, vk::CompareOp::eLess);
+
+        pipeline_ctx.pipeline_layout = untextured_blinn_phong_pipeline_layout;
+
+        untextured_blinn_phong_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
+        m_asset_manager.create_material(untextured_blinn_phong_pipeline, untextured_blinn_phong_pipeline_layout);
+    }
+
+    // TEXTURED BLINN-PHONG PIPELINE
     {
         vk::PipelineLayoutCreateInfo blinn_phong_layout_info = untextured_layout_info;
 
@@ -1500,21 +1594,21 @@ void Renderer::create_pipelines() {
         blinn_phong_layout_info.pSetLayouts = blinn_phong_set_layouts;
 
         try {
-            blinn_phong_pipeline_layout = m_device.get().createPipelineLayout(blinn_phong_layout_info);
+            textured_blinn_phong_pipeline_layout = m_device.get().createPipelineLayout(blinn_phong_layout_info);
         } catch (const vk::SystemError &err) {
-            throw std::runtime_error("Failed to create Blinn-Phong pipeline layout");
+            throw std::runtime_error("Failed to create textured Blinn-Phong pipeline layout");
         }
 
         pipeline_ctx.shader_stages.clear();
         pipeline_ctx.shader_stages.push_back(
-            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, blinn_phong_vert));
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eVertex, textured_blinn_phong_vert));
         pipeline_ctx.shader_stages.push_back(
-            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, blinn_phong_frag));
+            pipeline_shader_stage_create_info(vk::ShaderStageFlagBits::eFragment, textured_blinn_phong_frag));
 
-        pipeline_ctx.pipeline_layout = blinn_phong_pipeline_layout;
+        pipeline_ctx.pipeline_layout = textured_blinn_phong_pipeline_layout;
 
-        blinn_phong_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
-        m_asset_manager.create_material(blinn_phong_pipeline, blinn_phong_pipeline_layout);
+        textured_blinn_phong_pipeline = pipeline_ctx.build(m_device.get(), m_renderpass);
+        m_asset_manager.create_material(textured_blinn_phong_pipeline, textured_blinn_phong_pipeline_layout);
     }
 
     // SKYBOX PIPELINE
@@ -1553,11 +1647,15 @@ void Renderer::create_pipelines() {
     m_deletion_queue.enqueue([=]() {
         m_device.get().destroyPipeline(untextured_pipeline);
         m_device.get().destroyPipeline(textured_pipeline);
-        m_device.get().destroyPipeline(blinn_phong_pipeline);
+        m_device.get().destroyPipeline(bounding_box_pipeline);
+        m_device.get().destroyPipeline(untextured_blinn_phong_pipeline);
+        m_device.get().destroyPipeline(textured_blinn_phong_pipeline);
         m_device.get().destroyPipeline(skybox_pipeline);
         m_device.get().destroyPipelineLayout(untextured_pipeline_layout);
         m_device.get().destroyPipelineLayout(textured_pipeline_layout);
-        m_device.get().destroyPipelineLayout(blinn_phong_pipeline_layout);
+        m_device.get().destroyPipelineLayout(bounding_box_pipeline_layout);
+        m_device.get().destroyPipelineLayout(untextured_blinn_phong_pipeline_layout);
+        m_device.get().destroyPipelineLayout(textured_blinn_phong_pipeline_layout);
         m_device.get().destroyPipelineLayout(skybox_pipeline_layout);
     });
 
@@ -1565,8 +1663,12 @@ void Renderer::create_pipelines() {
     m_device.get().destroyShaderModule(untextured_vert);
     m_device.get().destroyShaderModule(textured_frag);
     m_device.get().destroyShaderModule(textured_vert);
-    m_device.get().destroyShaderModule(blinn_phong_frag);
-    m_device.get().destroyShaderModule(blinn_phong_vert);
+    m_device.get().destroyShaderModule(bounding_box_frag);
+    m_device.get().destroyShaderModule(bounding_box_vert);
+    m_device.get().destroyShaderModule(untextured_blinn_phong_frag);
+    m_device.get().destroyShaderModule(untextured_blinn_phong_vert);
+    m_device.get().destroyShaderModule(textured_blinn_phong_frag);
+    m_device.get().destroyShaderModule(textured_blinn_phong_vert);
     m_device.get().destroyShaderModule(skybox_frag);
     m_device.get().destroyShaderModule(skybox_vert);
 }

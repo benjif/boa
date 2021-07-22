@@ -84,6 +84,7 @@ struct Box {
 
     glm::vec3 center() const;
     void center_on_origin();
+    void transform(const glm::mat4 &);
 };
 
 struct Sphere {

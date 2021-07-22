@@ -9,7 +9,8 @@
 namespace boa::ecs {
 
 const size_t COMPONENTS_START_COUNT = 64;
-const size_t COMPONENT_ZONE_SIZE = 32 * KiB;
+//const size_t COMPONENT_ZONE_SIZE = 32 * KiB;
+const size_t COMPONENT_ZONE_SIZE = 64 * KiB;
 const uint32_t COMPONENTS_GROWTH_RATE = 2;
 
 extern uint32_t component_type_count;

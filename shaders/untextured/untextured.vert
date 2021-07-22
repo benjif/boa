@@ -15,13 +15,14 @@ layout(set = 0, binding = 0) uniform Transformations {
 } transform;
 
 layout(push_constant) uniform constants {
-    vec4 extra;
+    ivec4 extra0;
+    vec4 extra1;
     mat4 model;
     mat4 model_view_projection;
 } PushConstants;
 
 void main() {
     gl_Position = PushConstants.model_view_projection * vec4(inPosition, 1.0f);
-    outColor = vec4(inNormal, 1.0f);
-    //outColor = inColor;
+    //outColor = vec4(inNormal, 1.0f);
+    outColor = inColor;
 }

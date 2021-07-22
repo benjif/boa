@@ -25,7 +25,7 @@ public:
         sponza_entity = entity_group.new_entity();
         entity_group.enable_and_make<boa::gfx::Transformable>(sponza_entity,
             glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
-            glm::vec3{ 0.0f, 0.0f, 0.0f },
+            glm::vec3{ 0.0f, -10.0f, 0.0f },
             glm::vec3{ 1.0f, 1.0f, 1.0f });
         box_animated_entity = entity_group.new_entity();
         /*entity_group.enable_and_make<boa::gfx::Transformable>(box_animated_entity,
@@ -34,7 +34,7 @@ public:
             glm::vec3{ 0.6f, 0.6f, 0.6f });*/
         entity_group.enable_and_make<boa::gfx::Transformable>(box_animated_entity,
             glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
-            glm::vec3{ 0.0f, 30.0f, 0.0f },
+            glm::vec3{ 0.0f, 20.0f, 0.0f },
             glm::vec3{ 1.0f, 1.0f, 1.0f });
     }
 
@@ -45,9 +45,9 @@ public:
         sponza_model.open_gltf_file("models/primitives/plane.gltf");
 
         asset_manager.load_model(box_animated_entity, box_animated_model, boa::gfx::LightingInteractivity::BlinnPhong);
-        asset_manager.load_model(sponza_entity, sponza_model);
+        asset_manager.load_model(sponza_entity, sponza_model, boa::gfx::LightingInteractivity::BlinnPhong);
 
-        physics_controller.add_entity(box_animated_entity, 50.0f);
+        physics_controller.add_entity(box_animated_entity, 30.0f);
         physics_controller.add_entity(sponza_entity, 0.0f);
 
         //animation_controller.load_animations(box_animated_entity, box_animated_model);
@@ -81,8 +81,8 @@ public:
         global_light = entity_group.new_entity();
         entity_group.enable_and_make<boa::gfx::GlobalLight>(global_light,
             glm::vec3{ 0.0f, 0.0f, 0.0f },
-            glm::vec3{ 0.15f, 0.15f, 0.15f },
-            glm::vec3{ 0.2f, 0.2f, 0.2f },
+            glm::vec3{ 0.3f, 0.3f, 0.3f },
+            glm::vec3{ 0.5f, 0.5f, 0.5f },
             glm::vec3{ 0.1f, 0.1f, 0.1f });
         point_light = entity_group.new_entity();
         entity_group.enable_and_make<boa::gfx::PointLight>(point_light,
@@ -101,7 +101,7 @@ public:
     }
 
     void play_looped_animations() {
-        animation_controller.play_animation(box_animated_entity, 0, true);
+        //animation_controller.play_animation(box_animated_entity, 0, true);
     }
 
     void setup_per_frame() {
@@ -160,7 +160,22 @@ public:
                         glm::vec3{ 0.05f, 0.05f, 0.05f },
                         glm::vec3{ 0.4f, 0.4f, 0.4f },
                         glm::vec3{ 0.5f, 0.5f, 0.5f },
-                        1.0f, 0.09f, 0.034f);
+                        1.0f, 0.05f, 0.024f);
+                } else if (key == boa::input::KEY_B) {
+                    renderer.set_draw_bounding_boxes(!renderer.get_draw_bounding_boxes());
+                } else if (key == boa::input::KEY_G) {
+                    for (size_t i = 1; i < 8; i++) {
+                        uint32_t box_copy =
+                            entity_group.copy_entity<boa::gfx::RenderableModel>(box_animated_entity);
+
+                        entity_group.enable_and_make<boa::gfx::Transformable>(box_copy,
+                            glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
+                            glm::vec3{ sin(i * 0.23f), 20.0f + i * 5.0f, 0.0f },
+                            glm::vec3{ 1.0f, 1.0f, 1.0f });
+
+                        physics_controller.add_entity(box_copy, i * 20.0f + 10.0f);
+                    }
+
                 }
             }
         });

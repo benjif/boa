@@ -11,3 +11,4 @@ models/minecraft*
 models/sponza
 models/gearbox
 textures/minecraft*
+.clang_complete

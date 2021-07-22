@@ -6,23 +6,23 @@ layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec2 inTexCoord;
 
 layout (location = 0) out vec4 outColor;
-layout (location = 1) out vec2 outTexCoord;
-layout (location = 2) flat out int imageDescriptor;
 
 layout(set = 0, binding = 0) uniform Transformations {
     mat4 view;
     mat4 projection;
     mat4 view_projection;
+    mat4 skybox_view_projection;
 } transform;
 
 layout(push_constant) uniform constants {
-    ivec4 extra;
+    ivec4 extra0;
+    vec4 extra1;
+    mat4 model;
     mat4 model_view_projection;
 } PushConstants;
 
 void main() {
-    gl_Position = PushConstants.model_view_projection * vec4(inPosition, 1.0f);
+    //outColor = vec4(inNormal, 1.0f);
     outColor = inColor;
-    outTexCoord = inTexCoord;
-    imageDescriptor = PushConstants.extra.x;
+    gl_Position = PushConstants.model_view_projection * vec4(inPosition, 1.0f);
 }

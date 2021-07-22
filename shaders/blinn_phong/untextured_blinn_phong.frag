@@ -1,11 +1,9 @@
 #version 450
 #extension GL_EXT_nonuniform_qualifier : require
 
-layout (location = 0) in vec3 inColor;
+layout (location = 0) in vec4 inColor;
 layout (location = 1) in vec3 inNormal;
-layout (location = 2) in vec2 texCoord;
-layout (location = 3) in vec3 inPosition;
-layout (location = 4) flat in int imageDescriptor;
+layout (location = 2) in vec3 inPosition;
 
 layout (location = 0) out vec4 outFragColor;
 
@@ -32,9 +30,7 @@ layout (std140, set = 0, binding = 1) uniform BlinnPhong {
     vec3 camera_position;
 } blinn_phong;
 
-layout (set = 1, binding = 0) uniform sampler2D tex[150];
-
-vec3 calculate_global_light(GlobalLight light, vec3 normal, vec3 view_direction) {
+vec3 calculate_global_light(GlobalLight light, vec3 normal, vec3 view_direction, vec3 base_color) {
     vec3 light_direction = normalize(-light.direction);
     vec3 reflect_direction = reflect(-light_direction, normal);
     vec3 half_direction = normalize(light_direction + view_direction);
@@ -46,14 +42,14 @@ vec3 calculate_global_light(GlobalLight light, vec3 normal, vec3 view_direction)
     else
         spec = 0.0f;
 
-    vec3 ambient = light.ambient * vec3(texture(tex[imageDescriptor], texCoord));
-    vec3 diffuse = light.diffuse * diff * vec3(texture(tex[imageDescriptor], texCoord));
-    vec3 specular = light.specular * spec * vec3(texture(tex[imageDescriptor], texCoord));
+    vec3 ambient = light.ambient * base_color;
+    vec3 diffuse = light.diffuse * diff * base_color;
+    vec3 specular = light.specular * spec * base_color;
 
     return (ambient + diffuse + specular);
 }
 
-vec3 calculate_point_light(PointLight light, vec3 normal, vec3 position, vec3 view_direction) {
+vec3 calculate_point_light(PointLight light, vec3 normal, vec3 position, vec3 view_direction, vec3 base_color) {
     vec3 light_direction = normalize(light.position_and_constant.xyz - inPosition);
     vec3 reflect_direction = reflect(-light_direction, normal);
     vec3 half_direction = normalize(light_direction + view_direction);
@@ -68,9 +64,9 @@ vec3 calculate_point_light(PointLight light, vec3 normal, vec3 position, vec3 vi
     float distance = length(light.position_and_constant.xyz - inPosition);
     float attenuation = 1.0 / (light.position_and_constant.w + light.ambient_and_linear.w * distance + light.diffuse_and_quadratic.w * (distance * distance));
 
-    vec3 ambient = attenuation * light.ambient_and_linear.xyz * vec3(texture(tex[imageDescriptor], texCoord));
-    vec3 diffuse = attenuation * light.diffuse_and_quadratic.xyz * diff * vec3(texture(tex[imageDescriptor], texCoord));
-    vec3 specular = attenuation * light.specular_and_padding.xyz * spec * vec3(texture(tex[imageDescriptor], texCoord));
+    vec3 ambient = attenuation * light.ambient_and_linear.xyz * base_color;
+    vec3 diffuse = attenuation * light.diffuse_and_quadratic.xyz * diff * base_color;
+    vec3 specular = attenuation * light.specular_and_padding.xyz * spec * base_color;
 
     return (ambient + diffuse + specular);
 }
@@ -79,10 +75,10 @@ void main() {
     vec3 norm = normalize(inNormal);
     vec3 view_direction = normalize(blinn_phong.camera_position - inPosition);
 
-    vec3 result = calculate_global_light(blinn_phong.global_light, norm, view_direction);
+    vec3 result = calculate_global_light(blinn_phong.global_light, norm, view_direction, inColor.xyz);
     for (uint i = 0; i < blinn_phong.point_lights_count; i++) {
-        result += calculate_point_light(blinn_phong.point_lights[i], norm, inPosition, view_direction);
+        result += calculate_point_light(blinn_phong.point_lights[i], norm, inPosition, view_direction, inColor.xyz);
     }
 
-    outFragColor = vec4(result, texture(tex[imageDescriptor], texCoord).a);
+    outFragColor = vec4(result, inColor.a);
 }

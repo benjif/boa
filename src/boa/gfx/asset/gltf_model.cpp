@@ -345,6 +345,7 @@ void glTFModel::open_gltf_file(const char *path) {
                         data_texcoord2 = data;
                         break;
                     case AttributeType::Color0:
+                        new_primitive.has_vertex_coloring = true;
                         stride_color0 = accessor.ByteStride(buffer_view) ?
                             (accessor.ByteStride(buffer_view) / sizeof(float)) :
                             (tinygltf::GetComponentSizeInBytes(accessor.componentType) * tinygltf::GetNumComponentsInType(accessor.type));

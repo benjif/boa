@@ -20,7 +20,14 @@ struct Material {
     vk::DescriptorSet texture_set{ VK_NULL_HANDLE };
     vk::Pipeline pipeline{ VK_NULL_HANDLE };
     vk::PipelineLayout pipeline_layout{ VK_NULL_HANDLE };
+    glm::vec4 base_color;
     uint32_t descriptor_number;
+
+    enum class ColorType {
+        Vertex,
+        Base,
+        Texture,
+    } color_type;
 };
 
 struct Texture {
@@ -67,7 +74,9 @@ struct RenderableModel {
 
     Box bounding_box;
 
+    VmaBuffer bounding_box_vertex_buffer;
     VmaBuffer vertex_buffer;
+
     LightingInteractivity lighting;
 
 private:
@@ -88,6 +97,7 @@ private:
     void upload_primitive_indices(Renderer &renderer, Primitive &vk_primitive,
         const glTFModel::Primitive &primitive);
     void upload_model_vertices(Renderer &renderer, const glTFModel &model);
+    void upload_bounding_box_vertices(Renderer &renderer);
 };
 
 }

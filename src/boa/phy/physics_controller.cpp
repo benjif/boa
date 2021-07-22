@@ -32,15 +32,19 @@ void PhysicsController::add_entity(uint32_t e_id, float f_mass) {
     auto &transform = entity_group.get_component<gfx::Transformable>(e_id);
 
     gfx::Box on_origin = model.bounding_box;
-    on_origin.min = transform.transform_matrix * glm::vec4(on_origin.min, 1.f);
-    on_origin.max = transform.transform_matrix * glm::vec4(on_origin.max, 1.f);
+    //on_origin.min = transform.transform_matrix * glm::vec4(on_origin.min, 1.f);
+    //on_origin.max = transform.transform_matrix * glm::vec4(on_origin.max, 1.f);
+
+    on_origin.transform(transform.transform_matrix);
+
+    glm::vec3 center = on_origin.center();
     on_origin.center_on_origin();
 
-    btCollisionShape *ground_shape = new btBoxShape(btVector3(on_origin.max.x - on_origin.min.x,
-                                                    on_origin.max.y - on_origin.min.y,
-                                                    on_origin.max.z - on_origin.min.z));
+    btCollisionShape *ground_shape = new btBoxShape(btVector3(fabs(on_origin.max.x - on_origin.min.x) / 2,
+                                                    fabs(on_origin.max.y - on_origin.min.y) / 2,
+                                                    fabs(on_origin.max.z - on_origin.min.z) / 2));
+    //ground_shape->setLocalScaling(btVector3(transform.scale.x, transform.scale.y, transform.scale.z));
 
-    glm::vec3 center = model.bounding_box.center();
     btTransform ground_transform;
     ground_transform.setIdentity();
     ground_transform.setOrigin(btVector3(center.x, center.y, center.z));
@@ -55,6 +59,11 @@ void PhysicsController::add_entity(uint32_t e_id, float f_mass) {
     btDefaultMotionState *motion_state = new btDefaultMotionState(ground_transform);
     btRigidBody::btRigidBodyConstructionInfo rb_info(mass, motion_state, ground_shape, local_inertia);
     btRigidBody *body = new btRigidBody(rb_info);
+
+    //LOG_INFO("Linear sleeping threshold: {}", body->getLinearSleepingThreshold());
+    //LOG_INFO("Angular sleeping threshold: {}", body->getAngularSleepingThreshold());
+
+    //body->setSleepingThresholds(0.2f, 0.2f);
 
     m_dynamics_world->addRigidBody(body);
 
@@ -95,8 +104,8 @@ void PhysicsController::update(float time_change) {
                                           float(trans.getRotation().getW()));
         transform.update();
 
-        LOG_INFO("{}, {}, {}",
-                 float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ()));
+        //LOG_INFO("{}, {}, {}",
+                 //float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ()));
 
         return Iteration::Continue;
     });

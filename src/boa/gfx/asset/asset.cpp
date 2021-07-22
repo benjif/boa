@@ -4,6 +4,7 @@
 #include "boa/gfx/asset/asset.h"
 #include "boa/gfx/vk/initializers.h"
 #include "glm/gtx/transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
 #include "stb_image.h"
 #include <cassert>
 #include <limits>
@@ -93,21 +94,22 @@ RenderableModel::RenderableModel(AssetManager &asset_manager, Renderer &renderer
     bounding_box.min = glm::vec3(std::numeric_limits<float>::max());
     bounding_box.max = glm::vec3(std::numeric_limits<float>::min());
     model.for_each_root_node([&](const auto &root_node) {
-        calculate_model_bounding_box(model, root_node, glm::mat4(1.0f));
+        calculate_model_bounding_box(model, root_node, glm::mat4{ 1.0f });
         return Iteration::Continue;
     });
+
+    upload_bounding_box_vertices(renderer);
 }
 
 static inline vk::Filter tinygltf_to_vulkan_filter(int gltf) {
     switch (gltf) {
-    case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
-    case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
-    case TINYGLTF_TEXTURE_FILTER_LINEAR:
-        return vk::Filter::eLinear;
     case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR:
     case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST:
     case TINYGLTF_TEXTURE_FILTER_NEAREST:
         return vk::Filter::eNearest;
+    case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
+    case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
+    case TINYGLTF_TEXTURE_FILTER_LINEAR:
     default:
         return vk::Filter::eLinear;
     }
@@ -115,12 +117,12 @@ static inline vk::Filter tinygltf_to_vulkan_filter(int gltf) {
 
 static inline vk::SamplerAddressMode tinygltf_to_vulkan_address_mode(int gltf) {
     switch (gltf) {
-    case TINYGLTF_TEXTURE_WRAP_REPEAT:
-        return vk::SamplerAddressMode::eRepeat;
     case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
         return vk::SamplerAddressMode::eClampToEdge;
     case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
         return vk::SamplerAddressMode::eMirroredRepeat;
+    case TINYGLTF_TEXTURE_WRAP_REPEAT:
+        return vk::SamplerAddressMode::eRepeat;
     default:
         return vk::SamplerAddressMode::eRepeat;
     }
@@ -152,7 +154,7 @@ vk::Sampler RenderableModel::create_sampler(Renderer &renderer, const glTFModel:
 }
 
 void RenderableModel::calculate_model_bounding_box(const glTFModel &model, const glTFModel::Node &node, glm::mat4 transform_matrix) {
-    transform_matrix = glm::mat4(node.matrix) * transform_matrix;
+    transform_matrix *= glm::mat4(node.matrix);
 
     if (node.mesh.has_value()) {
         const auto &mesh = model.get_mesh(node.mesh.value());
@@ -186,61 +188,79 @@ void RenderableModel::add_from_node(AssetManager &asset_manager, Renderer &rende
             const auto &primitive = model.get_primitive(primitive_idx);
             Primitive new_boa_primitive;
 
-            switch (lighting) {
-            default:
-            case LightingInteractivity::Unlit:
-                new_boa_primitive.material = renderer.UNTEXTURED_MATERIAL_INDEX;
-                break;
-            //case LightingInteractivity::BlinnPhong:
-                //new_boa_primitive.material = renderer.UNTEXTURED_BLINN_PHONG_MATERIAL_INDEX;
-                //break;
-            }
-
-            if (primitive.material.has_value() && model.get_material(primitive.material.value()).metallic_roughness.base_color_texture.has_value()) {
+            if (primitive.material.has_value()) {
                 const auto &material = model.get_material(primitive.material.value());
+                if (model.get_material(primitive.material.value()).metallic_roughness.base_color_texture.has_value()) {
+                    if (material.metallic_roughness.base_color_texture.has_value()) {
+                        const auto &base_texture = model.get_texture(material.metallic_roughness.base_color_texture.value());
 
-                if (material.metallic_roughness.base_color_texture.has_value()) {
-                    const auto &base_texture = model.get_texture(material.metallic_roughness.base_color_texture.value());
+                        if (base_texture.sampler.has_value() && base_texture.source.has_value()) {
+                            const auto &image = model.get_image(base_texture.source.value());
 
-                    if (base_texture.sampler.has_value() && base_texture.source.has_value()) {
-                        const auto &image = model.get_image(base_texture.source.value());
+                            size_t material_index = 0;
+                            switch (lighting) {
+                            case LightingInteractivity::BlinnPhong:
+                                material_index = renderer.TEXTURED_BLINN_PHONG_MATERIAL_INDEX;
+                                break;
+                            case LightingInteractivity::Unlit:
+                            default:
+                                material_index = renderer.TEXTURED_MATERIAL_INDEX;
+                                break;
+                            }
 
-                        size_t material_index = 0;
-                        switch (lighting) {
-                        case LightingInteractivity::BlinnPhong:
-                            material_index = renderer.BLINN_PHONG_MATERIAL_INDEX;
-                            break;
-                        case LightingInteractivity::Unlit:
-                        default:
-                            material_index = renderer.TEXTURED_MATERIAL_INDEX;
-                            break;
+                            Material &base_material = asset_manager.get_material(material_index);
+
+                            uint32_t new_material_index = asset_manager.create_material(base_material.pipeline, base_material.pipeline_layout);
+                            Material &new_material = asset_manager.get_material(new_material_index);
+
+                            new_material.texture_set = m_textures_descriptor_set;
+                            new_material.descriptor_number = m_descriptor_count;
+                            new_material.base_color = glm::make_vec4(material.metallic_roughness.base_color_factor.data());
+                            new_material.color_type = Material::ColorType::Texture;
+
+                            Texture new_texture(renderer, image);
+                            vk::Sampler new_sampler = create_sampler(renderer, model.get_sampler(base_texture.sampler.value()));
+
+                            vk::DescriptorImageInfo image_buffer_info{
+                                .sampler        = new_sampler,
+                                .imageView      = new_texture.image_view,
+                                .imageLayout    = vk::ImageLayout::eShaderReadOnlyOptimal,
+                            };
+
+                            vk::WriteDescriptorSet write = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
+                                new_material.texture_set, &image_buffer_info, 0);
+                            write.dstArrayElement = m_descriptor_count;
+                            renderer.m_device.get().updateDescriptorSets(write, nullptr);
+
+                            new_boa_primitive.material = new_material_index;
+                            m_descriptor_count++;
                         }
-
-                        Material &base_material = asset_manager.get_material(material_index);
-
-                        uint32_t new_material_index = asset_manager.create_material(base_material.pipeline, base_material.pipeline_layout);
-                        Material &new_material = asset_manager.get_material(new_material_index);
-
-                        new_material.texture_set = m_textures_descriptor_set;
-                        new_material.descriptor_number = m_descriptor_count;
-
-                        Texture new_texture(renderer, image);
-                        vk::Sampler new_sampler = create_sampler(renderer, model.get_sampler(base_texture.sampler.value()));
-
-                        vk::DescriptorImageInfo image_buffer_info{
-                            .sampler        = new_sampler,
-                            .imageView      = new_texture.image_view,
-                            .imageLayout    = vk::ImageLayout::eShaderReadOnlyOptimal,
-                        };
-
-                        vk::WriteDescriptorSet write = write_descriptor_image(vk::DescriptorType::eCombinedImageSampler,
-                            new_material.texture_set, &image_buffer_info, 0);
-                        write.dstArrayElement = m_descriptor_count;
-                        renderer.m_device.get().updateDescriptorSets(write, nullptr);
-
-                        new_boa_primitive.material = new_material_index;
-                        m_descriptor_count++;
                     }
+                } else {
+                    size_t material_index = 0;
+                    switch (lighting) {
+                    case LightingInteractivity::BlinnPhong:
+                        material_index = renderer.UNTEXTURED_BLINN_PHONG_MATERIAL_INDEX;
+                        break;
+                    case LightingInteractivity::Unlit:
+                    default:
+                        material_index = renderer.UNTEXTURED_MATERIAL_INDEX;
+                        break;
+                    }
+
+                    Material &base_material = asset_manager.get_material(material_index);
+
+                    uint32_t new_material_index = asset_manager.create_material(base_material.pipeline, base_material.pipeline_layout);
+                    Material &new_material = asset_manager.get_material(new_material_index);
+
+                    if (primitive.has_vertex_coloring) {
+                        new_material.color_type = Material::ColorType::Vertex;
+                    } else {
+                        new_material.color_type = Material::ColorType::Base;
+                        new_material.base_color = glm::make_vec4(material.metallic_roughness.base_color_factor.data());
+                    }
+
+                    new_boa_primitive.material = new_material_index;
                 }
             }
 
@@ -695,6 +715,58 @@ void RenderableModel::upload_model_vertices(Renderer &renderer, const glTFModel 
     });
 
     renderer.m_deletion_queue.enqueue([copy = vertex_buffer, &allocator = renderer.m_allocator]() {
+        vmaDestroyBuffer(allocator, copy.buffer,
+            copy.allocation);
+    });
+
+    vmaDestroyBuffer(renderer.m_allocator, staging_buffer.buffer, staging_buffer.allocation);
+}
+
+void RenderableModel::upload_bounding_box_vertices(Renderer &renderer) {
+    std::array<Vertex, 8> bounding_box_vertices{
+        Vertex{ .position = { bounding_box.min }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
+        Vertex{ .position = { bounding_box.max }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
+        Vertex{ .position = { bounding_box.min.x, bounding_box.min.y, bounding_box.max.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
+        Vertex{ .position = { bounding_box.min.x, bounding_box.max.y, bounding_box.min.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
+        Vertex{ .position = { bounding_box.max.x, bounding_box.min.y, bounding_box.min.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
+        Vertex{ .position = { bounding_box.min.x, bounding_box.max.y, bounding_box.max.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
+        Vertex{ .position = { bounding_box.max.x, bounding_box.min.y, bounding_box.max.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
+        Vertex{ .position = { bounding_box.max.x, bounding_box.max.y, bounding_box.min.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
+    };
+
+    std::array<Vertex, 24> bounding_box_vertices_repeated{
+        bounding_box_vertices[5], bounding_box_vertices[1],
+        bounding_box_vertices[1], bounding_box_vertices[7],
+        bounding_box_vertices[7], bounding_box_vertices[3],
+        bounding_box_vertices[3], bounding_box_vertices[5],
+        bounding_box_vertices[2], bounding_box_vertices[6],
+        bounding_box_vertices[6], bounding_box_vertices[4],
+        bounding_box_vertices[4], bounding_box_vertices[0],
+        bounding_box_vertices[0], bounding_box_vertices[2],
+        bounding_box_vertices[5], bounding_box_vertices[2],
+        bounding_box_vertices[1], bounding_box_vertices[6],
+        bounding_box_vertices[7], bounding_box_vertices[4],
+        bounding_box_vertices[3], bounding_box_vertices[0],
+    };
+
+    const size_t size = bounding_box_vertices_repeated.size() * sizeof(Vertex);
+
+    VmaBuffer staging_buffer = renderer.create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
+
+    void *data;
+    vmaMapMemory(renderer.m_allocator, staging_buffer.allocation, &data);
+    memcpy(data, bounding_box_vertices_repeated.data(), size);
+    vmaUnmapMemory(renderer.m_allocator, staging_buffer.allocation);
+
+    bounding_box_vertex_buffer = renderer.create_buffer(size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+        VMA_MEMORY_USAGE_GPU_ONLY);
+
+    renderer.immediate_command([=](vk::CommandBuffer cmd) {
+        vk::BufferCopy copy{ .srcOffset = 0, .dstOffset = 0, .size = size };
+        cmd.copyBuffer(staging_buffer.buffer, bounding_box_vertex_buffer.buffer, copy);
+    });
+
+    renderer.m_deletion_queue.enqueue([copy = bounding_box_vertex_buffer, &allocator = renderer.m_allocator]() {
         vmaDestroyBuffer(allocator, copy.buffer,
             copy.allocation);
     });
