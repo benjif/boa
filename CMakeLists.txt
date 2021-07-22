@@ -10,7 +10,10 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(Vulkan REQUIRED)
 find_package(fmt REQUIRED)
-find_package(Bullet REQUIRED)
+
+if(!WIN32)
+    find_package(Bullet REQUIRED)
+endif()
 
 find_program(CCACHE "ccache")
 if(CCACHE)
@@ -65,16 +68,17 @@ target_include_directories(boa
     PUBLIC "${PROJECT_SOURCE_DIR}/lib/rapidjson/include/rapidjson"
     PUBLIC "${PROJECT_SOURCE_DIR}/include"
     PUBLIC ${Vulkan_INCLUDE_DIRS}
-    PUBLIC ${BULLET_INCLUDE_DIRS}
 )
 
 if(WIN32)
     target_include_directories(boa
         PUBLIC "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/include"
         PUBLIC "${PROJECT_SOURCE_DIR}/lib/glm"
+        PUBLIC "${PROJECT_SOURCE_DIR}/lib/bullet3/include"
     )
     target_link_directories(boa
         PUBLIC "${PROJECT_SOURCE_DIR}/lib/glfw-3.3.4.bin.WIN64/lib-mingw-w64"
+        PUBLIC "${PROJECT_SOURCE_DIR}/lib/bullet3/lib"
     )
     target_link_libraries(boa
         ${Vulkan_LIBRARIES}
@@ -85,6 +89,9 @@ if(WIN32)
         -limm32
     )
 else()
+    target_include_directories(
+        PUBLIC ${BULLET_INCLUDE_DIRS}
+    )
     target_link_libraries(boa
         ${Vulkan_LIBRARIES}
         ${BULLET_LIBRARIES}

@@ -8,6 +8,7 @@
 #include <bitset>
 #include <algorithm>
 #include <queue>
+#include <optional>
 
 namespace boa::ecs {
 
