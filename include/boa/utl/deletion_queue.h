@@ -1,5 +1,5 @@
-#ifndef BOA_DELETION_QUEUE_H
-#define BOA_DELETION_QUEUE_H
+#ifndef BOA_UTL_DELETION_QUEUE_H
+#define BOA_UTL_DELETION_QUEUE_H
 
 #include <deque>
 #include <functional>

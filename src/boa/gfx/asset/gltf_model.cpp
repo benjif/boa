@@ -3,7 +3,7 @@
 #define TINYGLTF_USE_RAPIDJSON
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "boa/macros.h"
+#include "boa/utl/macros.h"
 #include "boa/gfx/asset/gltf_model.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtx/quaternion.hpp"
@@ -239,9 +239,11 @@ void glTFModel::open_gltf_file(const char *path) {
                 uint32_t vertex_start = static_cast<uint32_t>(m_vertices.size());
 
                 if (primitive.indices < 0)
-                    TODO();
+                    LOG_FAIL("Primitive doesn't have list of indices (unsupported)");
                 if (primitive.material != -1)
                     new_primitive.material = primitive.material;
+                if (primitive.mode != TINYGLTF_MODE_TRIANGLES)
+                    LOG_FAIL("Unsupported primitive mode (not a triangle list)");
 
                 const auto &index_accessor = m_model.accessors[primitive.indices];
                 const auto &index_buffer_view = m_model.bufferViews[index_accessor.bufferView];

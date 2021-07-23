@@ -1,7 +1,7 @@
 #ifndef BOA_GFX_ASSET_ANIMATION_H
 #define BOA_GFX_ASSET_ANIMATION_H
 
-#include "boa/macros.h"
+#include "boa/utl/macros.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include <cstdint>

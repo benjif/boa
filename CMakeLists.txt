@@ -38,13 +38,14 @@ SET(IMGUI_INCLUDE_DIRS "${imgui_SOURCE_DIR}")
 
 FILE(GLOB SOURCES
     src/*.cpp
-    src/boa/*.cpp
-    src/boa/input/*.cpp
+    src/boa/gme/*.cpp
+    src/boa/phy/*.cpp
+    src/boa/utl/*.cpp
+    src/boa/ctl/*.cpp
     src/boa/ecs/*.cpp
     src/boa/gfx/*.cpp
     src/boa/gfx/vk/*.cpp
     src/boa/gfx/asset/*.cpp
-    src/boa/phy/*.cpp
     "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_glfw.cpp"
     "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_vulkan.cpp"
     "${IMGUI_INCLUDE_DIRS}/*.cpp"

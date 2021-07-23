@@ -1,5 +1,5 @@
-#ifndef BOA_MACROS_H
-#define BOA_MACROS_H
+#ifndef BOA_UTL_MACROS_H
+#define BOA_UTL_MACROS_H
 
 #include <fmt/color.h>
 
@@ -32,6 +32,7 @@ do {                                                            \
 do {                                                            \
     fmt::print(fmt::fg(fmt::color::red), "FAIL: ");             \
     fmt::print("{}\n", fmt::format((fmt_), ##__VA_ARGS__));     \
+    throw std::runtime_error("Failure occurred");               \
 } while (false)
 #endif
 

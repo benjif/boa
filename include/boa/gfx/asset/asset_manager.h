@@ -1,7 +1,7 @@
 #ifndef BOA_GFX_ASSET_ASSET_MANAGER_H
 #define BOA_GFX_ASSET_ASSET_MANAGER_H
 
-#include "boa/macros.h"
+#include "boa/utl/macros.h"
 #include "boa/gfx/asset/asset.h"
 #include "boa/gfx/lighting_type.h"
 #include <string>

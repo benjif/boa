@@ -1,8 +1,8 @@
 #ifndef BOA_GFX_ASSET_SCENE_H
 #define BOA_GFX_ASSET_SCENE_H
 
-#include "boa/macros.h"
-#include "boa/iteration.h"
+#include "boa/utl/macros.h"
+#include "boa/utl/iteration.h"
 #include "boa/gfx/linear.h"
 #include "glm/gtc/quaternion.hpp"
 #include "tiny_gltf.h"

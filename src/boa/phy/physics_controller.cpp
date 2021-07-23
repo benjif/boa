@@ -1,9 +1,9 @@
+#include "boa/ecs/ecs.h"
+#include "boa/utl/macros.h"
 #include "boa/phy/physics_controller.h"
 #include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/asset/asset.h"
 #include "boa/gfx/linear.h"
-#include "boa/ecs/ecs.h"
-#include "boa/macros.h"
 
 namespace boa::phy {
 
@@ -63,10 +63,15 @@ void PhysicsController::add_entity(uint32_t e_id, float f_mass) {
 
     //body->setSleepingThresholds(0.2f, 0.2f);
 
-    m_dynamics_world->addRigidBody(body);
-
     entity_group.enable_and_make<Physical>(e_id,
-                                           ground_shape, motion_state, body);
+                                           ground_shape,
+                                           motion_state,
+                                           body,
+                                           e_id);
+
+    body->setUserPointer(&entity_group.get_component<Physical>(e_id));
+
+    m_dynamics_world->addRigidBody(body);
 
     m_deletion_queue.enqueue([=]() {
         delete ground_shape;
@@ -101,11 +106,51 @@ void PhysicsController::update(float time_change) {
                                           float(trans.getRotation().getZ()));
         transform.update();
 
-        //LOG_INFO("{}, {}, {}",
-                 //float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ()));
-
         return Iteration::Continue;
     });
+}
+
+std::optional<uint32_t> PhysicsController::raycast_cursor_position(uint32_t screen_w, uint32_t screen_h,
+                                                uint32_t cursor_x, uint32_t cursor_y,
+                                                const glm::mat4 &view_projection,
+                                                float length) {
+    glm::mat4 inverse_view_projection = glm::inverse(view_projection);
+
+    glm::vec4 start_device{
+        ((float)cursor_x / (float)screen_w - 0.5f) * 2.0f,
+        ((float)cursor_y / (float)screen_h - 0.5f) * 2.0f,
+        -1.0f,
+        1.0f,
+    };
+    glm::vec4 end_device{
+        ((float)cursor_x / (float)screen_w - 0.5f) * 2.0f,
+        ((float)cursor_y / (float)screen_h - 0.5f) * 2.0f,
+        0.0f,
+        1.0f,
+    };
+
+    glm::vec4 start_scene = inverse_view_projection * start_device;
+    start_scene /= start_scene.w;
+    glm::vec4 end_scene = inverse_view_projection * end_device;
+    end_scene /= end_scene.w;
+
+    glm::vec4 ray_direction = glm::normalize(end_scene - start_scene);
+    glm::vec4 ray_end = start_scene + ray_direction * length;
+
+    btCollisionWorld::ClosestRayResultCallback ray_callback(
+        btVector3(start_scene.x, start_scene.y, start_scene.z),
+        btVector3(ray_end.x, ray_end.y, ray_end.z));
+    m_dynamics_world->rayTest(
+        btVector3(start_scene.x, start_scene.y, start_scene.z),
+        btVector3(ray_end.x, ray_end.y, ray_end.z),
+        ray_callback);
+
+    if (ray_callback.hasHit()) {
+        Physical *object = (Physical *)ray_callback.m_collisionObject->getUserPointer();
+        return object->e_id;
+    }
+
+    return std::nullopt;
 }
 
 }

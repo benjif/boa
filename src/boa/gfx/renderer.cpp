@@ -1,9 +1,10 @@
 #define VMA_IMPLEMENTATION
+#include "boa/utl/iteration.h"
 #include "boa/ecs/ecs.h"
-#include "boa/iteration.h"
 #include "boa/gfx/renderer.h"
 #include "boa/gfx/asset/animation.h"
 #include "boa/gfx/vk/initializers.h"
+#include "boa/gme/object.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
@@ -69,7 +70,8 @@ void Renderer::run() {
             = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
         last_time = current_time;
 
-        m_per_frame_callback(time_change);
+        if (m_per_frame_callback)
+            m_per_frame_callback(time_change);
         draw_frame();
 
 #ifdef BENCHMARK
@@ -305,27 +307,23 @@ static const std::array<uint32_t, 36> skybox_indices = {
 };
 
 void Renderer::draw_renderables(vk::CommandBuffer cmd) {
-    Transformations transforms{
-        .view = glm::lookAt(
-            m_camera.get_position(),
-            m_camera.get_position() + m_camera.get_target(),
-            m_camera.get_up()
-        ),
-        .projection = glm::perspective(
-            glm::radians(90.0f),
-            m_window_extent.width / (float)m_window_extent.height,
-            0.1f,
-            500.0f
-        )
-    };
+    m_transforms.view = glm::lookAt(
+        m_camera.get_position(),
+        m_camera.get_position() + m_camera.get_target(),
+        m_camera.get_up());
+    m_transforms.projection = glm::perspective(
+        glm::radians(90.0f),
+        m_window_extent.width / (float)m_window_extent.height,
+        0.1f,
+        500.0f);
 
-    transforms.projection[1][1] *= -1;
-    transforms.view_projection = transforms.projection * transforms.view;
-    transforms.skybox_view_projection = transforms.projection * glm::mat4(glm::mat3(transforms.view));
+    m_transforms.projection[1][1] *= -1;
+    m_transforms.view_projection = m_transforms.projection * m_transforms.view;
+    m_transforms.skybox_view_projection = m_transforms.projection * glm::mat4(glm::mat3(m_transforms.view));
 
     void *data;
     vmaMapMemory(m_allocator, current_frame().transformations_buffer.allocation, &data);
-    memcpy(data, &transforms, sizeof(Transformations));
+    memcpy(data, &m_transforms, sizeof(Transformations));
     vmaUnmapMemory(m_allocator, current_frame().transformations_buffer.allocation);
 
     auto &entity_group = ecs::EntityGroup::get();
@@ -359,11 +357,12 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
     memcpy(data, &blinn_phong, sizeof(BlinnPhong));
     vmaUnmapMemory(m_allocator, current_frame().blinn_phong_buffer.allocation);
 
-    m_frustum.update(transforms.view_projection);
+    m_frustum.update(m_transforms.view_projection);
 
     // TODO: figure out how to do instanced rendering
     entity_group.for_each_entity_with_component<Renderable>([&](auto &e_id) {
-        auto &model = m_asset_manager.get_model(entity_group.get_component<Renderable>(e_id).model_id);
+        auto &renderable = entity_group.get_component<Renderable>(e_id);
+        auto &model = m_asset_manager.get_model(renderable.model_id);
 
         if (model.nodes.size() == 0)
             return Iteration::Continue;
@@ -387,7 +386,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                 else
                     local_transform *= node.transform_matrix;
 
-                glm::mat4 model_view_projection = transforms.view_projection * local_transform;
+                glm::mat4 model_view_projection = m_transforms.view_projection * local_transform;
 
                 size_t last_material = std::numeric_limits<size_t>::max();
                 for (size_t primitive_idx : node.primitives) {
@@ -459,11 +458,12 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
         for (size_t node_idx : model.root_nodes)
             draw_node(model.nodes[node_idx], entity_transform_matrix);
 
-        if (m_draw_bounding_boxes) {
+        if (m_draw_bounding_boxes || (entity_group.has_component<boa::gme::EngineConfigurable>(e_id) &&
+                                      entity_group.get_component<boa::gme::EngineConfigurable>(e_id).selected)) {
             PushConstants push_constants = {
                 .extra0 = { -1, -1, -1, -1 },
                 .extra1 = { 0.f, 0.f, 0.f, 0.f },
-                .model_view_projection = transforms.view_projection * entity_transform_matrix,
+                .model_view_projection = m_transforms.view_projection * entity_transform_matrix,
             };
 
             auto &bounding_box_material = m_asset_manager.get_material(BOUNDING_BOX_MATERIAL_INDEX);

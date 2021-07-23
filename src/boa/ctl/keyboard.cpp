@@ -1,15 +1,16 @@
 #include "GLFW/glfw3.h"
 #include "boa/gfx/renderer.h"
-#include "boa/input/keyboard.h"
+#include "boa/ctl/keyboard.h"
 
-namespace boa::input {
+namespace boa::ctl {
 
 void Keyboard::keyboard_callback(void *user_ptr_v, int key, int scancode, int action, int mods) {
     auto user_pointers = reinterpret_cast<gfx::Renderer::WindowUserPointers *>(user_ptr_v);
     auto keyboard = user_pointers->keyboard;
     auto keyboard_user_callback = keyboard->m_callback;
 
-    keyboard_user_callback(key, action, mods);
+    if (keyboard_user_callback)
+        keyboard_user_callback(key, action, mods);
 
     if (action == GLFW_PRESS) {
         keyboard->set_key(key, true);

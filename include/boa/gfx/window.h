@@ -1,13 +1,23 @@
 #ifndef BOA_GFX_WINDOW_H
 #define BOA_GFX_WINDOW_H
 
-#include "boa/macros.h"
+#include "boa/utl/macros.h"
 #include <vulkan/vulkan.hpp>
 #include <string>
 
 struct GLFWwindow;
+struct GLFWcursor;
 
 namespace boa::gfx {
+
+enum class CursorShape {
+    Arrow     = 0,
+    IBeam     = 1,
+    CrossHair = 2,
+    Hand      = 3,
+    HResize   = 4,
+    VResize   = 5,
+};
 
 class Window {
     REMOVE_COPY_AND_ASSIGN(Window);
@@ -30,8 +40,10 @@ public:
     void show() const;
     void hide() const;
 
+    void set_cursor(CursorShape shape) const;
     void set_cursor_disabled(bool hidden);
     void set_window_user_pointer(void *ptr);
+
     void set_framebuffer_size_callback(resize_callback_type callback);
     void set_keyboard_callback(keyboard_callback_type callback);
     void set_cursor_callback(cursor_callback_type callback);
@@ -56,6 +68,7 @@ private:
 
     const std::string m_window_name;
     GLFWwindow *m_window;
+    GLFWcursor *m_cursors[6];
 
     void *m_user_pointer;
     resize_callback_type m_size_callback;

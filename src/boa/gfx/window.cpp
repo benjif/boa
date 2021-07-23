@@ -19,9 +19,18 @@ Window::Window(int w, int h, const char *name)
 
     if (glfwRawMouseMotionSupported())
         glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+
+    m_cursors[0] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+    m_cursors[1] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+    m_cursors[2] = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
+    m_cursors[3] = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+    m_cursors[4] = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+    m_cursors[5] = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 }
 
 Window::~Window() {
+    for (size_t i = 0; i < 6; i++)
+        glfwDestroyCursor(m_cursors[i]);
     glfwDestroyWindow(m_window);
     glfwTerminate();
 }
@@ -50,6 +59,10 @@ void Window::hide() const {
     glfwHideWindow(m_window);
 }
 
+void Window::set_cursor(CursorShape shape) const {
+    glfwSetCursor(m_window, m_cursors[static_cast<size_t>(shape)]);
+}
+
 void Window::set_cursor_disabled(bool hidden) {
     glfwSetInputMode(m_window, GLFW_CURSOR, hidden ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
@@ -59,7 +72,8 @@ void Window::set_keyboard_callback(keyboard_callback_type callback) {
         auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_keyboard_callback();
         auto user_p = main_class->get_window_user_pointer();
-        callback(user_p, key, scancode, action, mods);
+        if (callback)
+            callback(user_p, key, scancode, action, mods);
     };
 
     m_keyboard_callback = callback;
@@ -71,7 +85,8 @@ void Window::set_cursor_callback(cursor_callback_type callback) {
         auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_cursor_callback();
         auto user_p = main_class->get_window_user_pointer();
-        callback(user_p, x, y);
+        if (callback)
+            callback(user_p, x, y);
     };
 
     m_cursor_callback = callback;
@@ -83,7 +98,8 @@ void Window::set_framebuffer_size_callback(resize_callback_type callback) {
         auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_framebuffer_size_callback();
         auto user_p = main_class->get_window_user_pointer();
-        callback(user_p, w, h);
+        if (callback)
+            callback(user_p, w, h);
     };
 
     m_size_callback = callback;
@@ -95,7 +111,8 @@ void Window::set_mouse_button_callback(mouse_button_callback_type callback) {
         auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_mouse_button_callback();
         auto user_p = main_class->get_window_user_pointer();
-        callback(user_p, button, action, mods);
+        if (callback)
+            callback(user_p, button, action, mods);
     };
 
     m_mouse_button_callback = callback;
@@ -107,7 +124,8 @@ void Window::set_mouse_scroll_callback(mouse_scroll_callback_type callback) {
         auto main_class = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
         auto callback = main_class->get_mouse_scroll_callback();
         auto user_p = main_class->get_window_user_pointer();
-        callback(user_p, x_offset, y_offset);
+        if (callback)
+            callback(user_p, x_offset, y_offset);
     };
 
     m_mouse_scroll_callback = callback;

@@ -2,7 +2,7 @@
 
 uint32_t boa::ecs::component_type_count = 0;
 
-#include "boa/macros.h"
+#include "boa/utl/macros.h"
 
 namespace boa::ecs {
 

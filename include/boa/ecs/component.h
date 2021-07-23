@@ -1,14 +1,14 @@
 #ifndef BOA_ECS_COMPONENT_H
 #define BOA_ECS_COMPONENT_H
 
-#include "boa/macros.h"
+#include "boa/utl/macros.h"
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
 
 namespace boa::ecs {
 
-const size_t COMPONENTS_START_COUNT = 64;
+const size_t COMPONENTS_START_COUNT = 32;
 //const size_t COMPONENT_ZONE_SIZE = 32 * KiB;
 const size_t COMPONENT_ZONE_SIZE = 64 * KiB;
 const uint32_t COMPONENTS_GROWTH_RATE = 2;

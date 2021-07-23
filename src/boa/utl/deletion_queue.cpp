@@ -1,4 +1,4 @@
-#include "boa/deletion_queue.h"
+#include "boa/utl/deletion_queue.h"
 
 void boa::DeletionQueue::enqueue(std::function<void()> &&func) {
     m_deletors.push_back(func);

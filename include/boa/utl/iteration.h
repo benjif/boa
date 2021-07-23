@@ -1,5 +1,5 @@
-#ifndef BOA_ITERATION_H
-#define BOA_ITERATION_H
+#ifndef BOA_UTL_ITERATION_H
+#define BOA_UTL_ITERATION_H
 
 namespace boa {
 

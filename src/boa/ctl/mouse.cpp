@@ -1,13 +1,17 @@
 #include <iostream>
 #include "boa/gfx/renderer.h"
-#include "boa/input/mouse.h"
+#include "boa/ctl/mouse.h"
 #include "GLFW/glfw3.h"
 
-namespace boa::input {
+namespace boa::ctl {
 
 void Mouse::mouse_button_callback(void *user_ptr_v, int button, int action, int mods) {
     auto user_pointers = reinterpret_cast<boa::gfx::Renderer::WindowUserPointers *>(user_ptr_v);
     auto mouse = user_pointers->mouse;
+
+    auto mouse_user_callback = mouse->m_mouse_button_callback;
+    if (mouse_user_callback)
+        mouse_user_callback(button, action, mods);
 
     if (action == GLFW_PRESS)
         mouse->set_button(button);
@@ -34,6 +38,10 @@ void Mouse::scroll_callback(void *user_ptr_v, double x_offset, double y_offset) 
     auto mouse = user_pointers->mouse;
 
     mouse->set_scroll_movement(glm::dvec2{ x_offset, y_offset });
+}
+
+void Mouse::set_mouse_button_callback(std::function<void(int, int, int)> callback) {
+    m_mouse_button_callback = callback;
 }
 
 glm::dvec2 Mouse::get_position() const {

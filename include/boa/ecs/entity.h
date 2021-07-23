@@ -1,7 +1,7 @@
 #ifndef BOA_ECS_ENTITY_H
 #define BOA_ECS_ENTITY_H
 
-#include "boa/iteration.h"
+#include "boa/utl/iteration.h"
 #include "boa/ecs/component.h"
 #include <cstdint>
 #include <vector>

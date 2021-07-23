@@ -1,17 +1,17 @@
 #ifndef BOA_GFX_RENDERER_H
 #define BOA_GFX_RENDERER_H
 
-#include "boa/deletion_queue.h"
+#include "boa/utl/deletion_queue.h"
+#include "boa/utl/macros.h"
+#include "boa/ctl/keyboard.h"
+#include "boa/ctl/mouse.h"
 #include "boa/gfx/window.h"
 #include "boa/gfx/vk/util.h"
 #include "boa/gfx/vk/types.h"
 #include "boa/gfx/lighting.h"
 #include "boa/gfx/asset/gltf_model.h"
 #include "boa/gfx/asset/asset.h"
-#include "boa/macros.h"
 #include "boa/gfx/camera.h"
-#include "boa/input/keyboard.h"
-#include "boa/input/mouse.h"
 #include "boa/gfx/asset/asset_manager.h"
 #include "glm/gtx/transform.hpp"
 #include <functional>
@@ -30,8 +30,8 @@ public:
 
     struct WindowUserPointers {
         Renderer *renderer;
-        input::Keyboard *keyboard;
-        input::Mouse *mouse;
+        ctl::Keyboard *keyboard;
+        ctl::Mouse *mouse;
     };
 
     Renderer();
@@ -39,15 +39,39 @@ public:
 
     void run();
 
-    input::Keyboard &get_keyboard() { return m_keyboard; }
-    input::Mouse &get_mouse() { return m_mouse; }
-    Camera &get_camera() { return m_camera; }
-    Window &get_window() { return m_window; }
+    AssetManager &get_asset_manager() {
+        return m_asset_manager;
+    }
 
-    AssetManager &get_asset_manager() { return m_asset_manager; }
+    ctl::Keyboard &get_keyboard()   { return m_keyboard;    }
+    ctl::Mouse &get_mouse()         { return m_mouse;       }
+    Camera &get_camera()            { return m_camera;      }
+    Window &get_window()            { return m_window;      }
 
-    void set_draw_bounding_boxes(bool draw) { m_draw_bounding_boxes = draw; }
-    bool get_draw_bounding_boxes() const { return m_draw_bounding_boxes; }
+    uint32_t get_width() const {
+        return INIT_WIDTH;
+    } // TODO: change after adding window resizing
+    uint32_t get_height() const {
+        return INIT_HEIGHT;
+    } // TODO: same
+
+    glm::mat4 get_view() const {
+        return m_transforms.view;
+    }
+    glm::mat4 get_projection() const {
+        return m_transforms.projection;
+    }
+    glm::mat4 get_view_projection() const {
+        return m_transforms.view_projection;
+    }
+
+    void set_draw_bounding_boxes(bool draw) {
+        m_draw_bounding_boxes = draw;
+    }
+    bool get_draw_bounding_boxes() const {
+        return m_draw_bounding_boxes;
+    }
+
     void set_per_frame_callback(std::function<void(float)> callback);
     void set_ui_mouse_enabled(bool mouse_enabled);
 
@@ -100,7 +124,7 @@ private:
         // TODO: move skybox_view_projection into a different uniform/push constant
         //       struct, I'm too tired right now
         glm::mat4 skybox_view_projection;
-    };
+    } m_transforms;
 
     constexpr static uint32_t MAX_POINT_LIGHTS = 16;
 
@@ -139,8 +163,8 @@ private:
     WindowUserPointers m_user_pointers;
 
     // TODO: move input and camera stuff outside of renderer class
-    input::Keyboard m_keyboard;
-    input::Mouse m_mouse;
+    ctl::Keyboard m_keyboard;
+    ctl::Mouse m_mouse;
     Camera m_camera;
 
     std::function<void(float)> m_per_frame_callback;

@@ -2,17 +2,16 @@
 #define BOA_PHY_PHYSICS_CONTROLLER_H
 
 #include "btBulletDynamicsCommon.h"
-#include "boa/deletion_queue.h"
+#include "glm/glm.hpp"
+#include "boa/utl/macros.h"
+#include "boa/utl/deletion_queue.h"
 #include <unordered_set>
 #include <memory>
 
-namespace boa::gfx {
-class AssetManager;
-}
+namespace boa::gfx  { class AssetManager;   }
 
 namespace boa::phy {
 
-// component
 struct Physical {
     Physical()
         : ground_shape(nullptr),
@@ -21,25 +20,33 @@ struct Physical {
     {
     }
 
-    Physical(btCollisionShape *gs, btDefaultMotionState *ms, btRigidBody *rb)
+    Physical(btCollisionShape *gs, btDefaultMotionState *ms, btRigidBody *rb, uint32_t id)
         : ground_shape(gs),
           motion_state(ms),
-          rigid_body(rb)
+          rigid_body(rb),
+          e_id(id)
     {
     }
 
     btCollisionShape *ground_shape;
     btDefaultMotionState *motion_state;
     btRigidBody *rigid_body;
+    uint32_t e_id;
 };
 
 class PhysicsController {
+    REMOVE_COPY_AND_ASSIGN(PhysicsController);
 public:
     PhysicsController(boa::gfx::AssetManager &asset_manager);
     ~PhysicsController();
 
     void add_entity(uint32_t e_id, float f_mass);
     void update(float time_change);
+
+    std::optional<uint32_t> raycast_cursor_position(uint32_t screen_w, uint32_t screen_h,
+                                                    uint32_t cursor_x, uint32_t cursor_y,
+                                                    const glm::mat4 &view_projection,
+                                                    float length);
 
 private:
     boa::gfx::AssetManager &m_asset_manager;
