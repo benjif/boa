@@ -65,8 +65,8 @@ struct Node {
     uint32_t id;
 };
 
-struct RenderableModel {
-    RenderableModel(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, LightingInteractivity preferred_lighting);
+struct Model {
+    Model(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, LightingInteractivity preferred_lighting);
 
     std::vector<Node> nodes;
     std::vector<Primitive> primitives;
@@ -84,11 +84,6 @@ private:
     vk::DescriptorSetLayout m_textures_descriptor_set_layout;
 
     uint32_t m_descriptor_count{ 0 };
-
-    // We pass references as parameters and avoid storing any references
-    // (for Renderer, glTFModel, or AssetManager) because this is a component
-    // and memory space is critical.
-    // The references are only used during construction.
 
     vk::Sampler create_sampler(Renderer &renderer, const glTFModel::Sampler &sampler);
     void add_from_node(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, const glTFModel::Node &node);

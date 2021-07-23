@@ -61,7 +61,7 @@ Skybox::Skybox(Renderer &renderer, const std::array<std::string, 6> &texture_pat
     sampler = new_sampler;
 }
 
-RenderableModel::RenderableModel(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, LightingInteractivity preferred_lighting)
+Model::Model(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, LightingInteractivity preferred_lighting)
     : lighting(preferred_lighting),
       root_nodes(model.get_root_nodes().begin(), model.get_root_nodes().end())
 {
@@ -128,7 +128,7 @@ static inline vk::SamplerAddressMode tinygltf_to_vulkan_address_mode(int gltf) {
     }
 }
 
-vk::Sampler RenderableModel::create_sampler(Renderer &renderer, const glTFModel::Sampler &sampler) {
+vk::Sampler Model::create_sampler(Renderer &renderer, const glTFModel::Sampler &sampler) {
     vk::SamplerCreateInfo sampler_info{
         .magFilter          = tinygltf_to_vulkan_filter(sampler.mag_filter),
         .minFilter          = tinygltf_to_vulkan_filter(sampler.min_filter),
@@ -153,7 +153,7 @@ vk::Sampler RenderableModel::create_sampler(Renderer &renderer, const glTFModel:
     return new_sampler;
 }
 
-void RenderableModel::calculate_model_bounding_box(const glTFModel &model, const glTFModel::Node &node, glm::mat4 transform_matrix) {
+void Model::calculate_model_bounding_box(const glTFModel &model, const glTFModel::Node &node, glm::mat4 transform_matrix) {
     transform_matrix *= glm::mat4(node.matrix);
 
     if (node.mesh.has_value()) {
@@ -171,7 +171,7 @@ void RenderableModel::calculate_model_bounding_box(const glTFModel &model, const
         calculate_model_bounding_box(model, model.get_node(child_idx), transform_matrix);
 }
 
-void RenderableModel::add_from_node(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, const glTFModel::Node &node) {
+void Model::add_from_node(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, const glTFModel::Node &node) {
     Node new_boa_node;
     new_boa_node.children.reserve(node.children.size());
     new_boa_node.transform_matrix = node.matrix;
@@ -671,7 +671,7 @@ Texture::Texture(Renderer &renderer, const std::array<std::string, 6> &texture_p
         stbi_image_free(pixels[i]);
 }
 
-void RenderableModel::upload_primitive_indices(Renderer &renderer, Primitive &vk_primitive, const glTFModel::Primitive &primitive) {
+void Model::upload_primitive_indices(Renderer &renderer, Primitive &vk_primitive, const glTFModel::Primitive &primitive) {
     const size_t size = primitive.indices.size() * sizeof(uint32_t);
 
     VmaBuffer staging_buffer = renderer.create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -696,7 +696,7 @@ void RenderableModel::upload_primitive_indices(Renderer &renderer, Primitive &vk
     vmaDestroyBuffer(renderer.m_allocator, staging_buffer.buffer, staging_buffer.allocation);
 }
 
-void RenderableModel::upload_model_vertices(Renderer &renderer, const glTFModel &model) {
+void Model::upload_model_vertices(Renderer &renderer, const glTFModel &model) {
     const size_t size = model.get_vertices().size() * sizeof(Vertex);
 
     VmaBuffer staging_buffer = renderer.create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -722,7 +722,7 @@ void RenderableModel::upload_model_vertices(Renderer &renderer, const glTFModel 
     vmaDestroyBuffer(renderer.m_allocator, staging_buffer.buffer, staging_buffer.allocation);
 }
 
-void RenderableModel::upload_bounding_box_vertices(Renderer &renderer) {
+void Model::upload_bounding_box_vertices(Renderer &renderer) {
     std::array<Vertex, 8> bounding_box_vertices{
         Vertex{ .position = { bounding_box.min }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
         Vertex{ .position = { bounding_box.max }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},

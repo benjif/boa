@@ -65,6 +65,9 @@
         "typeinfo": "cpp",
         "valarray": "cpp",
         "condition_variable": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "*.ipp": "cpp",
+        "thread": "cpp",
+        "stop_token": "cpp"
     }
 }

@@ -9,8 +9,13 @@ namespace boa::gfx {
 void AssetManager::load_model(uint32_t e_id, const glTFModel &model, LightingInteractivity preferred_lighting) {
     LOG_INFO("(Asset) Loading model into entity {}", e_id);
 
+    m_models.emplace_back(*this, m_renderer, model, preferred_lighting);
+
     auto &entity_group = ecs::EntityGroup::get();
-    entity_group.enable_and_make<RenderableModel>(e_id, *this, m_renderer, model, preferred_lighting);
+    entity_group.enable<Renderable>(e_id);
+
+    auto &renderable = entity_group.get_component<Renderable>(e_id);
+    renderable.model_id = m_models.size() - 1;
 }
 
 void AssetManager::load_skybox(uint32_t e_id, const std::array<std::string, 6> &texture_paths) {

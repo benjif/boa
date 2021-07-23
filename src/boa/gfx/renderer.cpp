@@ -362,8 +362,8 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
     m_frustum.update(transforms.view_projection);
 
     // TODO: figure out how to do instanced rendering
-    entity_group.for_each_entity_with_component<RenderableModel>([&](auto &e_id) {
-        auto &model = entity_group.get_component<RenderableModel>(e_id);
+    entity_group.for_each_entity_with_component<Renderable>([&](auto &e_id) {
+        auto &model = m_asset_manager.get_model(entity_group.get_component<Renderable>(e_id).model_id);
 
         if (model.nodes.size() == 0)
             return Iteration::Continue;

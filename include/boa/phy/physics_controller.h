@@ -6,6 +6,10 @@
 #include <unordered_set>
 #include <memory>
 
+namespace boa::gfx {
+class AssetManager;
+}
+
 namespace boa::phy {
 
 // component
@@ -31,13 +35,15 @@ struct Physical {
 
 class PhysicsController {
 public:
-    PhysicsController();
+    PhysicsController(boa::gfx::AssetManager &asset_manager);
     ~PhysicsController();
 
     void add_entity(uint32_t e_id, float f_mass);
     void update(float time_change);
 
 private:
+    boa::gfx::AssetManager &m_asset_manager;
+
     std::unique_ptr<btDefaultCollisionConfiguration> m_collision_config;
     std::unique_ptr<btCollisionDispatcher> m_dispatcher;
     std::unique_ptr<btBroadphaseInterface> m_overlapping_pair_cache;

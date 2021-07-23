@@ -243,7 +243,7 @@ private:
         const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
         void *p_user_data);
 
-    friend class RenderableModel;
+    friend class Model;
     friend class Texture;
     friend class Skybox;
 };

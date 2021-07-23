@@ -19,49 +19,44 @@ public:
           camera(renderer.get_camera()),
           keyboard(renderer.get_keyboard()),
           mouse(renderer.get_mouse()),
-          asset_manager(renderer.get_asset_manager())
+          asset_manager(renderer.get_asset_manager()),
+          physics_controller(asset_manager)
     {
         default_skybox = entity_group.new_entity();
-        sponza_entity = entity_group.new_entity();
-        entity_group.enable_and_make<boa::gfx::Transformable>(sponza_entity,
+        baseplate_entity = entity_group.new_entity();
+        entity_group.enable_and_make<boa::gfx::Transformable>(baseplate_entity,
             glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
             glm::vec3{ 0.0f, -10.0f, 0.0f },
             glm::vec3{ 1.0f, 1.0f, 1.0f });
-        box_animated_entity = entity_group.new_entity();
-        /*entity_group.enable_and_make<boa::gfx::Transformable>(box_animated_entity,
-            glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
-            glm::vec3{ 0.0f, 0.0f, 0.0f },
-            glm::vec3{ 0.6f, 0.6f, 0.6f });*/
-        entity_group.enable_and_make<boa::gfx::Transformable>(box_animated_entity,
+        crown_entity = entity_group.new_entity();
+        entity_group.enable_and_make<boa::gfx::Transformable>(crown_entity,
             glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
             glm::vec3{ 0.0f, 20.0f, 0.0f },
             glm::vec3{ 1.0f, 1.0f, 1.0f });
     }
 
     void load_assets() {
-        //box_animated_model.open_gltf_file("models/BoxAnimated.gltf");
-        //sponza_model.open_gltf_file("models/sponza/Sponza.gltf");
-        box_animated_model.open_gltf_file("models/domino_crown.gltf");
-        sponza_model.open_gltf_file("models/primitives/plane.gltf");
+        crown_model.open_gltf_file("models/domino_crown.gltf");
+        baseplate_model.open_gltf_file("models/primitives/plane.gltf");
 
-        asset_manager.load_model(box_animated_entity, box_animated_model, boa::gfx::LightingInteractivity::BlinnPhong);
-        asset_manager.load_model(sponza_entity, sponza_model, boa::gfx::LightingInteractivity::BlinnPhong);
+        asset_manager.load_model(crown_entity, crown_model, boa::gfx::LightingInteractivity::BlinnPhong);
+        asset_manager.load_model(baseplate_entity, baseplate_model, boa::gfx::LightingInteractivity::BlinnPhong);
 
-        physics_controller.add_entity(box_animated_entity, 30.0f);
-        physics_controller.add_entity(sponza_entity, 0.0f);
+        physics_controller.add_entity(crown_entity, 30.0f);
+        physics_controller.add_entity(baseplate_entity, 0.0f);
 
-        //animation_controller.load_animations(box_animated_entity, box_animated_model);
+        //animation_controller.load_animations(crown_entity, crown_model);
         /*for (size_t i = 1; i < 32; i++) {
-            uint32_t box_animated_entity_copy =
-                entity_group.copy_entity<boa::gfx::Transformable, boa::gfx::RenderableModel, boa::gfx::Animated>(box_animated_entity);
+            uint32_t crown_entity_copy =
+                entity_group.copy_entity<boa::gfx::Transformable, boa::gfx::RenderableModel, boa::gfx::Animated>(crown_entity);
 
-            auto &new_transform = entity_group.get_component<boa::gfx::Transformable>(box_animated_entity_copy);
+            auto &new_transform = entity_group.get_component<boa::gfx::Transformable>(crown_entity_copy);
             {
                 new_transform.translation = glm::vec3(i * 1.0f, 0.0f, 0.0f);
                 new_transform.update();
             }
 
-            animation_controller.play_animation(box_animated_entity_copy, 0, true);
+            animation_controller.play_animation(crown_entity_copy, 0, true);
         }*/
 
         asset_manager.load_skybox(default_skybox, std::array<std::string, 6>{
@@ -93,14 +88,11 @@ public:
     }
 
     void play_looped_animations() {
-        //animation_controller.play_animation(box_animated_entity, 0, true);
+        //animation_controller.play_animation(crown_entity, 0, true);
     }
 
     void setup_per_frame() {
         renderer.set_per_frame_callback([&](float time_change) {
-            //static float time = 0.0f;
-            //time += time_change;
-
             auto &light_comp = entity_group.get_component<boa::gfx::PointLight>(point_light);
             light_comp.position = camera.get_position();
 
@@ -157,16 +149,16 @@ public:
                 } else if (key == boa::input::KEY_B) {
                     renderer.set_draw_bounding_boxes(!renderer.get_draw_bounding_boxes());
                 } else if (key == boa::input::KEY_G) {
-                    for (size_t i = 1; i < 400; i++) {
-                        uint32_t box_copy =
-                            entity_group.copy_entity<boa::gfx::RenderableModel>(box_animated_entity);
+                    for (size_t i = 1; i < 300; i++) {
+                        uint32_t crown_copy =
+                            entity_group.copy_entity<boa::gfx::Renderable>(crown_entity);
 
-                        entity_group.enable_and_make<boa::gfx::Transformable>(box_copy,
+                        entity_group.enable_and_make<boa::gfx::Transformable>(crown_copy,
                             glm::quat{ 0.0f, 0.0f, 1.0f, 0.0f },
                             glm::vec3{ sin(i * 0.23f), 20.0f + i * 5.0f, 0.0f },
                             glm::vec3{ 1.0f, 1.0f, 1.0f });
 
-                        physics_controller.add_entity(box_copy, i * 20.0f + 30.0f);
+                        physics_controller.add_entity(crown_copy, i * 20.0f + 30.0f);
                     }
 
                 }
@@ -194,10 +186,10 @@ private:
     boa::gfx::AnimationController animation_controller;
     boa::phy::PhysicsController physics_controller;
 
-    uint32_t sponza_entity, box_animated_entity;
+    uint32_t baseplate_entity, crown_entity;
     uint32_t default_skybox;
     uint32_t global_light, point_light;
-    boa::gfx::glTFModel sponza_model, box_animated_model;
+    boa::gfx::glTFModel baseplate_model, crown_model;
 };
 
 int main(int argc, char **argv) {

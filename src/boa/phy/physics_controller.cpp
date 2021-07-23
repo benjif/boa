@@ -1,4 +1,5 @@
 #include "boa/phy/physics_controller.h"
+#include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/asset/asset.h"
 #include "boa/gfx/linear.h"
 #include "boa/ecs/ecs.h"
@@ -6,7 +7,8 @@
 
 namespace boa::phy {
 
-PhysicsController::PhysicsController()
+PhysicsController::PhysicsController(boa::gfx::AssetManager &asset_manager)
+    : m_asset_manager(asset_manager)
 {
     m_collision_config = std::make_unique<btDefaultCollisionConfiguration>();
     m_dispatcher = std::make_unique<btCollisionDispatcher>(m_collision_config.get());
@@ -26,9 +28,9 @@ void PhysicsController::add_entity(uint32_t e_id, float f_mass) {
 
     auto &entity_group = ecs::EntityGroup::get();
     assert(entity_group.has_component<gfx::Transformable>(e_id));
-    assert(entity_group.has_component<gfx::RenderableModel>(e_id));
+    assert(entity_group.has_component<gfx::Renderable>(e_id));
 
-    auto &model = entity_group.get_component<gfx::RenderableModel>(e_id);
+    auto &model = m_asset_manager.get_model(entity_group.get_component<gfx::Renderable>(e_id).model_id);
     auto &transform = entity_group.get_component<gfx::Transformable>(e_id);
 
     gfx::Box on_origin = model.bounding_box;
@@ -78,7 +80,7 @@ void PhysicsController::update(float time_change) {
     m_dynamics_world->stepSimulation(time_change);
 
     auto &entity_group = ecs::EntityGroup::get();
-    entity_group.for_each_entity_with_component<Physical, gfx::Transformable, gfx::RenderableModel>([&](uint32_t e_id) {
+    entity_group.for_each_entity_with_component<Physical, gfx::Transformable, gfx::Renderable>([&](uint32_t e_id) {
         auto &physical = entity_group.get_component<Physical>(e_id);
         auto &transform = entity_group.get_component<gfx::Transformable>(e_id);
 

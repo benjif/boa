@@ -18,7 +18,7 @@ void draw_engine_interface() {
     static float ambient_lighting[3] = { 0.1f, 0.1f, 0.1f };
     static float diffuse_lighting[3] = { 0.68f, 0.68f, 0.68f };
     static float specular_lighting[3] = { 0.3f, 0.3f, 0.3f };
-    static float direction[3] = { -0.2f, -1.0f, -0.3f };
+    static float direction[3] = { -0.2f, 1.0f, -0.3f };
 
     ImGui::BeginChild("Global Lighting");
 
