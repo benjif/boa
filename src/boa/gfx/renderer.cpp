@@ -368,6 +368,16 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
         if (model.nodes.size() == 0)
             return Iteration::Continue;
 
+        glm::mat4 entity_transform_matrix{ 1.0f };
+        if (entity_group.has_component<Transformable>(e_id))
+            entity_transform_matrix = entity_group.get_component<Transformable>(e_id).transform_matrix;
+
+        Box transform_bounding_box = model.bounding_box;
+        transform_bounding_box.transform(entity_transform_matrix);
+        Sphere bounding_sphere = Sphere::bounding_sphere_from_bounding_box(transform_bounding_box);
+        if (!m_frustum.is_sphere_within(bounding_sphere.center, bounding_sphere.radius))
+            return Iteration::Continue;
+
         bool is_animated = entity_group.has_component<Animated>(e_id);
 
         const auto draw_node = [&](const auto &node, glm::mat4 local_transform) {
@@ -376,6 +386,8 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                     local_transform *= entity_group.get_component<Animated>(e_id).transform_for_node(node.id);
                 else
                     local_transform *= node.transform_matrix;
+
+                glm::mat4 model_view_projection = transforms.view_projection * local_transform;
 
                 size_t last_material = std::numeric_limits<size_t>::max();
                 for (size_t primitive_idx : node.primitives) {
@@ -388,11 +400,10 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                     //if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
                         //continue;
 
-                    glm::mat4 model_view_projection = transforms.view_projection * local_transform;
                     PushConstants push_constants = {
                         .extra0 = { -1, -1, -1, -1 },
                         .extra1 = { 0.f, 0.f, 0.f, 0.f },
-                        .model_view_projection = model_view_projection
+                        .model_view_projection = model_view_projection,
                     };
 
                     auto &material = m_asset_manager.get_material(primitive.material);
@@ -452,15 +463,16 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
             draw_node_impl(node, local_transform, draw_node_impl);
         };
 
-        glm::mat4 entity_transform_matrix{ 1.0f };
-        if (entity_group.has_component<Transformable>(e_id))
-            entity_transform_matrix = entity_group.get_component<Transformable>(e_id).transform_matrix;
-
         for (size_t node_idx : model.root_nodes)
             draw_node(model.nodes[node_idx], entity_transform_matrix);
 
-        //Sphere bounding_sphere = Sphere::bounding_sphere_from_bounding_box(model.bounding_box);;
-        if (m_draw_bounding_boxes /*&& m_frustum.is_sphere_within(bounding_sphere.center, bounding_sphere.radius)*/) {
+        if (m_draw_bounding_boxes) {
+            PushConstants push_constants = {
+                .extra0 = { -1, -1, -1, -1 },
+                .extra1 = { 0.f, 0.f, 0.f, 0.f },
+                .model_view_projection = transforms.view_projection * entity_transform_matrix,
+            };
+
             auto &bounding_box_material = m_asset_manager.get_material(BOUNDING_BOX_MATERIAL_INDEX);
             cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, bounding_box_material.pipeline);
 
@@ -470,6 +482,8 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                 0,
                 current_frame().parent_set,
                 nullptr);
+
+            cmd.pushConstants(bounding_box_material.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
             vk::Buffer vertex_buffers[] = { model.bounding_box_vertex_buffer.buffer };
             vk::DeviceSize offsets[] = { 0 };

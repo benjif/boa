@@ -21,6 +21,6 @@ layout(push_constant) uniform constants {
 } PushConstants;
 
 void main() {
-    outColor = inColor;
     gl_Position = PushConstants.model_view_projection * vec4(inPosition, 1.0f);
+    outColor = inColor;
 }
