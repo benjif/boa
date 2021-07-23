@@ -68,7 +68,7 @@ private:
 #endif
 
     constexpr static uint32_t FRAMES_IN_FLIGHT = 2;
-    constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 150;
+    constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 85;
 
     enum {
         UNTEXTURED_MATERIAL_INDEX               = 0,

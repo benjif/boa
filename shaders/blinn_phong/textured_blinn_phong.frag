@@ -31,7 +31,7 @@ layout (std140, set = 0, binding = 1) uniform BlinnPhong {
     vec3 camera_position;
 } blinn_phong;
 
-layout (set = 1, binding = 0) uniform sampler2D tex[150];
+layout (set = 1, binding = 0) uniform sampler2D tex[85];
 
 vec3 calculate_global_light(GlobalLight light, vec3 normal, vec3 view_direction, vec3 base_color) {
     vec3 light_direction = normalize(-light.direction);

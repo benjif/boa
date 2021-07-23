@@ -1235,9 +1235,9 @@ VmaBuffer Renderer::create_buffer(size_t size, vk::BufferUsageFlags usage, VmaMe
 
 void Renderer::create_descriptors() {
     std::vector<vk::DescriptorPoolSize> sizes = {
-        { vk::DescriptorType::eUniformBuffer, 100 },
-        { vk::DescriptorType::eSampler, 150 },
-        { vk::DescriptorType::eCombinedImageSampler, 150 },
+        { vk::DescriptorType::eUniformBuffer,           1000 },
+        { vk::DescriptorType::eSampler,                 1000 },
+        { vk::DescriptorType::eCombinedImageSampler,    1000 },
     };
 
     vk::DescriptorPoolCreateInfo pool_info{
