@@ -215,6 +215,22 @@ IF(NOT rapidjson_POPULATED)
 ENDIF()
 SET(RAPIDJSON_INCLUDE_DIRS "${rapidjson_SOURCE_DIR}/include/rapidjson")
 
+# SHADERS
+ADD_SUBDIRECTORY("${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/untextured/untextured.frag")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/untextured/untextured.vert")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured/textured.frag")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured/textured.vert")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/blinn_phong/textured_blinn_phong.frag")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/blinn_phong/textured_blinn_phong.vert")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/blinn_phong/untextured_blinn_phong.frag")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/blinn_phong/untextured_blinn_phong.vert")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/skybox/skybox.frag")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/skybox/skybox.vert")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/bounding_box/bounding_box.frag")
+ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/bounding_box/bounding_box.vert")
+
 INCLUDE_DIRECTORIES(
     "${PROJECT_SOURCE_DIR}/include"
     ${IMGUI_INCLUDE_DIRS}

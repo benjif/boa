@@ -393,13 +393,6 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                 for (size_t primitive_idx : node.primitives) {
                     const auto &primitive = model.primitives[primitive_idx];
 
-                    // probably not right, it won't matter once we do frustum culling on the GPU
-                    // with instanced rendering
-                    //glm::vec3 new_bounding_center = local_transform * glm::vec4(primitive.bounding_sphere.center, 1.0f);
-                    //double new_bounding_radius = glm::length(local_transform * glm::vec4(0.0f, 0.0f, 0.0f, primitive.bounding_sphere.radius));
-                    //if (!m_frustum.is_sphere_within(new_bounding_center, new_bounding_radius))
-                        //continue;
-
                     PushConstants push_constants = {
                         .extra0 = { -1, -1, -1, -1 },
                         .extra1 = { 0.f, 0.f, 0.f, 0.f },
@@ -1440,18 +1433,18 @@ void Renderer::create_descriptors() {
 void Renderer::create_pipelines() {
     LOG_INFO("(Renderer) Creating pipelines");
 
-    vk::ShaderModule untextured_frag = load_shader("shaders/untextured/untextured_frag.spv");
-    vk::ShaderModule untextured_vert = load_shader("shaders/untextured/untextured_vert.spv");
-    vk::ShaderModule textured_frag = load_shader("shaders/textured/textured_frag.spv");
-    vk::ShaderModule textured_vert = load_shader("shaders/textured/textured_vert.spv");
-    vk::ShaderModule bounding_box_frag = load_shader("shaders/bounding_box/bounding_box_frag.spv");
-    vk::ShaderModule bounding_box_vert = load_shader("shaders/bounding_box/bounding_box_vert.spv");
-    vk::ShaderModule textured_blinn_phong_frag = load_shader("shaders/blinn_phong/textured_blinn_phong_frag.spv");
-    vk::ShaderModule textured_blinn_phong_vert = load_shader("shaders/blinn_phong/textured_blinn_phong_vert.spv");
-    vk::ShaderModule untextured_blinn_phong_frag = load_shader("shaders/blinn_phong/untextured_blinn_phong_frag.spv");
-    vk::ShaderModule untextured_blinn_phong_vert = load_shader("shaders/blinn_phong/untextured_blinn_phong_vert.spv");
-    vk::ShaderModule skybox_frag = load_shader("shaders/skybox/skybox_frag.spv");
-    vk::ShaderModule skybox_vert = load_shader("shaders/skybox/skybox_vert.spv");
+    vk::ShaderModule untextured_frag                = load_shader("shaders/out/untextured.frag.spv");
+    vk::ShaderModule untextured_vert                = load_shader("shaders/out/untextured.vert.spv");
+    vk::ShaderModule textured_frag                  = load_shader("shaders/out/textured.frag.spv");
+    vk::ShaderModule textured_vert                  = load_shader("shaders/out/textured.vert.spv");
+    vk::ShaderModule bounding_box_frag              = load_shader("shaders/out/bounding_box.frag.spv");
+    vk::ShaderModule bounding_box_vert              = load_shader("shaders/out/bounding_box.vert.spv");
+    vk::ShaderModule textured_blinn_phong_frag      = load_shader("shaders/out/textured_blinn_phong.frag.spv");
+    vk::ShaderModule textured_blinn_phong_vert      = load_shader("shaders/out/textured_blinn_phong.vert.spv");
+    vk::ShaderModule untextured_blinn_phong_frag    = load_shader("shaders/out/untextured_blinn_phong.frag.spv");
+    vk::ShaderModule untextured_blinn_phong_vert    = load_shader("shaders/out/untextured_blinn_phong.vert.spv");
+    vk::ShaderModule skybox_frag                    = load_shader("shaders/out/skybox.frag.spv");
+    vk::ShaderModule skybox_vert                    = load_shader("shaders/out/skybox.vert.spv");
 
     PipelineContext pipeline_ctx;
 

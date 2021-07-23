@@ -4,6 +4,7 @@ cmake
 run
 tags
 **/*.spv
+shaders/out
 imgui.ini
 lib/imgui/examples
 lib/imgui/docs
