@@ -22,11 +22,11 @@ layout(push_constant) uniform constants {
     ivec4 padding_and_color_type;
     vec4 base_color;
     mat4 model;
-    mat4 model_view_projection;
 } push_constants;
 
 void main() {
-    gl_Position = push_constants.model_view_projection * vec4(inPosition, 1.0f);
+    gl_Position = transform.view_projection * push_constants.model * vec4(inPosition, 1.0f);
+
     //outNormal = mat3(transpose(inverse(push_constants.model))) * inNormal;
     outNormal = inNormal;
     outPosition = vec3(push_constants.model * vec4(inPosition, 1.0));

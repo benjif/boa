@@ -114,7 +114,6 @@ private:
     struct PushConstants {
         glm::ivec4 extra0;
         glm::vec4 extra1;
-        glm::mat4 model;
         glm::mat4 model_view_projection;
     };
 

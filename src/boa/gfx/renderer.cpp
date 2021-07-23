@@ -392,7 +392,6 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                     PushConstants push_constants = {
                         .extra0 = { -1, -1, -1, -1 },
                         .extra1 = { 0.f, 0.f, 0.f, 0.f },
-                        .model = local_transform,
                         .model_view_projection = model_view_projection
                     };
 
@@ -409,6 +408,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
                                 0,
                                 current_frame().parent_blinn_phong_set,
                                 nullptr);
+                            push_constants.model_view_projection = local_transform;
                             break;
                         case LightingInteractivity::Unlit:
                             cmd.bindDescriptorSets(
