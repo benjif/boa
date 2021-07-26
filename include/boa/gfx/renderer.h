@@ -37,7 +37,9 @@ public:
     Renderer();
     ~Renderer();
 
-    void run();
+    void draw_frame();
+    void wait_for_all_frames() const;
+    void wait_idle() const;
 
     AssetManager &get_asset_manager() {
         return m_asset_manager;
@@ -72,8 +74,17 @@ public:
         return m_draw_bounding_boxes;
     }
 
-    void set_per_frame_callback(std::function<void(float)> callback);
     void set_ui_mouse_enabled(bool mouse_enabled);
+
+    enum {
+        UNTEXTURED_MATERIAL_INDEX,
+        TEXTURED_MATERIAL_INDEX,
+        BOUNDING_BOX_MATERIAL_INDEX,
+        UNTEXTURED_BLINN_PHONG_MATERIAL_INDEX,
+        TEXTURED_BLINN_PHONG_MATERIAL_INDEX,
+
+        NUMBER_OF_DEFAULT_MATERIALS
+    };
 
 private:
     const std::vector<const char *> validation_layers = {
@@ -92,15 +103,7 @@ private:
 #endif
 
     constexpr static uint32_t FRAMES_IN_FLIGHT = 2;
-    constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 85;
-
-    enum {
-        UNTEXTURED_MATERIAL_INDEX               = 0,
-        TEXTURED_MATERIAL_INDEX                 = 1,
-        BOUNDING_BOX_MATERIAL_INDEX             = 2,
-        UNTEXTURED_BLINN_PHONG_MATERIAL_INDEX   = 3,
-        TEXTURED_BLINN_PHONG_MATERIAL_INDEX     = 4,
-    };
+    constexpr static uint32_t MAX_IMAGE_DESCRIPTORS = 125;
 
     struct QueueFamilyIndices {
         std::optional<uint32_t> graphics_family;
@@ -167,8 +170,6 @@ private:
     ctl::Mouse m_mouse;
     Camera m_camera;
 
-    std::function<void(float)> m_per_frame_callback;
-
     DeletionQueue m_deletion_queue;
     UploadContext m_upload_context;
 
@@ -223,7 +224,6 @@ private:
 
     PerFrame &current_frame();
 
-    void draw_frame();
     void draw_renderables(vk::CommandBuffer cmd);
 
     void init_window_user_pointers();
@@ -267,9 +267,9 @@ private:
         const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
         void *p_user_data);
 
-    friend class Model;
-    friend class Texture;
-    friend class Skybox;
+    friend class GPUModel;
+    friend class GPUTexture;
+    friend class GPUSkybox;
 };
 
 }

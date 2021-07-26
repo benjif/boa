@@ -51,6 +51,10 @@ bool Window::should_close() const {
     return glfwWindowShouldClose(m_window);
 }
 
+void Window::set_should_close() const {
+    glfwSetWindowShouldClose(m_window, 1);
+}
+
 void Window::show() const {
     glfwShowWindow(m_window);
 }

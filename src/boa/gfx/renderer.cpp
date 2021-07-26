@@ -4,7 +4,7 @@
 #include "boa/gfx/renderer.h"
 #include "boa/gfx/asset/animation.h"
 #include "boa/gfx/vk/initializers.h"
-#include "boa/gme/object.h"
+#include "boa/ngn/object.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
@@ -54,44 +54,8 @@ Renderer::~Renderer() {
     cleanup();
 }
 
-void Renderer::run() {
-#ifdef BENCHMARK
-    auto render_start_time = std::chrono::high_resolution_clock::now();
-#endif
-
-    auto last_time = std::chrono::high_resolution_clock::now();
-    auto current_time = last_time;
-
-    while (!m_window.should_close()) {
-        m_window.poll_events();
-
-        current_time = std::chrono::high_resolution_clock::now();
-        float time_change
-            = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
-        last_time = current_time;
-
-        if (m_per_frame_callback)
-            m_per_frame_callback(time_change);
-        draw_frame();
-
-#ifdef BENCHMARK
-        if (m_frame == BENCHMARK_FRAME_COUNT)
-            break;
-#endif
-    }
-
-#ifdef BENCHMARK
-    auto render_stop_time = std::chrono::high_resolution_clock::now();
-    float render_time = std::chrono::duration<float, std::chrono::seconds::period>(render_stop_time - render_start_time).count();
-    fmt::print("Reached {} frames after {} seconds.\nAverage: {} FPS\n",
-        BENCHMARK_FRAME_COUNT, render_time, BENCHMARK_FRAME_COUNT / render_time);
-#endif
-
+void Renderer::wait_idle() const {
     m_device.get().waitIdle();
-}
-
-void Renderer::set_per_frame_callback(std::function<void(float)> callback) {
-    m_per_frame_callback = callback;
 }
 
 void Renderer::set_ui_mouse_enabled(bool mouse_enabled) {
@@ -134,6 +98,7 @@ void Renderer::framebuffer_size_callback(void *user_ptr_v, int w, int h) {
 }
 
 void Renderer::cleanup() {
+    m_asset_manager.reset();
     m_deletion_queue.flush();
 
     if (validation_enabled)
@@ -142,8 +107,15 @@ void Renderer::cleanup() {
     vmaDestroyAllocator(m_allocator);
 }
 
+void Renderer::wait_for_all_frames() const {
+    for (size_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
+        m_device.get().waitForFences(1, &m_frames[i].render_fence, true, 1e9);
+        m_device.get().resetFences(1, &m_frames[i].render_fence);
+    }
+}
+
 void Renderer::draw_frame() {
-    m_device.get().waitForFences(1, &current_frame().render_fence, VK_TRUE, 1e9);
+    m_device.get().waitForFences(1, &current_frame().render_fence, true, 1e9);
     m_device.get().resetFences(1, &current_frame().render_fence);
 
     ImGui::Render();
@@ -425,7 +397,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
                         push_constants.extra0[1] = static_cast<int32_t>(material.color_type);
 
-                        if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE && material.color_type == Material::ColorType::Texture) {
+                        if ((VkDescriptorSet)material.texture_set != VK_NULL_HANDLE && material.color_type == GPUMaterial::ColorType::Texture) {
                             cmd.bindDescriptorSets(
                                 vk::PipelineBindPoint::eGraphics,
                                 material.pipeline_layout,
@@ -458,13 +430,16 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
         for (size_t node_idx : model.root_nodes)
             draw_node(model.nodes[node_idx], entity_transform_matrix);
 
-        if (m_draw_bounding_boxes || (entity_group.has_component<boa::gme::EngineConfigurable>(e_id) &&
-                                      entity_group.get_component<boa::gme::EngineConfigurable>(e_id).selected)) {
+        if (m_draw_bounding_boxes || (entity_group.has_component<boa::ngn::EngineConfigurable>(e_id) &&
+                                      entity_group.get_component<boa::ngn::EngineConfigurable>(e_id).selected)) {
             PushConstants push_constants = {
                 .extra0 = { -1, -1, -1, -1 },
-                .extra1 = { 0.f, 0.f, 0.f, 0.f },
+                .extra1 = { 1.f, 0.f, 0.f, 0.6f },
                 .model_view_projection = m_transforms.view_projection * entity_transform_matrix,
             };
+
+            if (m_draw_bounding_boxes)
+                push_constants.extra1 = { 0.f, 0.f, 1.f, 6.f };
 
             auto &bounding_box_material = m_asset_manager.get_material(BOUNDING_BOX_MATERIAL_INDEX);
             cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, bounding_box_material.pipeline);
@@ -490,7 +465,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
 
     auto skybox_e = m_asset_manager.get_active_skybox();
     if (skybox_e.has_value()) {
-        auto &skybox = entity_group.get_component<Skybox>(skybox_e.value());
+        auto &skybox = entity_group.get_component<GPUSkybox>(skybox_e.value());
         cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, m_skybox_pipeline);
         cmd.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,

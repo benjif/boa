@@ -4,11 +4,13 @@
 #include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/asset/asset.h"
 #include "boa/gfx/linear.h"
+#include "glm/gtc/type_ptr.hpp"
+#include "glm/gtx/matrix_decompose.hpp"
 
 namespace boa::phy {
 
 PhysicsController::PhysicsController(boa::gfx::AssetManager &asset_manager)
-    : m_asset_manager(asset_manager)
+    : m_asset_manager(asset_manager), m_enabled(false)
 {
     m_collision_config = std::make_unique<btDefaultCollisionConfiguration>();
     m_dispatcher = std::make_unique<btCollisionDispatcher>(m_collision_config.get());
@@ -81,7 +83,19 @@ void PhysicsController::add_entity(uint32_t e_id, float f_mass) {
     });
 }
 
+float PhysicsController::get_entity_mass(uint32_t e_id) const {
+    auto &entity_group = ecs::EntityGroup::get();
+    assert(entity_group.has_component<Physical>(e_id));
+    float inv_mass = entity_group.get_component<Physical>(e_id).rigid_body->getInvMass();
+    if (inv_mass == 0.0f)
+        return 0.0f;
+    return 1.0f / inv_mass;
+}
+
 void PhysicsController::update(float time_change) {
+    if (!m_enabled)
+        return;
+
     m_dynamics_world->stepSimulation(time_change);
 
     auto &entity_group = ecs::EntityGroup::get();
@@ -151,6 +165,71 @@ std::optional<uint32_t> PhysicsController::raycast_cursor_position(uint32_t scre
     }
 
     return std::nullopt;
+}
+
+void PhysicsController::enable_physics() {
+    m_enabled = true;
+}
+
+void PhysicsController::disable_physics() {
+    m_enabled = false;
+}
+
+void PhysicsController::set_gravity(float gravity) {
+    m_dynamics_world->setGravity(btVector3(0, gravity, 0));
+}
+
+float PhysicsController::get_gravity() const {
+    return m_dynamics_world->getGravity().getY();
+}
+
+bool PhysicsController::is_physics_enabled() const {
+    return m_enabled;
+}
+
+void PhysicsController::sync_physics_transform(uint32_t e_id) const {
+    auto &entity_group = boa::ecs::EntityGroup::get();
+    auto &transform = entity_group.get_component<boa::gfx::Transformable>(e_id);
+    auto &physical = entity_group.get_component<Physical>(e_id);
+
+    glm::vec3 scale, translation, skew;
+    glm::quat orientation;
+    glm::vec4 perspective;
+
+    // matrix decomposition is unnecessary (btTransform has a `setFromOpenGLMatrix`), but
+    // this is the only way I could get it to work.
+    glm::decompose(transform.transform_matrix, scale, orientation, translation, skew, perspective);
+    orientation = glm::conjugate(orientation);
+
+    btTransform bt_transform;
+    bt_transform.setIdentity();
+    bt_transform.setOrigin(btVector3(translation.x, translation.y, translation.z));
+    bt_transform.setRotation(btQuaternion(orientation.x,
+                                          orientation.y, 
+                                          orientation.z,
+                                          orientation.w));
+
+    physical.ground_shape->setLocalScaling(btVector3(scale.x, scale.y, scale.z));
+    physical.rigid_body->setCenterOfMassTransform(bt_transform);
+    m_dynamics_world->getCollisionWorld()->updateSingleAabb(physical.rigid_body);
+}
+
+glm::dvec3 PhysicsController::get_linear_velocity(uint32_t e_id) const {
+    auto &entity_group = boa::ecs::EntityGroup::get();
+    auto &physical = entity_group.get_component<Physical>(e_id);
+
+    const btVector3 &linear_velocity = physical.rigid_body->getLinearVelocity();
+
+    return glm::dvec3{ linear_velocity.getX(), linear_velocity.getY(), linear_velocity.getZ() };
+}
+
+glm::dvec3 PhysicsController::get_angular_velocity(uint32_t e_id) const {
+    auto &entity_group = boa::ecs::EntityGroup::get();
+    auto &physical = entity_group.get_component<Physical>(e_id);
+
+    const btVector3 &angular_velocity = physical.rigid_body->getAngularVelocity();
+
+    return glm::dvec3{ angular_velocity.getX(), angular_velocity.getY(), angular_velocity.getZ() };
 }
 
 }

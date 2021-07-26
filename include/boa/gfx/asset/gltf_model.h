@@ -37,7 +37,6 @@ static const std::unordered_map<std::string, AttributeType> attribute_types = {
 };
 
 class glTFModel {
-    REMOVE_COPY_AND_ASSIGN(glTFModel);
 public:
     struct Sampler {
         int mag_filter, min_filter;
@@ -135,8 +134,11 @@ public:
     };
 
     glTFModel() {}
+    glTFModel(const char *path) { open_gltf_file(path); }
     void open_gltf_file(const char *path);
     void debug_print() const;
+
+    std::string get_file_path() const { return m_path; }
 
     const std::vector<Vertex> &get_vertices() const;
     const std::vector<size_t> &get_root_nodes() const;
@@ -237,6 +239,7 @@ public:
 
 private:
     bool m_initialized{ false };
+    std::string m_path;
 
     void debug_print_node(const Node &node, uint32_t indent) const;
 

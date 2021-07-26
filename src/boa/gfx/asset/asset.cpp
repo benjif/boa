@@ -11,8 +11,8 @@
 
 namespace boa::gfx {
 
-Skybox::Skybox(Renderer &renderer, const std::array<std::string, 6> &texture_paths)
-    : texture(renderer, texture_paths)
+GPUSkybox::GPUSkybox(AssetManager &asset_manager, Renderer &renderer, const std::array<std::string, 6> &texture_paths)
+    : texture(asset_manager, renderer, texture_paths)
 {
     vk::DescriptorSetAllocateInfo alloc_info{
         .descriptorPool         = renderer.m_descriptor_pool,
@@ -50,7 +50,7 @@ Skybox::Skybox(Renderer &renderer, const std::array<std::string, 6> &texture_pat
         .imageLayout    = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 
-    renderer.m_deletion_queue.enqueue([=, device = renderer.m_device.get()]() {
+    asset_manager.m_deletion_queue.enqueue([=, device = renderer.m_device.get()]() {
         device.destroySampler(new_sampler);
     });
 
@@ -61,7 +61,7 @@ Skybox::Skybox(Renderer &renderer, const std::array<std::string, 6> &texture_pat
     sampler = new_sampler;
 }
 
-Model::Model(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, LightingInteractivity preferred_lighting)
+GPUModel::GPUModel(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, LightingInteractivity preferred_lighting)
     : lighting(preferred_lighting),
       root_nodes(model.get_root_nodes().begin(), model.get_root_nodes().end())
 {
@@ -89,7 +89,7 @@ Model::Model(AssetManager &asset_manager, Renderer &renderer, const glTFModel &m
         return Iteration::Continue;
     });
 
-    upload_model_vertices(renderer, model);
+    upload_model_vertices(asset_manager, renderer, model);
 
     bounding_box.min = glm::vec3(std::numeric_limits<float>::max());
     bounding_box.max = glm::vec3(std::numeric_limits<float>::min());
@@ -98,7 +98,7 @@ Model::Model(AssetManager &asset_manager, Renderer &renderer, const glTFModel &m
         return Iteration::Continue;
     });
 
-    upload_bounding_box_vertices(renderer);
+    upload_bounding_box_vertices(asset_manager, renderer);
 }
 
 static inline vk::Filter tinygltf_to_vulkan_filter(int gltf) {
@@ -128,7 +128,7 @@ static inline vk::SamplerAddressMode tinygltf_to_vulkan_address_mode(int gltf) {
     }
 }
 
-vk::Sampler Model::create_sampler(Renderer &renderer, const glTFModel::Sampler &sampler) {
+vk::Sampler GPUModel::create_sampler(AssetManager &asset_manager, Renderer &renderer, const glTFModel::Sampler &sampler) {
     vk::SamplerCreateInfo sampler_info{
         .magFilter          = tinygltf_to_vulkan_filter(sampler.mag_filter),
         .minFilter          = tinygltf_to_vulkan_filter(sampler.min_filter),
@@ -146,14 +146,14 @@ vk::Sampler Model::create_sampler(Renderer &renderer, const glTFModel::Sampler &
         throw std::runtime_error("Failed to create sampler");
     }
 
-    renderer.m_deletion_queue.enqueue([=, device = renderer.m_device.get()]() {
+    asset_manager.m_deletion_queue.enqueue([=, device = renderer.m_device.get()]() {
         device.destroySampler(new_sampler);
     });
 
     return new_sampler;
 }
 
-void Model::calculate_model_bounding_box(const glTFModel &model, const glTFModel::Node &node, glm::mat4 transform_matrix) {
+void GPUModel::calculate_model_bounding_box(const glTFModel &model, const glTFModel::Node &node, glm::mat4 transform_matrix) {
     transform_matrix *= glm::mat4(node.matrix);
 
     if (node.mesh.has_value()) {
@@ -171,8 +171,8 @@ void Model::calculate_model_bounding_box(const glTFModel &model, const glTFModel
         calculate_model_bounding_box(model, model.get_node(child_idx), transform_matrix);
 }
 
-void Model::add_from_node(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, const glTFModel::Node &node) {
-    Node new_boa_node;
+void GPUModel::add_from_node(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model, const glTFModel::Node &node) {
+    GPUNode new_boa_node;
     new_boa_node.children.reserve(node.children.size());
     new_boa_node.transform_matrix = node.matrix;
     new_boa_node.id = node.id;
@@ -186,7 +186,7 @@ void Model::add_from_node(AssetManager &asset_manager, Renderer &renderer, const
 
         for (size_t primitive_idx : mesh.primitives) {
             const auto &primitive = model.get_primitive(primitive_idx);
-            Primitive new_boa_primitive;
+            GPUPrimitive new_boa_primitive;
 
             if (primitive.material.has_value()) {
                 const auto &material = model.get_material(primitive.material.value());
@@ -208,18 +208,18 @@ void Model::add_from_node(AssetManager &asset_manager, Renderer &renderer, const
                                 break;
                             }
 
-                            Material &base_material = asset_manager.get_material(material_index);
+                            GPUMaterial &base_material = asset_manager.get_material(material_index);
 
                             uint32_t new_material_index = asset_manager.create_material(base_material.pipeline, base_material.pipeline_layout);
-                            Material &new_material = asset_manager.get_material(new_material_index);
+                            GPUMaterial &new_material = asset_manager.get_material(new_material_index);
 
                             new_material.texture_set = m_textures_descriptor_set;
                             new_material.descriptor_number = m_descriptor_count;
                             new_material.base_color = glm::make_vec4(material.metallic_roughness.base_color_factor.data());
-                            new_material.color_type = Material::ColorType::Texture;
+                            new_material.color_type = GPUMaterial::ColorType::Texture;
 
-                            Texture new_texture(renderer, image);
-                            vk::Sampler new_sampler = create_sampler(renderer, model.get_sampler(base_texture.sampler.value()));
+                            GPUTexture new_texture(asset_manager, renderer, image);
+                            vk::Sampler new_sampler = create_sampler(asset_manager, renderer, model.get_sampler(base_texture.sampler.value()));
 
                             vk::DescriptorImageInfo image_buffer_info{
                                 .sampler        = new_sampler,
@@ -248,15 +248,15 @@ void Model::add_from_node(AssetManager &asset_manager, Renderer &renderer, const
                         break;
                     }
 
-                    Material &base_material = asset_manager.get_material(material_index);
+                    GPUMaterial &base_material = asset_manager.get_material(material_index);
 
                     uint32_t new_material_index = asset_manager.create_material(base_material.pipeline, base_material.pipeline_layout);
-                    Material &new_material = asset_manager.get_material(new_material_index);
+                    GPUMaterial &new_material = asset_manager.get_material(new_material_index);
 
                     if (primitive.has_vertex_coloring) {
-                        new_material.color_type = Material::ColorType::Vertex;
+                        new_material.color_type = GPUMaterial::ColorType::Vertex;
                     } else {
-                        new_material.color_type = Material::ColorType::Base;
+                        new_material.color_type = GPUMaterial::ColorType::Base;
                         new_material.base_color = glm::make_vec4(material.metallic_roughness.base_color_factor.data());
                     }
 
@@ -267,7 +267,7 @@ void Model::add_from_node(AssetManager &asset_manager, Renderer &renderer, const
             new_boa_primitive.index_count = primitive.indices.size();
             new_boa_primitive.bounding_sphere = primitive.bounding_sphere;
 
-            upload_primitive_indices(renderer, new_boa_primitive, primitive);
+            upload_primitive_indices(asset_manager, renderer, new_boa_primitive, primitive);
 
             new_boa_node.primitives.push_back(primitives.size());
             primitives.push_back(std::move(new_boa_primitive));
@@ -277,7 +277,7 @@ void Model::add_from_node(AssetManager &asset_manager, Renderer &renderer, const
     nodes.push_back(std::move(new_boa_node));
 }
 
-void Texture::init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data, bool mipmap) {
+void GPUTexture::init(AssetManager &asset_manager, Renderer &renderer, uint32_t w, uint32_t h, void *img_data, bool mipmap) {
     uint32_t image_mip_levels = 1;
     if (mipmap) {
         if (!(renderer.m_device_format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
@@ -499,7 +499,7 @@ void Texture::init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data, b
         throw std::runtime_error("Failed to create image view");
     }
 
-    renderer.m_deletion_queue.enqueue([=, &allocator = renderer.m_allocator, &device = renderer.m_device]() {
+    asset_manager.m_deletion_queue.enqueue([=, &allocator = renderer.m_allocator, &device = renderer.m_device]() {
         vmaDestroyImage(allocator, new_image.image, new_image.allocation);
         device.get().destroyImageView(new_image_view);
     });
@@ -511,22 +511,22 @@ void Texture::init(Renderer &renderer, uint32_t w, uint32_t h, void *img_data, b
     mip_levels = image_mip_levels;
 }
 
-Texture::Texture(Renderer &renderer, const char *path, bool mipmap) {
+GPUTexture::GPUTexture(AssetManager &asset_manager, Renderer &renderer, const char *path, bool mipmap) {
     int w, h, channels;
     stbi_uc *pixels = stbi_load(path, &w, &h, &channels, STBI_rgb_alpha);
     if (!pixels)
         throw std::runtime_error("Failed to load texture file");
 
-    init(std::forward<Renderer &>(renderer), w, h, pixels, mipmap);
+    init(std::forward<AssetManager &>(asset_manager), std::forward<Renderer &>(renderer), w, h, pixels, mipmap);
 
     stbi_image_free(pixels);
 }
 
-Texture::Texture(Renderer &renderer, const glTFModel::Image &model_image, bool mipmap) {
-    init(std::forward<Renderer &>(renderer), model_image.width, model_image.height, model_image.data, mipmap);
+GPUTexture::GPUTexture(AssetManager &asset_manager, Renderer &renderer, const glTFModel::Image &model_image, bool mipmap) {
+    init(std::forward<AssetManager &>(asset_manager), std::forward<Renderer &>(renderer), model_image.width, model_image.height, model_image.data, mipmap);
 }
 
-Texture::Texture(Renderer &renderer, const std::array<std::string, 6> &texture_paths) {
+GPUTexture::GPUTexture(AssetManager &asset_manager, Renderer &renderer, const std::array<std::string, 6> &texture_paths) {
     int w[6], h[6], channels[6];
     stbi_uc *pixels[6];
 
@@ -657,7 +657,7 @@ Texture::Texture(Renderer &renderer, const std::array<std::string, 6> &texture_p
         throw std::runtime_error("Failed to create image view");
     }
 
-    renderer.m_deletion_queue.enqueue([=, allocator = renderer.m_allocator, device = renderer.m_device.get()]() {
+    asset_manager.m_deletion_queue.enqueue([=, allocator = renderer.m_allocator, device = renderer.m_device.get()]() {
         vmaDestroyImage(allocator, new_image.image, new_image.allocation);
         device.destroyImageView(new_image_view);
     });
@@ -671,7 +671,7 @@ Texture::Texture(Renderer &renderer, const std::array<std::string, 6> &texture_p
         stbi_image_free(pixels[i]);
 }
 
-void Model::upload_primitive_indices(Renderer &renderer, Primitive &vk_primitive, const glTFModel::Primitive &primitive) {
+void GPUModel::upload_primitive_indices(AssetManager &asset_manager, Renderer &renderer, GPUPrimitive &vk_primitive, const glTFModel::Primitive &primitive) {
     const size_t size = primitive.indices.size() * sizeof(uint32_t);
 
     VmaBuffer staging_buffer = renderer.create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -689,14 +689,14 @@ void Model::upload_primitive_indices(Renderer &renderer, Primitive &vk_primitive
         cmd.copyBuffer(staging_buffer.buffer, vk_primitive.index_buffer.buffer, copy);
     });
 
-    renderer.m_deletion_queue.enqueue([=, &allocator = renderer.m_allocator]() {
+    asset_manager.m_deletion_queue.enqueue([=, &allocator = renderer.m_allocator]() {
         vmaDestroyBuffer(allocator, vk_primitive.index_buffer.buffer, vk_primitive.index_buffer.allocation);
     });
 
     vmaDestroyBuffer(renderer.m_allocator, staging_buffer.buffer, staging_buffer.allocation);
 }
 
-void Model::upload_model_vertices(Renderer &renderer, const glTFModel &model) {
+void GPUModel::upload_model_vertices(AssetManager &asset_manager, Renderer &renderer, const glTFModel &model) {
     const size_t size = model.get_vertices().size() * sizeof(Vertex);
 
     VmaBuffer staging_buffer = renderer.create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
@@ -714,7 +714,7 @@ void Model::upload_model_vertices(Renderer &renderer, const glTFModel &model) {
         cmd.copyBuffer(staging_buffer.buffer, vertex_buffer.buffer, copy);
     });
 
-    renderer.m_deletion_queue.enqueue([copy = vertex_buffer, &allocator = renderer.m_allocator]() {
+    asset_manager.m_deletion_queue.enqueue([copy = vertex_buffer, &allocator = renderer.m_allocator]() {
         vmaDestroyBuffer(allocator, copy.buffer,
             copy.allocation);
     });
@@ -722,7 +722,7 @@ void Model::upload_model_vertices(Renderer &renderer, const glTFModel &model) {
     vmaDestroyBuffer(renderer.m_allocator, staging_buffer.buffer, staging_buffer.allocation);
 }
 
-void Model::upload_bounding_box_vertices(Renderer &renderer) {
+void GPUModel::upload_bounding_box_vertices(AssetManager &asset_manager, Renderer &renderer) {
     std::array<Vertex, 8> bounding_box_vertices{
         Vertex{ .position = { bounding_box.min }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
         Vertex{ .position = { bounding_box.max }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
@@ -766,7 +766,7 @@ void Model::upload_bounding_box_vertices(Renderer &renderer) {
         cmd.copyBuffer(staging_buffer.buffer, bounding_box_vertex_buffer.buffer, copy);
     });
 
-    renderer.m_deletion_queue.enqueue([copy = bounding_box_vertex_buffer, &allocator = renderer.m_allocator]() {
+    asset_manager.m_deletion_queue.enqueue([copy = bounding_box_vertex_buffer, &allocator = renderer.m_allocator]() {
         vmaDestroyBuffer(allocator, copy.buffer,
             copy.allocation);
     });

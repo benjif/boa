@@ -36,9 +36,28 @@ IF(NOT imgui_POPULATED)
 ENDIF()
 SET(IMGUI_INCLUDE_DIRS "${imgui_SOURCE_DIR}")
 
+# **************
+# ** IMGUIZMO **
+# **************
+FetchContent_Declare(
+    imguizmo
+    GIT_REPOSITORY          "https://github.com/CedricGuillemet/ImGuizmo"
+    GIT_TAG                 "1.83"
+    GIT_PROGRESS            TRUE
+    GIT_SHALLOW             TRUE
+    USES_TERMINAL_DOWNLOAD  TRUE
+    CONFIGURE_COMMAND       ""
+    BUILD_COMMAND           ""
+)
+FetchContent_GetProperties(imguizmo)
+IF(NOT imguizmo_POPULATED)
+    FetchContent_Populate(imguizmo)
+ENDIF()
+SET(IMGUIZMO_INCLUDE_DIRS "${imguizmo_SOURCE_DIR}")
+
 FILE(GLOB SOURCES
     src/*.cpp
-    src/boa/gme/*.cpp
+    src/boa/ngn/*.cpp
     src/boa/phy/*.cpp
     src/boa/utl/*.cpp
     src/boa/ctl/*.cpp
@@ -49,6 +68,7 @@ FILE(GLOB SOURCES
     "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_glfw.cpp"
     "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_vulkan.cpp"
     "${IMGUI_INCLUDE_DIRS}/*.cpp"
+    "${IMGUIZMO_INCLUDE_DIRS}/*.cpp"
 )
 ADD_EXECUTABLE(boa ${SOURCES})
 
@@ -235,6 +255,7 @@ ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/bounding_box/bounding_box.ve
 INCLUDE_DIRECTORIES(
     "${PROJECT_SOURCE_DIR}/include"
     ${IMGUI_INCLUDE_DIRS}
+    ${IMGUIZMO_INCLUDE_DIRS}
     ${GLM_INCLUDE_DIRS}
     ${GLFW_INCLUDE_DIRS}
     ${VMA_INCLUDE_DIRS}

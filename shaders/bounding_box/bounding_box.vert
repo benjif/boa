@@ -16,11 +16,12 @@ layout(set = 0, binding = 0) uniform Transformations {
 
 layout(push_constant) uniform constants {
     ivec4 extra0;
-    vec4 extra1;
+    vec4 bounding_box_color;
     mat4 model_view_projection;
-} PushConstants;
+} push_constants;
 
 void main() {
-    gl_Position = PushConstants.model_view_projection * vec4(inPosition, 1.0f);
-    outColor = inColor;
+    gl_Position = push_constants.model_view_projection * vec4(inPosition, 1.0f);
+    // PERF: we don't need vertices with normal/color/texcoord attributes here
+    outColor = push_constants.bounding_box_color;
 }

@@ -1,0 +1,66 @@
+{
+    "default_skybox": 0,
+    "skyboxes": [
+        {
+            "paths": [
+                "skybox/mountains/right.png",
+                "skybox/mountains/left.png",
+                "skybox/mountains/top.png",
+                "skybox/mountains/bottom.png",
+                "skybox/mountains/front.png",
+                "skybox/mountains/back.png"
+            ]
+        }
+    ],
+    "models": [
+        {
+            "path": "models/sponza/Sponza.gltf"
+        },
+        {
+            "path": "models/BoxAnimated.gltf"
+        }
+    ],
+    "renderables": [
+        {
+            "model": 0,
+            "mass": 0.0,
+            "lighting": "blinn_phong",
+            "engine_configurable": false,
+            "transform": {
+                "translation": [ 0.0, 0.0, 0.0 ],
+                "orientation": [ 0.0, 0.0, 0.0, 0.0 ],
+                "scale": [ 1.0, 1.0, 1.0 ]
+            }
+        },
+        {
+            "model": 1,
+            "mass": 0.0,
+            "lighting": "blinn_phong",
+            "engine_configurable": true,
+            "transform": {
+                "translation": [ 0.0, 0.0, 0.0 ],
+                "orientation": [ 0.0, 0.0, 0.0, 0.0 ],
+                "scale": [ 1.0, 1.0, 1.0 ]
+            }
+        }
+    ],
+    "global_lights": [
+        {
+            "direction": [ -0.2, 1.0, -0.3 ],
+            "ambient": [ 0.06, 0.06, 0.06],
+            "diffuse": [ 0.6, 0.6, 0.6 ],
+            "specular": [ 0.26, 0.26, 0.26 ]
+        }
+    ],
+    "point_lights": [
+        {
+            "position": [ 0.0, 0.0, 0.0 ],
+            "ambient": [ 0.05, 0.05, 0.05 ],
+            "diffuse": [ 0.4, 0.4, 0.4 ],
+            "specular": [ 0.5, 0.5, 0.5 ],
+            "constant": 0.4,
+            "linear": 0.07,
+            "quadratic": 0.031
+        }
+    ]
+}

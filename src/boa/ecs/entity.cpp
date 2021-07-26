@@ -39,4 +39,9 @@ void EntityGroup::delete_entity(uint32_t e_id) {
     free_entities.push(e_id);
 }
 
+void EntityGroup::clear_entities() {
+    free_entities = std::priority_queue<uint32_t>();
+    entities.clear();
+}
+
 }

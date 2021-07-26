@@ -35,6 +35,7 @@ public:
 
     void poll_events() const;
     bool should_close() const;
+    void set_should_close() const;
     void wait_events() const;
 
     void show() const;

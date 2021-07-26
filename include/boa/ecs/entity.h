@@ -32,6 +32,8 @@ struct EntityGroup {
     uint32_t new_entity();
     void delete_entity(uint32_t e_id);
 
+    void clear_entities();
+
     template <typename ...C>
     uint32_t copy_entity(uint32_t copy_e_id) {
         const EntityMeta &other = entities[copy_e_id];
@@ -46,6 +48,8 @@ struct EntityGroup {
         }
 
         for (size_t i = 0; i < sizeof...(C); i++) {
+            if (!entities[copy_e_id].component_mask[c_ids[i]])
+                continue;
             auto &component_store = ComponentStore::get();
             void *component_zone = component_store.get_component_zone_from_component_id(c_ids[i]);
             if (new_e_id * c_size[i] >= COMPONENT_ZONE_SIZE)
@@ -132,6 +136,10 @@ struct EntityGroup {
                 return entity.id;
         }
         return std::nullopt;
+    }
+
+    uint32_t size() const {
+        return entities.size();
     }
 
     std::vector<EntityMeta> entities;

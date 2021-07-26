@@ -14,6 +14,7 @@ namespace boa::gfx {
 
 void glTFModel::open_gltf_file(const char *path) {
     LOG_INFO("(glTF) Opening file '{}'", path);
+    m_path = path;
 
     if (m_initialized)
         return;

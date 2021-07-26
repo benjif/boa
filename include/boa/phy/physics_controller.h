@@ -41,7 +41,21 @@ public:
     ~PhysicsController();
 
     void add_entity(uint32_t e_id, float f_mass);
+    float get_entity_mass(uint32_t e_id) const;
     void update(float time_change);
+
+    void set_gravity(float gravity);
+    float get_gravity() const;
+
+    void enable_physics();
+    void disable_physics();
+    bool is_physics_enabled() const;
+
+    void sync_physics_transform(uint32_t e_id) const;
+    void reset_object_velocity(uint32_t e_id) const;
+
+    glm::dvec3 get_linear_velocity(uint32_t e_id) const;
+    glm::dvec3 get_angular_velocity(uint32_t e_id) const;
 
     std::optional<uint32_t> raycast_cursor_position(uint32_t screen_w, uint32_t screen_h,
                                                     uint32_t cursor_x, uint32_t cursor_y,
@@ -58,6 +72,8 @@ private:
     std::unique_ptr<btDiscreteDynamicsWorld> m_dynamics_world;
 
     DeletionQueue m_deletion_queue;
+
+    bool m_enabled;
 };
 
 }
