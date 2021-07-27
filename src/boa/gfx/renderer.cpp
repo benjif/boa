@@ -4,6 +4,7 @@
 #include "boa/gfx/renderer.h"
 #include "boa/gfx/asset/animation.h"
 #include "boa/gfx/vk/initializers.h"
+#include "boa/gfx/debug_drawer.h"
 #include "boa/ngn/object.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
@@ -56,6 +57,10 @@ Renderer::~Renderer() {
 
 void Renderer::wait_idle() const {
     m_device.get().waitIdle();
+}
+
+void Renderer::add_debug_drawer(DebugDrawer *debug_drawer) {
+    m_debug_drawers.push_back(debug_drawer);
 }
 
 void Renderer::set_ui_mouse_enabled(bool mouse_enabled) {
@@ -430,6 +435,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
         for (size_t node_idx : model.root_nodes)
             draw_node(model.nodes[node_idx], entity_transform_matrix);
 
+        auto &bounding_box_material = m_asset_manager.get_material(BOUNDING_BOX_MATERIAL_INDEX);
         if (m_draw_bounding_boxes || (entity_group.has_component<boa::ngn::EngineConfigurable>(e_id) &&
                                       entity_group.get_component<boa::ngn::EngineConfigurable>(e_id).selected)) {
             PushConstants push_constants = {
@@ -441,15 +447,7 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
             if (m_draw_bounding_boxes)
                 push_constants.extra1 = { 0.f, 0.f, 1.f, 6.f };
 
-            auto &bounding_box_material = m_asset_manager.get_material(BOUNDING_BOX_MATERIAL_INDEX);
             cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, bounding_box_material.pipeline);
-
-            cmd.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                bounding_box_material.pipeline_layout,
-                0,
-                current_frame().parent_set,
-                nullptr);
 
             cmd.pushConstants(bounding_box_material.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
@@ -486,6 +484,21 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
         cmd.bindIndexBuffer(m_skybox_index_buffer.buffer, 0, vk::IndexType::eUint32);
 
         cmd.drawIndexed(skybox_indices.size(), 1, 0, 0, 0);
+    }
+
+    // currently we reuse the bounding box pipeline for debug drawing
+    auto &bounding_box_material = m_asset_manager.get_material(BOUNDING_BOX_MATERIAL_INDEX);
+    for (DebugDrawer *debug_drawer : m_debug_drawers) {
+        cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, bounding_box_material.pipeline);
+
+        PushConstants push_constants = {
+            .extra0 = { -1, -1, -1, -1 },
+            .extra1 = glm::vec4(debug_drawer->get_color(), 1.0f),
+            .model_view_projection = m_transforms.view_projection,
+        };
+        cmd.pushConstants(bounding_box_material.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
+
+        debug_drawer->record(cmd);
     }
 }
 
@@ -1446,6 +1459,9 @@ void Renderer::create_pipelines() {
     auto attrib_desc = Vertex::get_attribute_descriptions();
     auto binding_desc = Vertex::get_binding_description();
 
+    auto small_attrib_desc = SmallVertex::get_attribute_descriptions();
+    auto small_binding_desc = SmallVertex::get_binding_description();
+
     // UNTEXTURED PIPELINE
     {
         untextured_layout_info.setLayoutCount = 1;
@@ -1512,16 +1528,21 @@ void Renderer::create_pipelines() {
     {
         vk::PipelineLayoutCreateInfo bounding_box_layout_info = untextured_layout_info;
 
-        vk::DescriptorSetLayout bounding_box_set_layouts[] = { m_descriptor_set_layout };
-
-        bounding_box_layout_info.setLayoutCount = 1;
-        bounding_box_layout_info.pSetLayouts = bounding_box_set_layouts;
+        bounding_box_layout_info.setLayoutCount = 0;
+        bounding_box_layout_info.pSetLayouts = nullptr;
+        bounding_box_layout_info.pushConstantRangeCount = 1;
+        bounding_box_layout_info.pPushConstantRanges = &push_constants;
 
         try {
             bounding_box_pipeline_layout = m_device.get().createPipelineLayout(bounding_box_layout_info);
         } catch (const vk::SystemError &err) {
             throw std::runtime_error("Failed to create bounding box pipeline layout");
         }
+
+        pipeline_ctx.vertex_input_info.pVertexAttributeDescriptions = small_attrib_desc.data();
+        pipeline_ctx.vertex_input_info.vertexAttributeDescriptionCount = small_attrib_desc.size();
+        pipeline_ctx.vertex_input_info.pVertexBindingDescriptions = &small_binding_desc;
+        pipeline_ctx.vertex_input_info.vertexBindingDescriptionCount = 1;
 
         pipeline_ctx.shader_stages.clear();
         pipeline_ctx.shader_stages.push_back(
@@ -1551,6 +1572,11 @@ void Renderer::create_pipelines() {
         } catch (const vk::SystemError &err) {
             throw std::runtime_error("Failed to create untextured Blinn-Phong pipeline layout");
         }
+
+        pipeline_ctx.vertex_input_info.pVertexAttributeDescriptions = attrib_desc.data();
+        pipeline_ctx.vertex_input_info.vertexAttributeDescriptionCount = attrib_desc.size();
+        pipeline_ctx.vertex_input_info.pVertexBindingDescriptions = &binding_desc;
+        pipeline_ctx.vertex_input_info.vertexBindingDescriptionCount = 1;
 
         pipeline_ctx.shader_stages.clear();
         pipeline_ctx.shader_stages.push_back(

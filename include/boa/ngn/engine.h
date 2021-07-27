@@ -35,6 +35,9 @@ private:
         bool show_scene_properties{ false };
         bool show_object_properties{ false };
         bool show_entity_create{ false };
+
+        bool show_renderer_bounding_boxes{ false };
+        bool show_physics_bounding_boxes{ false };
     } m_ui_state;
 
     enum class EngineMode {
@@ -68,6 +71,8 @@ private:
     void setup_input();
     void input_update(float time_change);
     void deselect_object();
+
+    void delete_entity(uint32_t e_id);
 
     void main_loop();
 

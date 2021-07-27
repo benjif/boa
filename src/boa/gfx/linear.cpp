@@ -27,8 +27,28 @@ void Box::center_on_origin() {
 }
 
 void Box::transform(const glm::mat4 &transform) {
-    min = transform * glm::vec4(min, 1.0f);
-    max = transform * glm::vec4(max, 1.0f);
+    std::array<glm::vec3, 8> vertices = {
+        min,
+        max,
+        glm::vec3{ min.x, min.y, max.z },
+        glm::vec3{ min.x, max.y, min.z },
+        glm::vec3{ max.x, min.y, min.z },
+        glm::vec3{ min.x, max.y, max.z },
+        glm::vec3{ max.x, min.y, max.z },
+        glm::vec3{ max.x, max.y, min.z },
+    };
+
+    for (auto &vertex : vertices)
+        vertex = transform * glm::vec4(vertex, 1.0f);
+
+    glm::vec3 new_min, new_max;
+    for (auto &vertex : vertices) {
+        new_min = glm::min(vertex, new_min);
+        new_max = glm::max(vertex, new_max);
+    }
+
+    min = std::move(new_min);
+    max = std::move(new_max);
 }
 
 Sphere Sphere::bounding_sphere_from_bounding_box(const Box &box) {

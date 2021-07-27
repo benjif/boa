@@ -24,6 +24,8 @@ Engine::Engine()
 {
     LOG_INFO("(Engine) Initializing");
 
+    physics_controller.enable_debug_drawing(renderer);
+
     m_state.load_from_json("save/test.json");
     m_state.add_entities(asset_manager, animation_controller, physics_controller);
     setup_input();
@@ -69,6 +71,12 @@ void Engine::main_loop() {
 
         animation_controller.update(time_change);
         physics_controller.update(time_change);
+
+        if (m_ui_state.show_physics_bounding_boxes) {
+            physics_controller.debug_reset();
+            physics_controller.debug_draw();
+        }
+
         renderer.draw_frame();
 
         time_change *= 60.0f;
@@ -86,6 +94,8 @@ void Engine::main_loop() {
     fmt::print("Reached {} frames after {} seconds.\nAverage: {} FPS\n",
         BENCHMARK_FRAME_COUNT, render_time, BENCHMARK_FRAME_COUNT / render_time);
 #endif
+
+    renderer.wait_idle();
 }
 
 void Engine::deselect_object() {
@@ -93,6 +103,17 @@ void Engine::deselect_object() {
         auto &ngn_config = entity_group.get_component<EngineConfigurable>(last_selected_entity.value());
         ngn_config.selected = false;
         last_selected_entity.reset();
+    }
+}
+
+void Engine::delete_entity(uint32_t e_id) {
+    if (entity_group.has_component<boa::phy::Physical>(e_id))
+        physics_controller.remove_entity(e_id);
+
+    if (entity_group.has_component<boa::gfx::BaseRenderable>(e_id)) {
+        entity_group.disable<boa::gfx::Renderable>(e_id);
+    } else {
+        entity_group.delete_entity(e_id);
     }
 }
 
@@ -137,6 +158,12 @@ void Engine::setup_input() {
                     renderer.set_ui_mouse_enabled(false);
                 }
                 break;
+            case boa::ctl::KeyDelete:
+                if (last_selected_entity.has_value()) {
+                    delete_entity(last_selected_entity.value());
+                    last_selected_entity = std::nullopt;
+                }
+                break;
             case boa::ctl::Key1:
                 m_ui_state.show_scene_properties = !m_ui_state.show_scene_properties;
                 break;
@@ -157,9 +184,6 @@ void Engine::setup_input() {
                     1.0f, 0.05f, 0.024f);
                 break;
             }
-            case boa::ctl::KeyB:
-                renderer.set_draw_bounding_boxes(!renderer.get_draw_bounding_boxes());
-                break;
             case boa::ctl::KeyG: {
                 if (!last_selected_entity.has_value())
                     return;
@@ -208,14 +232,14 @@ void Engine::setup_input() {
                 button == boa::ctl::MouseButtonLeft && action == boa::ctl::Press &&
                 !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) &&
                 !ImGuizmo::IsOver()) {
+            deselect_object();
+
             glm::dvec2 mouse_position = mouse.get_position();
             auto hit = physics_controller.raycast_cursor_position(
                 renderer.get_width(), renderer.get_height(),
                 (uint32_t)mouse_position.x, (uint32_t)mouse_position.y,
                 renderer.get_view_projection(),
                 1000.0f);
-
-            deselect_object();
 
             if (hit.has_value() && entity_group.has_component<EngineConfigurable>(hit.value())) {
                 auto &physical = entity_group.get_component<boa::phy::Physical>(hit.value());

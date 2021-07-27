@@ -1,6 +1,7 @@
 #include "boa/ecs/ecs.h"
 #include "boa/utl/macros.h"
 #include "boa/phy/physics_controller.h"
+#include "boa/phy/bullet_glm.h"
 #include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/asset/asset.h"
 #include "boa/gfx/linear.h"
@@ -22,7 +23,17 @@ PhysicsController::PhysicsController(boa::gfx::AssetManager &asset_manager)
 }
 
 PhysicsController::~PhysicsController() {
-    m_deletion_queue.flush();
+    auto &entity_group = boa::ecs::EntityGroup::get();
+    entity_group.for_each_entity_with_component<Physical>([&](uint32_t e_id) {
+        auto &physical = entity_group.get_component<Physical>(e_id);
+        if (physical.rigid_body && physical.rigid_body->getMotionState())
+            delete physical.rigid_body->getMotionState();
+        m_dynamics_world->removeCollisionObject(physical.rigid_body);
+        delete physical.ground_shape;
+        delete physical.rigid_body;
+
+        return Iteration::Continue;
+    });
 }
 
 void PhysicsController::add_entity(uint32_t e_id, float f_mass) {
@@ -36,18 +47,18 @@ void PhysicsController::add_entity(uint32_t e_id, float f_mass) {
     auto &transform = entity_group.get_component<gfx::Transformable>(e_id);
 
     gfx::Box on_origin = model.bounding_box;
+    glm::vec3 size{
+        fabs(on_origin.max.x - on_origin.min.x) / 2,
+        fabs(on_origin.max.y - on_origin.min.y) / 2,
+        fabs(on_origin.max.z - on_origin.min.z) / 2,
+    };
 
-    on_origin.transform(transform.transform_matrix);
-
-    btCollisionShape *ground_shape = new btBoxShape(btVector3(fabs(on_origin.max.x - on_origin.min.x) / 2,
-                                                              fabs(on_origin.max.y - on_origin.min.y) / 2,
-                                                              fabs(on_origin.max.z - on_origin.min.z) / 2));
+    btCollisionShape *ground_shape = new btBoxShape(glm_to_bullet(size));
 
     glm::vec3 center = on_origin.center();
 
-    btTransform ground_transform;
-    ground_transform.setIdentity();
-    ground_transform.setOrigin(btVector3(center.x, center.y, center.z));
+    // offset by center because bullet3 uses the center of mass as the origin
+    btTransform ground_transform = glm_to_bullet(glm::translate(transform.transform_matrix, center));
 
     btScalar mass(f_mass);
     bool is_dynamic = (f_mass != 0.f);
@@ -69,18 +80,27 @@ void PhysicsController::add_entity(uint32_t e_id, float f_mass) {
                                            ground_shape,
                                            motion_state,
                                            body,
+                                           std::move(center),
                                            e_id);
 
     body->setUserPointer(&entity_group.get_component<Physical>(e_id));
 
     m_dynamics_world->addRigidBody(body);
+}
 
-    m_deletion_queue.enqueue([=]() {
-        delete ground_shape;
-        delete body->getMotionState();
-        m_dynamics_world->removeCollisionObject(body);
-        delete body;
-    });
+void PhysicsController::remove_entity(uint32_t e_id) {
+    auto &entity_group = ecs::EntityGroup::get();
+    if (!entity_group.has_component<Physical>(e_id))
+        return;
+
+    auto &physical = entity_group.get_component<Physical>(e_id);
+    if (physical.rigid_body && physical.rigid_body->getMotionState())
+        delete physical.rigid_body->getMotionState();
+    m_dynamics_world->removeCollisionObject(physical.rigid_body);
+    delete physical.ground_shape;
+    delete physical.rigid_body;
+
+    entity_group.disable<Physical>(e_id);
 }
 
 float PhysicsController::get_entity_mass(uint32_t e_id) const {
@@ -90,6 +110,23 @@ float PhysicsController::get_entity_mass(uint32_t e_id) const {
     if (inv_mass == 0.0f)
         return 0.0f;
     return 1.0f / inv_mass;
+}
+
+void PhysicsController::set_entity_mass(uint32_t e_id, float mass) const {
+    auto &entity_group = ecs::EntityGroup::get();
+    if (!entity_group.has_component<Physical>(e_id))
+        return;
+
+    auto &physical = entity_group.get_component<Physical>(e_id);
+    physical.rigid_body->setMassProps(mass, btVector3(0, 0, 0));
+
+    if (mass == 0.f) {
+        physical.rigid_body->setCollisionFlags(physical.rigid_body->getCollisionFlags() | btCollisionObject::CF_STATIC_OBJECT);
+        physical.rigid_body->setLinearVelocity(btVector3(0, 0, 0));
+        physical.rigid_body->setAngularVelocity(btVector3(0, 0, 0));
+    } else {
+        physical.rigid_body->setCollisionFlags(physical.rigid_body->getCollisionFlags() & ~btCollisionObject::CF_STATIC_OBJECT);
+    }
 }
 
 void PhysicsController::update(float time_change) {
@@ -111,13 +148,8 @@ void PhysicsController::update(float time_change) {
         else
             trans = obj->getWorldTransform();
 
-        transform.translation = glm::vec3(float(trans.getOrigin().getX()),
-                                          float(trans.getOrigin().getY()),
-                                          float(trans.getOrigin().getZ()));
-        transform.orientation = glm::quat(float(trans.getRotation().getW()),
-                                          float(trans.getRotation().getX()),
-                                          float(trans.getRotation().getY()),
-                                          float(trans.getRotation().getZ()));
+        transform.translation = bullet_to_glm(trans.getOrigin()) - physical.on_origin_center;
+        transform.orientation = bullet_to_glm(trans.getRotation());
         transform.update();
 
         return Iteration::Continue;
@@ -152,11 +184,11 @@ std::optional<uint32_t> PhysicsController::raycast_cursor_position(uint32_t scre
     glm::vec4 ray_end = start_scene + ray_direction * length;
 
     btCollisionWorld::ClosestRayResultCallback ray_callback(
-        btVector3(start_scene.x, start_scene.y, start_scene.z),
-        btVector3(ray_end.x, ray_end.y, ray_end.z));
+        glm_to_bullet(start_scene),
+        glm_to_bullet(ray_end));
     m_dynamics_world->rayTest(
-        btVector3(start_scene.x, start_scene.y, start_scene.z),
-        btVector3(ray_end.x, ray_end.y, ray_end.z),
+        glm_to_bullet(start_scene),
+        glm_to_bullet(ray_end),
         ray_callback);
 
     if (ray_callback.hasHit()) {
@@ -187,31 +219,28 @@ bool PhysicsController::is_physics_enabled() const {
     return m_enabled;
 }
 
+static inline glm::vec3 extract_only_scale(const glm::mat4 &transform) {
+    return glm::vec3{
+        glm::length(glm::vec3(transform[0])),
+        glm::length(glm::vec3(transform[1])),
+        glm::length(glm::vec3(transform[2])),
+    };
+}
+
 void PhysicsController::sync_physics_transform(uint32_t e_id) const {
     auto &entity_group = boa::ecs::EntityGroup::get();
     auto &transform = entity_group.get_component<boa::gfx::Transformable>(e_id);
     auto &physical = entity_group.get_component<Physical>(e_id);
 
-    glm::vec3 scale, translation, skew;
-    glm::quat orientation;
-    glm::vec4 perspective;
+    //glm::vec3 scale = extract_only_scale(transform.transform_matrix);
 
-    // matrix decomposition is unnecessary (btTransform has a `setFromOpenGLMatrix`), but
-    // this is the only way I could get it to work.
-    glm::decompose(transform.transform_matrix, scale, orientation, translation, skew, perspective);
-    orientation = glm::conjugate(orientation);
+    btTransform bt_transform = glm_to_bullet(transform.transform_matrix);
 
-    btTransform bt_transform;
-    bt_transform.setIdentity();
-    bt_transform.setOrigin(btVector3(translation.x, translation.y, translation.z));
-    bt_transform.setRotation(btQuaternion(orientation.x,
-                                          orientation.y, 
-                                          orientation.z,
-                                          orientation.w));
-
-    physical.ground_shape->setLocalScaling(btVector3(scale.x, scale.y, scale.z));
     physical.rigid_body->setCenterOfMassTransform(bt_transform);
-    m_dynamics_world->getCollisionWorld()->updateSingleAabb(physical.rigid_body);
+    physical.rigid_body->activate(true);
+
+    m_dynamics_world->updateSingleAabb(physical.rigid_body);
+    m_dynamics_world->synchronizeSingleMotionState(physical.rigid_body);
 }
 
 glm::dvec3 PhysicsController::get_linear_velocity(uint32_t e_id) const {
@@ -230,6 +259,23 @@ glm::dvec3 PhysicsController::get_angular_velocity(uint32_t e_id) const {
     const btVector3 &angular_velocity = physical.rigid_body->getAngularVelocity();
 
     return glm::dvec3{ angular_velocity.getX(), angular_velocity.getY(), angular_velocity.getZ() };
+}
+
+void PhysicsController::enable_debug_drawing(boa::gfx::Renderer &renderer) {
+    m_debug_drawer = std::make_unique<BulletDebugDrawer>(renderer);
+    m_debug_drawer->setDebugMode(btIDebugDraw::DBG_DrawWireframe);
+    m_dynamics_world->setDebugDrawer(static_cast<btIDebugDraw *>(m_debug_drawer.get()));
+}
+
+void PhysicsController::debug_draw() const {
+    if (m_debug_drawer) {
+        m_dynamics_world->debugDrawWorld();
+        m_debug_drawer->upload();
+    }
+}
+
+void PhysicsController::debug_reset() const {
+    m_debug_drawer->reset();
 }
 
 }

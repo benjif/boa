@@ -4,13 +4,18 @@
 #include "btBulletDynamicsCommon.h"
 #include "glm/glm.hpp"
 #include "boa/utl/macros.h"
-#include "boa/utl/deletion_queue.h"
+#include "boa/phy/debug_drawer.h"
 #include <unordered_set>
 #include <memory>
 
-namespace boa::gfx  { class AssetManager;   }
+namespace boa::gfx {
+class AssetManager;
+class Renderer;
+}
 
 namespace boa::phy {
+
+class BulletDebugDrawer;
 
 struct Physical {
     Physical()
@@ -20,10 +25,11 @@ struct Physical {
     {
     }
 
-    Physical(btCollisionShape *gs, btDefaultMotionState *ms, btRigidBody *rb, uint32_t id)
+    Physical(btCollisionShape *gs, btDefaultMotionState *ms, btRigidBody *rb, glm::vec3 &&center, uint32_t id)
         : ground_shape(gs),
           motion_state(ms),
           rigid_body(rb),
+          on_origin_center(std::move(center)),
           e_id(id)
     {
     }
@@ -31,6 +37,7 @@ struct Physical {
     btCollisionShape *ground_shape;
     btDefaultMotionState *motion_state;
     btRigidBody *rigid_body;
+    glm::vec3 on_origin_center;
     uint32_t e_id;
 };
 
@@ -41,7 +48,9 @@ public:
     ~PhysicsController();
 
     void add_entity(uint32_t e_id, float f_mass);
+    void remove_entity(uint32_t e_id);
     float get_entity_mass(uint32_t e_id) const;
+    void set_entity_mass(uint32_t e_id, float mass) const;
     void update(float time_change);
 
     void set_gravity(float gravity);
@@ -62,6 +71,10 @@ public:
                                                     const glm::mat4 &view_projection,
                                                     float length);
 
+    void enable_debug_drawing(boa::gfx::Renderer &renderer);
+    void debug_draw() const;
+    void debug_reset() const;
+
 private:
     boa::gfx::AssetManager &m_asset_manager;
 
@@ -71,7 +84,7 @@ private:
     std::unique_ptr<btSequentialImpulseConstraintSolver> m_solver;
     std::unique_ptr<btDiscreteDynamicsWorld> m_dynamics_world;
 
-    DeletionQueue m_deletion_queue;
+    std::unique_ptr<BulletDebugDrawer> m_debug_drawer;
 
     bool m_enabled;
 };

@@ -28,6 +28,7 @@ uint32_t EntityGroup::new_entity() {
     if (free_entities.size() > 0) {
         uint32_t free_ret = free_entities.top();
         free_entities.pop();
+        entities[free_ret].active = true;
         return free_ret;
     }
 
@@ -36,6 +37,9 @@ uint32_t EntityGroup::new_entity() {
 }
 
 void EntityGroup::delete_entity(uint32_t e_id) {
+    if (e_id >= entities.size())
+        return;
+    entities[e_id].active = false;
     free_entities.push(e_id);
 }
 

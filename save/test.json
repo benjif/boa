@@ -17,7 +17,7 @@
             "path": "models/domino_crown.gltf"
         },
         {
-            "path": "models/primitives/plane.gltf"
+            "path": "models/primitives/plane2.gltf"
         }
     ],
     "renderables": [

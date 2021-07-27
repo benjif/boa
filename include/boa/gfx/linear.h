@@ -29,6 +29,33 @@ struct Transformable {
     void update();
 };
 
+struct SmallVertex {
+    glm::vec3 position;
+
+    static vk::VertexInputBindingDescription get_binding_description() {
+        return {
+            .binding = 0,
+            .stride = sizeof(SmallVertex),
+            .inputRate = vk::VertexInputRate::eVertex,
+        };
+    }
+
+    static std::array<vk::VertexInputAttributeDescription, 1> get_attribute_descriptions() {
+        return std::array<vk::VertexInputAttributeDescription, 1>{
+            vk::VertexInputAttributeDescription{
+                .location   = 0,
+                .binding    = 0,
+                .format     = vk::Format::eR32G32B32Sfloat,
+                .offset     = offsetof(SmallVertex, position),
+            }
+        };
+    }
+
+    bool operator==(const SmallVertex &other) const {
+        return position == other.position;
+    }
+};
+
 struct Vertex {
     glm::vec3 position, normal;
     glm::vec4 color0;
@@ -75,7 +102,7 @@ struct Vertex {
     }
 
     bool operator==(const Vertex &other) const {
-        return position == other.position && normal == other.normal && texture_coord0 == other.texture_coord0;
+        return position == other.position && normal == other.normal && color0 == other.color0 && texture_coord0 == other.texture_coord0;
     }
 };
 

@@ -122,7 +122,6 @@ static inline vk::SamplerAddressMode tinygltf_to_vulkan_address_mode(int gltf) {
     case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
         return vk::SamplerAddressMode::eMirroredRepeat;
     case TINYGLTF_TEXTURE_WRAP_REPEAT:
-        return vk::SamplerAddressMode::eRepeat;
     default:
         return vk::SamplerAddressMode::eRepeat;
     }
@@ -723,18 +722,18 @@ void GPUModel::upload_model_vertices(AssetManager &asset_manager, Renderer &rend
 }
 
 void GPUModel::upload_bounding_box_vertices(AssetManager &asset_manager, Renderer &renderer) {
-    std::array<Vertex, 8> bounding_box_vertices{
-        Vertex{ .position = { bounding_box.min }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
-        Vertex{ .position = { bounding_box.max }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
-        Vertex{ .position = { bounding_box.min.x, bounding_box.min.y, bounding_box.max.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
-        Vertex{ .position = { bounding_box.min.x, bounding_box.max.y, bounding_box.min.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
-        Vertex{ .position = { bounding_box.max.x, bounding_box.min.y, bounding_box.min.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
-        Vertex{ .position = { bounding_box.min.x, bounding_box.max.y, bounding_box.max.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
-        Vertex{ .position = { bounding_box.max.x, bounding_box.min.y, bounding_box.max.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
-        Vertex{ .position = { bounding_box.max.x, bounding_box.max.y, bounding_box.min.z }, .color0 = { 1.0f, 0.0f, 0.0f, 1.0f }},
+    std::array<SmallVertex, 8> bounding_box_vertices{
+        SmallVertex{ .position = { bounding_box.min } },
+        SmallVertex{ .position = { bounding_box.max } },
+        SmallVertex{ .position = { bounding_box.min.x, bounding_box.min.y, bounding_box.max.z } },
+        SmallVertex{ .position = { bounding_box.min.x, bounding_box.max.y, bounding_box.min.z } },
+        SmallVertex{ .position = { bounding_box.max.x, bounding_box.min.y, bounding_box.min.z } },
+        SmallVertex{ .position = { bounding_box.min.x, bounding_box.max.y, bounding_box.max.z } },
+        SmallVertex{ .position = { bounding_box.max.x, bounding_box.min.y, bounding_box.max.z } },
+        SmallVertex{ .position = { bounding_box.max.x, bounding_box.max.y, bounding_box.min.z } },
     };
 
-    std::array<Vertex, 24> bounding_box_vertices_repeated{
+    std::array<SmallVertex, 24> bounding_box_vertices_repeated{
         bounding_box_vertices[5], bounding_box_vertices[1],
         bounding_box_vertices[1], bounding_box_vertices[7],
         bounding_box_vertices[7], bounding_box_vertices[3],
@@ -749,7 +748,7 @@ void GPUModel::upload_bounding_box_vertices(AssetManager &asset_manager, Rendere
         bounding_box_vertices[3], bounding_box_vertices[0],
     };
 
-    const size_t size = bounding_box_vertices_repeated.size() * sizeof(Vertex);
+    const size_t size = bounding_box_vertices_repeated.size() * sizeof(SmallVertex);
 
     VmaBuffer staging_buffer = renderer.create_buffer(size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
 

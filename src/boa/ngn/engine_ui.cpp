@@ -143,7 +143,7 @@ void Engine::draw_inactive_animation() const {
 }
 
 void Engine::draw_animation() {
-    if (!last_selected_entity.has_value() || m_mode == EngineMode::Physics) {
+    if (!last_selected_entity.has_value()) {
         draw_inactive_animation();
         return;
     }
@@ -182,6 +182,14 @@ void Engine::draw_main_menu_bar() {
             ImGui::MenuItem("Scene Properties", nullptr, &m_ui_state.show_scene_properties);
             ImGui::MenuItem("Object Properties", nullptr, &m_ui_state.show_object_properties);
             ImGui::MenuItem("Create Entity", nullptr, &m_ui_state.show_entity_create);
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("View")) {
+            if (ImGui::MenuItem("Renderer Bounding Boxes", nullptr, &m_ui_state.show_renderer_bounding_boxes))
+                renderer.set_draw_bounding_boxes(m_ui_state.show_renderer_bounding_boxes);
+            if (ImGui::MenuItem("Physics Bounding Boxes", nullptr, &m_ui_state.show_physics_bounding_boxes))
+                physics_controller.debug_reset();
             ImGui::EndMenu();
         }
 
@@ -227,8 +235,8 @@ void Engine::draw_main_menu_bar() {
 
     ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Save to file", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        static char path_buf[32];
-        ImGui::InputText("Path", path_buf, 32);
+        static char path_buf[48];
+        ImGui::InputText("Path", path_buf, 48);
 
         if (ImGui::Button("Save")) {
             m_state.save_to_json(asset_manager, physics_controller, path_buf);
@@ -247,7 +255,7 @@ void Engine::draw_main_menu_bar() {
 
     ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Open from file", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        static char path_buf[32];
+        static char path_buf[48];
 
         enum class ResponseState {
             None,
@@ -255,7 +263,7 @@ void Engine::draw_main_menu_bar() {
         };
         static ResponseState response_state;
 
-        ImGui::InputText("Path", path_buf, 32);
+        ImGui::InputText("Path", path_buf, 48);
 
         if (ImGui::Button("Open")) {
             if (!std::filesystem::exists(std::filesystem::path(path_buf))) {
@@ -285,8 +293,8 @@ void Engine::draw_main_menu_bar() {
 
     ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Import model", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        static char path_buf[32];
-        ImGui::InputText("Path", path_buf, 32);
+        static char path_buf[48];
+        ImGui::InputText("Path", path_buf, 48);
 
         enum class ResponseState {
             None,
@@ -433,10 +441,10 @@ void Engine::draw_entity_create_window() {
         m_ui_state.show_object_properties = true;
         last_selected_entity = new_entity;
 
-        glm::vec3 cam_pos = camera.get_position();
+        glm::vec3 new_pos = camera.get_position() + camera.get_target() * 5.0f;
         entity_group.enable_and_make<boa::gfx::Transformable>(new_entity,
                                                               glm::quat{ 0.0f, 0.0f, 0.0f, 0.0f },
-                                                              std::move(cam_pos),
+                                                              std::move(new_pos),
                                                               glm::vec3{ 1.0f, 1.0f, 1.0f });
         physics_controller.add_entity(new_entity, new_mass);
     }

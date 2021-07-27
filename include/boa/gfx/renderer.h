@@ -21,6 +21,8 @@
 
 namespace boa::gfx {
 
+class DebugDrawer;
+
 class Renderer {
     REMOVE_COPY_AND_ASSIGN(Renderer);
 public:
@@ -41,8 +43,18 @@ public:
     void wait_for_all_frames() const;
     void wait_idle() const;
 
+    void add_debug_drawer(DebugDrawer *debug_drawer);
+
     AssetManager &get_asset_manager() {
         return m_asset_manager;
+    }
+
+    VmaAllocator get_allocator() {
+        return m_allocator;
+    }
+
+    vk::Device get_device() {
+        return m_device.get();
     }
 
     ctl::Keyboard &get_keyboard()   { return m_keyboard;    }
@@ -162,6 +174,8 @@ private:
         vk::CommandPool command_pool;
     };
 
+    std::vector<DebugDrawer *> m_debug_drawers;
+
     Window m_window{ INIT_WIDTH, INIT_HEIGHT, WINDOW_TITLE };
     WindowUserPointers m_user_pointers;
 
@@ -270,6 +284,7 @@ private:
     friend class GPUModel;
     friend class GPUTexture;
     friend class GPUSkybox;
+    friend class DebugDrawer;
 };
 
 }

@@ -21,8 +21,9 @@ struct EntityMeta {
 
     void grow_if_needed(uint32_t id);
 
-    uint32_t id;
     std::vector<bool> component_mask;
+    uint32_t id;
+    bool active{ true };
 };
 
 struct EntityGroup {
@@ -66,6 +67,8 @@ struct EntityGroup {
 
     template <typename C>
     void enable(uint32_t e_id) {
+        if (e_id >= entities.size() || !entities[e_id].active)
+            return;
         uint32_t c_id = component_id<C>();
         entities[e_id].grow_if_needed(c_id);
         entities[e_id].component_mask[c_id] = true;
@@ -73,6 +76,9 @@ struct EntityGroup {
 
     template <typename C, typename ...Args>
     void make(uint32_t e_id, Args &&...args) {
+        if (e_id >= entities.size() || !entities[e_id].active)
+            return;
+
         uint32_t c_id = component_id<C>();
         if (!has_component<C>(e_id))
             throw std::runtime_error("Attempted to make disabled component for entity");
@@ -85,6 +91,9 @@ struct EntityGroup {
 
     template <typename C, typename ...Args>
     void enable_and_make(uint32_t e_id, Args &&...args) {
+        if (e_id >= entities.size() || !entities[e_id].active)
+            return;
+
         uint32_t c_id = component_id<C>();
         entities[e_id].grow_if_needed(c_id);
         entities[e_id].component_mask[c_id] = true;
@@ -95,6 +104,9 @@ struct EntityGroup {
 
     template <typename C>
     void disable(uint32_t e_id) {
+        if (e_id >= entities.size() || !entities[e_id].active)
+            return;
+
         uint32_t c_id = component_id<C>();
         entities[e_id].grow_if_needed(c_id);
         entities[e_id].component_mask[c_id] = false;
@@ -102,6 +114,9 @@ struct EntityGroup {
 
     template <typename C>
     bool has_component(uint32_t e_id) const {
+        if (e_id >= entities.size() || !entities[e_id].active)
+            return false;
+
         uint32_t c_id = component_id<C>();
         if (c_id >= entities[e_id].component_mask.size())
             return false;
@@ -110,6 +125,8 @@ struct EntityGroup {
 
     template <typename C>
     C &get_component(uint32_t e_id) {
+        if (e_id >= entities.size() || !entities[e_id].active)
+            throw std::runtime_error("Attempted to get component for non-existent entity");
         if (!has_component<C>(e_id))
             throw std::runtime_error("Attempted to get component that does not exist for entity");
         auto &component_store = ComponentStore::get();
@@ -121,6 +138,8 @@ struct EntityGroup {
     void for_each_entity_with_component(Callback callback) const {
         uint32_t c_ids[] = { component_id<C>()... };
         for (auto &entity : entities) {
+            if (!entity.active)
+                continue;
             if (std::all_of(std::begin(c_ids), std::end(c_ids), [&](uint32_t c_id) { return entity.component_mask[c_id]; })) {
                 if (callback(entity.id) == Iteration::Break)
                     break;
@@ -132,6 +151,8 @@ struct EntityGroup {
     std::optional<uint32_t> find_first_entity_with_component() const {
         uint32_t c_ids[] = { component_id<C>()... };
         for (auto &entity : entities) {
+            if (!entity.active)
+                continue;
             if (std::all_of(std::begin(c_ids), std::end(c_ids), [&](uint32_t c_id) { return entity.component_mask[c_id]; }))
                 return entity.id;
         }
@@ -139,7 +160,7 @@ struct EntityGroup {
     }
 
     uint32_t size() const {
-        return entities.size();
+        return entities.size() - free_entities.size();
     }
 
     std::vector<EntityMeta> entities;
