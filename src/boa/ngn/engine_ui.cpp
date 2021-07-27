@@ -233,19 +233,18 @@ void Engine::draw_main_menu_bar() {
             m_state.add_entities(asset_manager, animation_controller, physics_controller);
             m_dialog_shown = DialogShown::None;
         } catch (const std::runtime_error &err) {
-            LOG_INFO("(Engine) Failed to open world file");
+            LOG_WARN("(Engine) Failed to open world file");
         }
     }
 
     if (FileDialog::get().draw("Import model")) {
-        bool success = true;
         try {
             boa::gfx::glTFModel model;
             model.open_gltf_file(FileDialog::get().get_selected_path().c_str());
             uint32_t new_entity = asset_manager.load_model(model);
             animation_controller.load_animations(new_entity, model);
         } catch (const std::runtime_error &err) {
-            LOG_INFO("(Engine) Failed to import model");
+            LOG_WARN("(Engine) Failed to import model");
         }
     }
 }
