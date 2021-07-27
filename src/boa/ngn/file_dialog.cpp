@@ -46,7 +46,7 @@ bool FileDialog::draw(const std::string &window_name, Mode mode) {
             size_t i = 0;
             for (auto &p : directory_it) {
                 fs::path cur_path = p.path();
-                std::string filename = cur_path.filename();
+                std::string filename = cur_path.filename().string();
                 if (filename == ".." || filename == "." ||
                         (filename.size() > 1 && filename[0] == '.')) {
                     continue;
@@ -60,6 +60,7 @@ bool FileDialog::draw(const std::string &window_name, Mode mode) {
                         ImGui::EndPopup();
 
                         if (p.is_directory()) {
+                            edit_filename.clear();
                             m_current_view_path = cur_path;
                             return false;
                         } else {
@@ -111,7 +112,7 @@ bool FileDialog::draw(const std::string &window_name, Mode mode) {
 }
 
 std::string FileDialog::get_selected_path() const {
-    return m_current_selected_path;
+    return m_current_selected_path.string();
 }
 
 }
