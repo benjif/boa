@@ -234,7 +234,7 @@ void PhysicsController::sync_physics_transform(uint32_t e_id) const {
 
     //glm::vec3 scale = extract_only_scale(transform.transform_matrix);
 
-    btTransform bt_transform = glm_to_bullet(transform.transform_matrix);
+    btTransform bt_transform = glm_to_bullet(glm::translate(transform.transform_matrix, physical.on_origin_center));
 
     physical.rigid_body->setCenterOfMassTransform(bt_transform);
     physical.rigid_body->activate(true);
