@@ -11,6 +11,7 @@ namespace boa::gfx {
 
 class Renderer;
 
+// TODO: add support for triangles, spheres?, etc.
 class DebugDrawer {
 public:
     static const size_t MAX_VERTICES = 10000;

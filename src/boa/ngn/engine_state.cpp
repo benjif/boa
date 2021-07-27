@@ -179,7 +179,8 @@ void EngineState::save_to_json(boa::gfx::AssetManager &asset_manager,
 }
 
 void EngineState::load_from_json(const char *file_path) {
-    assert(std::filesystem::exists(std::filesystem::path(file_path)));
+    if (!std::filesystem::exists(std::filesystem::path(file_path)))
+        throw std::runtime_error("Failed to open world file");
 
     m_default_skybox = 0;
     m_models.clear();
@@ -194,7 +195,8 @@ void EngineState::load_from_json(const char *file_path) {
     rapidjson::Document document;
     document.ParseStream(json_stream_wrapper);
 
-    assert(document.IsObject());
+    if (!document.IsObject())
+        throw std::runtime_error("World file is malformed");
 
     if (document.HasMember("models")) {
         const rapidjson::Value &models = document["models"];

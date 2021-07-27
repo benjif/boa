@@ -26,7 +26,7 @@ Engine::Engine()
 
     physics_controller.enable_debug_drawing(renderer);
 
-    m_state.load_from_json("save/test.json");
+    m_state.load_from_json("save/default.json");
     m_state.add_entities(asset_manager, animation_controller, physics_controller);
     setup_input();
 }
@@ -42,7 +42,7 @@ void Engine::input_update(float time_change) {
             directions |= boa::gfx::Camera::DirectionFlags::Backward;
         if (keyboard.key(boa::ctl::KeyD))
             directions |= boa::gfx::Camera::DirectionFlags::Right;
-    
+
         camera.update_position(time_change, directions);
     
         if (window.get_cursor_disabled()) {

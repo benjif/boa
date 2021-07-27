@@ -3,6 +3,7 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "boa/ngn/engine.h"
 #include "boa/ngn/object.h"
+#include "boa/ngn/file_dialog.h"
 #include <filesystem>
 #include <string>
 
@@ -166,11 +167,11 @@ void Engine::draw_main_menu_bar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Save World"))
-                m_dialog_shown = DialogShown::Save;
+                FileDialog::get().open("Save scene to file");
             if (ImGui::MenuItem("Open World"))
-                m_dialog_shown = DialogShown::Open;
+                FileDialog::get().open("Open world from file");
             if (ImGui::MenuItem("Import Model"))
-                m_dialog_shown = DialogShown::ImportModel;
+                FileDialog::get().open("Import model");
             if (ImGui::MenuItem("Exit")) {
                 window.set_should_close();
             }
@@ -219,118 +220,33 @@ void Engine::draw_main_menu_bar() {
         ImGui::EndMainMenuBar();
     }
 
-    switch (m_dialog_shown) {
-    case DialogShown::Save:
-        ImGui::OpenPopup("Save to file");
-        break;
-    case DialogShown::Open:
-        ImGui::OpenPopup("Open from file");
-        break;
-    case DialogShown::ImportModel:
-        ImGui::OpenPopup("Import model");
-        break;
-    default:
-        break;
+    if (FileDialog::get().draw("Save scene to file", FileDialog::Mode::Save)) {
+        m_state.save_to_json(asset_manager, physics_controller, FileDialog::get().get_selected_path().c_str());
+        m_dialog_shown = DialogShown::None;
     }
 
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (ImGui::BeginPopupModal("Save to file", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        static char path_buf[48];
-        ImGui::InputText("Path", path_buf, 48);
-
-        if (ImGui::Button("Save")) {
-            m_state.save_to_json(asset_manager, physics_controller, path_buf);
+    if (FileDialog::get().draw("Open world from file")) {
+        try {
+            m_state.load_from_json(FileDialog::get().get_selected_path().c_str());
+            asset_manager.reset();
+            entity_group.clear_entities();
+            m_state.add_entities(asset_manager, animation_controller, physics_controller);
             m_dialog_shown = DialogShown::None;
-            ImGui::CloseCurrentPopup();
+        } catch (const std::runtime_error &err) {
+            LOG_INFO("(Engine) Failed to open world file");
         }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
-            m_dialog_shown = DialogShown::None;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::EndPopup();
     }
 
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (ImGui::BeginPopupModal("Open from file", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        static char path_buf[48];
-
-        enum class ResponseState {
-            None,
-            NotFound,
-        };
-        static ResponseState response_state;
-
-        ImGui::InputText("Path", path_buf, 48);
-
-        if (ImGui::Button("Open")) {
-            if (!std::filesystem::exists(std::filesystem::path(path_buf))) {
-                response_state = ResponseState::NotFound;
-            } else {
-                response_state = ResponseState::None;
-                asset_manager.reset();
-                entity_group.clear_entities();
-                m_state.load_from_json(path_buf);
-                m_state.add_entities(asset_manager, animation_controller, physics_controller);
-                m_dialog_shown = DialogShown::None;
-                ImGui::CloseCurrentPopup();
-            }
+    if (FileDialog::get().draw("Import model")) {
+        bool success = true;
+        try {
+            boa::gfx::glTFModel model;
+            model.open_gltf_file(FileDialog::get().get_selected_path().c_str());
+            uint32_t new_entity = asset_manager.load_model(model);
+            animation_controller.load_animations(new_entity, model);
+        } catch (const std::runtime_error &err) {
+            LOG_INFO("(Engine) Failed to import model");
         }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
-            m_dialog_shown = DialogShown::None;
-            ImGui::CloseCurrentPopup();
-        }
-
-        if (response_state == ResponseState::NotFound)
-            ImGui::Text("File does not exist.");
-
-        ImGui::EndPopup();
-    }
-
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (ImGui::BeginPopupModal("Import model", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        static char path_buf[48];
-        ImGui::InputText("Path", path_buf, 48);
-
-        enum class ResponseState {
-            None,
-            Error,
-        };
-
-        static ResponseState response_state;
-
-        if (ImGui::Button("Open")) {
-            bool success = true;
-            try {
-                boa::gfx::glTFModel model;
-                model.open_gltf_file(path_buf);
-                uint32_t new_entity = asset_manager.load_model(model);
-                animation_controller.load_animations(new_entity, model);
-            } catch (const std::runtime_error &err) {
-                response_state = ResponseState::Error;
-                success = false;
-            }
-
-            if (success) {
-                ImGui::CloseCurrentPopup();
-                m_dialog_shown = DialogShown::None;
-            }
-        }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
-            m_dialog_shown = DialogShown::None;
-            ImGui::CloseCurrentPopup();
-        }
-
-        if (response_state == ResponseState::Error)
-            ImGui::Text("Failed to open model.");
-
-        ImGui::EndPopup();
     }
 }
 
@@ -468,7 +384,6 @@ void Engine::draw_engine_interface() {
         draw_entity_create_window();
 
     ImGui::EndFrame();
-    //ImGui::ShowDemoWindow();
 }
 
 }
