@@ -26,6 +26,7 @@ namespace boa::ngn {
 class Engine {
 public:
     Engine();
+    ~Engine();
     void run();
 
 private:
@@ -88,6 +89,8 @@ private:
     void draw_inactive_physics_properties();
     void draw_animation();
     void draw_inactive_animation() const;
+
+    void cleanup_interface();
 };
 
 }

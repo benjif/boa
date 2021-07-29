@@ -31,6 +31,10 @@ Engine::Engine()
     setup_input();
 }
 
+Engine::~Engine() {
+    cleanup_interface();
+}
+
 void Engine::input_update(float time_change) {
     if (!ImGui::IsWindowFocused(ImGuiHoveredFlags_AnyWindow)) {
         boa::gfx::Camera::DirectionFlags directions{};

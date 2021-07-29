@@ -17,6 +17,7 @@ public:
     };
 
     static FileDialog &get();
+    static void destroy();
 
     void open(const std::string &window_name, const std::string &start_path);
     void open(const std::string &window_name);

@@ -13,6 +13,10 @@ FileDialog &FileDialog::get() {
     return *file_dialog_instance;
 }
 
+void FileDialog::destroy() {
+    delete file_dialog_instance;
+}
+
 void FileDialog::open(const std::string &window_name, const std::string &start_path) {
     m_current_open_window_name = window_name;
     m_current_view_path = start_path;

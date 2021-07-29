@@ -385,4 +385,8 @@ void Engine::draw_engine_interface() {
     ImGui::EndFrame();
 }
 
+void Engine::cleanup_interface() {
+    FileDialog::destroy();
+}
+
 }
