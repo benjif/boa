@@ -1,6 +1,8 @@
 #include "imgui.h"
 #include "boa/ngn/file_dialog.h"
 
+#include "boa/utl/macros.h"
+
 namespace boa::ngn {
 
 static FileDialog *file_dialog_instance = nullptr;
@@ -23,7 +25,7 @@ void FileDialog::open(const std::string &window_name) {
     m_open = true;
 }
 
-bool FileDialog::draw(const std::string &window_name, Mode mode) {
+bool FileDialog::draw(const std::string &window_name, Mode mode, const std::vector<std::string> &exts) {
     if (!m_open || window_name.compare(m_current_open_window_name) != 0)
         return false;
 
@@ -47,8 +49,11 @@ bool FileDialog::draw(const std::string &window_name, Mode mode) {
             for (auto &p : directory_it) {
                 fs::path cur_path = p.path();
                 std::string filename = cur_path.filename().string();
-                if (filename == ".." || filename == "." ||
-                        (filename.size() > 1 && filename[0] == '.')) {
+
+                bool wrong_ext = !p.is_directory() && (exts.size() != 0 && !std::any_of(exts.cbegin(), exts.cend(), [&](auto &ext){ return cur_path.extension().string() == ext; }));
+                if (filename.compare("..") == 0 || filename.compare(".") == 0 ||
+                        (filename.size() > 1 && filename[0] == '.') ||
+                        wrong_ext) {
                     continue;
                 }
 
@@ -62,10 +67,11 @@ bool FileDialog::draw(const std::string &window_name, Mode mode) {
                         if (p.is_directory()) {
                             edit_filename.clear();
                             m_current_view_path = cur_path;
+                            LOG_INFO("{}", cur_path.string());
                             return false;
                         } else {
                             m_open = false;
-                            m_current_selected_path = cur_path;;
+                            m_current_selected_path = cur_path;
                             return true;
                         }
                     }
@@ -84,17 +90,18 @@ bool FileDialog::draw(const std::string &window_name, Mode mode) {
             ImGui::EndListBox();
         }
 
-        bool text_change = false;
-        if (ImGui::InputText("Filename", edit_filename.data(), edit_filename.size()))
-            text_change = true;
+        ImGui::InputText("", edit_filename.data(), edit_filename.size());
 
         if (ImGui::Button(mode == Mode::Open ? "Open" : "Save")) {
-            if (text_change) {
+            if (edit_filename.size() != 0) {
+                bool result = true;
                 m_current_selected_path = current_selected_entry.path();
                 m_current_selected_path = m_current_selected_path.append(edit_filename);
-                m_open = false;
+                if (mode == Mode::Open && !fs::exists(m_current_selected_path.append(edit_filename)))
+                    result = false;
+                m_open = !result;
                 ImGui::EndPopup();
-                return true;
+                return result;
             } else if (current_selected_entry.is_regular_file()) {
                 m_current_selected_path = current_selected_entry.path();
                 m_open = false;
@@ -103,6 +110,14 @@ bool FileDialog::draw(const std::string &window_name, Mode mode) {
             }
 
             m_current_view_path = current_selected_entry.path();
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Cancel")) {
+            m_open = false;
+            ImGui::EndPopup();
+            return false;
         }
 
         ImGui::EndPopup();

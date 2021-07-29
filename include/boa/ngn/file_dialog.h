@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace boa::ngn {
 
@@ -19,7 +20,7 @@ public:
 
     void open(const std::string &window_name, const std::string &start_path);
     void open(const std::string &window_name);
-    bool draw(const std::string &window_name, Mode mode = Mode::Open);
+    bool draw(const std::string &window_name, Mode mode = Mode::Open, const std::vector<std::string> &exts = {});
 
     std::string get_selected_path() const;
 

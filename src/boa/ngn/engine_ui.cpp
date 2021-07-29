@@ -220,12 +220,12 @@ void Engine::draw_main_menu_bar() {
         ImGui::EndMainMenuBar();
     }
 
-    if (FileDialog::get().draw("Save scene to file", FileDialog::Mode::Save)) {
+    if (FileDialog::get().draw("Save scene to file", FileDialog::Mode::Save, { ".json" })) {
         m_state.save_to_json(asset_manager, physics_controller, FileDialog::get().get_selected_path().c_str());
         m_dialog_shown = DialogShown::None;
     }
 
-    if (FileDialog::get().draw("Open world from file")) {
+    if (FileDialog::get().draw("Open world from file", FileDialog::Mode::Open, { ".json" })) {
         try {
             m_state.load_from_json(FileDialog::get().get_selected_path().c_str());
             asset_manager.reset();
@@ -237,7 +237,7 @@ void Engine::draw_main_menu_bar() {
         }
     }
 
-    if (FileDialog::get().draw("Import model")) {
+    if (FileDialog::get().draw("Import model", FileDialog::Mode::Open, { ".gltf" })) {
         try {
             boa::gfx::glTFModel model;
             model.open_gltf_file(FileDialog::get().get_selected_path().c_str());
