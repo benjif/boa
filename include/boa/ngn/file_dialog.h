@@ -29,6 +29,8 @@ private:
     bool m_open{ false };
     fs::path m_current_view_path;
     fs::path m_current_selected_path;
+
+    bool skip_entry(const fs::directory_entry &entry, const std::vector<std::string> &exts);
 };
 
 }

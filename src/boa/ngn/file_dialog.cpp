@@ -1,7 +1,7 @@
 #include "imgui.h"
 #include "boa/ngn/file_dialog.h"
-
-#include "boa/utl/macros.h"
+#include <algorithm>
+#include <optional>
 
 namespace boa::ngn {
 
@@ -25,60 +25,78 @@ void FileDialog::open(const std::string &window_name) {
     m_open = true;
 }
 
+bool FileDialog::skip_entry(const fs::directory_entry &entry, const std::vector<std::string> &exts) {
+    fs::path cur_path = entry.path();
+    std::string filename = cur_path.filename().string();
+
+    bool wrong_ext = !entry.is_directory() && (exts.size() != 0 && !std::any_of(exts.cbegin(), exts.cend(), [&](auto &ext){ return cur_path.extension().string() == ext; }));
+    return (filename.compare("..") == 0 || filename.compare(".") == 0 ||
+        (filename.size() > 1 && filename[0] == '.') || wrong_ext);
+}
+
 bool FileDialog::draw(const std::string &window_name, Mode mode, const std::vector<std::string> &exts) {
     if (!m_open || window_name.compare(m_current_open_window_name) != 0)
         return false;
 
     auto directory_it = fs::directory_iterator(m_current_view_path);
 
-    static size_t item_current_idx;
-    fs::directory_entry current_selected_entry;
+    static size_t item_current_idx = 0;
+    static auto found = std::find_if(fs::begin(directory_it), fs::end(directory_it),
+                              [&](auto &p) { return !skip_entry(p, exts); });
+    static std::optional<fs::directory_entry> current_selected_entry =
+        (found == fs::end(directory_it)) ? std::nullopt : std::make_optional<fs::directory_entry>(*found);
 
     ImGui::OpenPopup(m_current_open_window_name.c_str());
     //ImGui::SetNextWindowSize(ImVec2(540, 320));
+
     if (ImGui::BeginPopupModal(m_current_open_window_name.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        static char edit_filename[64];
+
         if (ImGui::Button("Up")) {
             m_current_view_path = m_current_view_path.parent_path();
+            edit_filename[0] = '\0';
+            item_current_idx = 0;
             ImGui::EndPopup();
             return false;
         }
 
-        static std::string edit_filename;
+        auto handle_operation = [&](const fs::directory_entry &entry) {
+            if (entry.is_directory()) {
+                edit_filename[0] = '\0';
+                m_current_view_path = entry.path();
+                return false;
+            }
+
+            m_open = false;
+            m_current_selected_path = entry.path();
+
+            return true;
+        };
+
         if (ImGui::BeginListBox("")) {
             size_t i = 0;
             for (auto &p : directory_it) {
                 fs::path cur_path = p.path();
                 std::string filename = cur_path.filename().string();
 
-                bool wrong_ext = !p.is_directory() && (exts.size() != 0 && !std::any_of(exts.cbegin(), exts.cend(), [&](auto &ext){ return cur_path.extension().string() == ext; }));
-                if (filename.compare("..") == 0 || filename.compare(".") == 0 ||
-                        (filename.size() > 1 && filename[0] == '.') ||
-                        wrong_ext) {
+                if (skip_entry(p, exts))
                     continue;
-                }
 
                 const bool is_selected = (item_current_idx == i);
                 const std::string prepend_type = p.is_directory() ? "[D] " : "[F] ";
                 if (ImGui::Selectable((prepend_type + filename).c_str(), is_selected, ImGuiSelectableFlags_AllowDoubleClick)) {
+                    current_selected_entry = p;
+
                     if (ImGui::IsMouseDoubleClicked(0)) {
                         ImGui::EndListBox();
                         ImGui::EndPopup();
-
-                        if (p.is_directory()) {
-                            edit_filename.clear();
-                            m_current_view_path = cur_path;
-                            LOG_INFO("{}", cur_path.string());
-                            return false;
-                        } else {
-                            m_open = false;
-                            m_current_selected_path = cur_path;
-                            return true;
-                        }
+                        item_current_idx = 0;
+                        return handle_operation(p);
                     }
 
-                    edit_filename = filename;
-                    current_selected_entry = p;
                     item_current_idx = i;
+                    if (!p.is_directory())
+                        strcpy(edit_filename, filename.c_str());
                 }
 
                 if (is_selected)
@@ -90,26 +108,16 @@ bool FileDialog::draw(const std::string &window_name, Mode mode, const std::vect
             ImGui::EndListBox();
         }
 
-        ImGui::InputText("", edit_filename.data(), edit_filename.size());
+        ImGui::InputText("", edit_filename, 64);
 
         if (ImGui::Button(mode == Mode::Open ? "Open" : "Save")) {
-            if (edit_filename.size() != 0) {
-                bool result = true;
-                m_current_selected_path = current_selected_entry.path();
-                m_current_selected_path = m_current_selected_path.append(edit_filename);
-                if (mode == Mode::Open && !fs::exists(m_current_selected_path.append(edit_filename)))
-                    result = false;
-                m_open = !result;
-                ImGui::EndPopup();
-                return result;
-            } else if (current_selected_entry.is_regular_file()) {
-                m_current_selected_path = current_selected_entry.path();
-                m_open = false;
-                ImGui::EndPopup();
-                return true;
-            }
+            ImGui::EndPopup();
 
-            m_current_view_path = current_selected_entry.path();
+            item_current_idx = 0;
+            if (strlen(edit_filename) != 0)
+                return handle_operation(fs::directory_entry(m_current_view_path.append(edit_filename)));
+            else if (current_selected_entry.has_value())
+                return handle_operation(*current_selected_entry);
         }
 
         ImGui::SameLine();
