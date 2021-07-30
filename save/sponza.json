@@ -25,7 +25,7 @@
             "model": 0,
             "mass": 0.0,
             "lighting": "blinn_phong",
-            "engine_configurable": false,
+            "engine_selectable": false,
             "transform": {
                 "translation": [ 0.0, 0.0, 0.0 ],
                 "orientation": [ 0.0, 0.0, 0.0, 0.0 ],
@@ -36,7 +36,7 @@
             "model": 1,
             "mass": 0.0,
             "lighting": "blinn_phong",
-            "engine_configurable": true,
+            "engine_selectable": true,
             "transform": {
                 "translation": [ 0.0, 0.0, 0.0 ],
                 "orientation": [ 0.0, 0.0, 0.0, 0.0 ],

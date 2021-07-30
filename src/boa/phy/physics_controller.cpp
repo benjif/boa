@@ -219,23 +219,16 @@ bool PhysicsController::is_physics_enabled() const {
     return m_enabled;
 }
 
-static inline glm::vec3 extract_only_scale(const glm::mat4 &transform) {
-    return glm::vec3{
-        glm::length(glm::vec3(transform[0])),
-        glm::length(glm::vec3(transform[1])),
-        glm::length(glm::vec3(transform[2])),
-    };
-}
-
 void PhysicsController::sync_physics_transform(uint32_t e_id) const {
     auto &entity_group = boa::ecs::EntityGroup::get();
     auto &transform = entity_group.get_component<boa::gfx::Transformable>(e_id);
     auto &physical = entity_group.get_component<Physical>(e_id);
 
-    //glm::vec3 scale = extract_only_scale(transform.transform_matrix);
-
     btTransform bt_transform = glm_to_bullet(glm::translate(transform.transform_matrix, physical.on_origin_center));
 
+    //glm::vec3 scale = transform.scale / bullet_to_glm(physical.rigid_body->getCollisionShape()->getLocalScaling());
+
+    physical.rigid_body->getCollisionShape()->setLocalScaling(glm_to_bullet(transform.scale));
     physical.rigid_body->setCenterOfMassTransform(bt_transform);
     physical.rigid_body->activate(true);
 

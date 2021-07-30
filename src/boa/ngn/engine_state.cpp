@@ -1,3 +1,5 @@
+// PERF: for saving/loading, using `rapidjson::Writer`
+// would be faster than `rapidjson::PrettyWriter`
 #include "prettywriter.h"
 //#include "writer.h"
 #include "document.h"
@@ -86,6 +88,11 @@ void EngineState::save_to_json(boa::gfx::AssetManager &asset_manager,
         transform_object.AddMember("orientation", orientation_array, document.GetAllocator());
         transform_object.AddMember("scale", scale_array, document.GetAllocator());
         renderable_object.AddMember("transform", transform_object, document.GetAllocator());
+
+        if (entity_group.has_component<boa::ngn::EngineSelectable>(e_id))
+            renderable_object.AddMember("engine_selectable", true, document.GetAllocator());
+        else
+            renderable_object.AddMember("engine_selectable", false, document.GetAllocator());
 
         renderables.PushBack(renderable_object.Move(), document.GetAllocator());
         return Iteration::Continue;
@@ -248,8 +255,8 @@ void EngineState::load_from_json(const char *file_path) {
             else
                 LOG_WARN("(Save State) Unrecognized lighting type in JSON scene");
 
-            if (renderable.HasMember("engine_configurable"))
-                new_renderable.engine_configurable = renderable["engine_configurable"].GetBool();
+            if (renderable.HasMember("engine_selectable"))
+                new_renderable.engine_selectable = renderable["engine_selectable"].GetBool();
 
             assert(new_renderable.model < m_models.size());
 
@@ -358,8 +365,8 @@ void EngineState::add_entities(boa::gfx::AssetManager &asset_manager,
         physics_controller.add_entity(new_entity, renderable.mass);
         animation_controller.load_animations(new_entity, m_models[renderable.model]);
 
-        if (renderable.engine_configurable)
-            entity_group.enable_and_make<EngineConfigurable>(new_entity, false);
+        if (renderable.engine_selectable)
+            entity_group.enable_and_make<EngineSelectable>(new_entity, false);
     }
 
     for (auto &global_light : m_global_lights) {

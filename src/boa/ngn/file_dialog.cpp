@@ -33,7 +33,8 @@ bool FileDialog::skip_entry(const fs::directory_entry &entry, const std::vector<
     fs::path cur_path = entry.path();
     std::string filename = cur_path.filename().string();
 
-    bool wrong_ext = !entry.is_directory() && (exts.size() != 0 && !std::any_of(exts.cbegin(), exts.cend(), [&](auto &ext){ return cur_path.extension().string() == ext; }));
+    bool wrong_ext = !entry.is_directory() && (exts.size() != 0 && !std::any_of(exts.cbegin(), exts.cend(),
+                                                                                [&](auto &ext){ return cur_path.extension().string() == ext; }));
     return (filename.compare("..") == 0 || filename.compare(".") == 0 ||
         (filename.size() > 1 && filename[0] == '.') || wrong_ext);
 }
@@ -46,13 +47,13 @@ bool FileDialog::draw(const std::string &window_name, Mode mode, const std::vect
 
     static size_t item_current_idx = 0;
     static auto found = std::find_if(fs::begin(directory_it), fs::end(directory_it),
-                              [&](auto &p) { return !skip_entry(p, exts); });
+                                     [&](auto &p) { return !skip_entry(p, exts); });
     static std::optional<fs::directory_entry> current_selected_entry =
         (found == fs::end(directory_it)) ? std::nullopt : std::make_optional<fs::directory_entry>(*found);
 
     ImGui::OpenPopup(m_current_open_window_name.c_str());
-    //ImGui::SetNextWindowSize(ImVec2(540, 320));
 
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal(m_current_open_window_name.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         static char edit_filename[64];
 

@@ -39,7 +39,7 @@ private:
         glm::quat orientation{ 0.0f, 0.0f, 0.0f, 0.0f };
         glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
         boa::gfx::LightingInteractivity lighting;
-        bool engine_configurable{ true };
+        bool engine_selectable{ true };
         uint32_t model;
         float mass;
     };

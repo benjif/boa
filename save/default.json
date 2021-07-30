@@ -1,17 +1,4 @@
 {
-    "default_skybox": 0,
-    "skyboxes": [
-        {
-            "paths": [
-                "skybox/mountains/right.png",
-                "skybox/mountains/left.png",
-                "skybox/mountains/top.png",
-                "skybox/mountains/bottom.png",
-                "skybox/mountains/front.png",
-                "skybox/mountains/back.png"
-            ]
-        }
-    ],
     "models": [
         {
             "path": "models/domino_crown.gltf"
@@ -25,42 +12,112 @@
             "model": 0,
             "mass": 10.0,
             "lighting": "blinn_phong",
-            "engine_configurable": true,
+            "engine_selectable": true,
             "transform": {
-                "translation": [ 0.0, 5.0, 0.0 ],
-                "orientation": [ 0.0, 0.0, 0.0, 0.0 ],
-                "scale": [ 1.0, 1.0, 1.0 ]
+                "translation": [
+                    0.0,
+                    -0.25,
+                    1.0
+                ],
+                "orientation": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.9999703168869019,
+                    0.9999839067459106,
+                    0.9999740719795227
+                ]
             }
         },
         {
             "model": 1,
             "mass": 0.0,
             "lighting": "blinn_phong",
-            "engine_configurable": false,
+            "engine_selectable": false,
             "transform": {
-                "translation": [ 0.0, -10.0, 0.0 ],
-                "orientation": [ 0.0, 0.0, 0.0, 0.0 ],
-                "scale": [ 1.0, 1.0, 1.0 ]
+                "translation": [
+                    0.0,
+                    -10.0,
+                    0.0
+                ],
+                "orientation": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
             }
+        }
+    ],
+    "skyboxes": [
+        {
+            "paths": [
+                "skybox/mountains/right.png",
+                "skybox/mountains/left.png",
+                "skybox/mountains/top.png",
+                "skybox/mountains/bottom.png",
+                "skybox/mountains/front.png",
+                "skybox/mountains/back.png"
+            ]
         }
     ],
     "global_lights": [
         {
-            "direction": [ -0.2, 1.0, -0.3 ],
-            "ambient": [ 0.06, 0.06, 0.06],
-            "diffuse": [ 0.6, 0.6, 0.6 ],
-            "specular": [ 0.26, 0.26, 0.26 ]
+            "direction": [
+                -1.0,
+                1.0,
+                -1.0
+            ],
+            "ambient": [
+                0.05999999865889549,
+                0.05999999865889549,
+                0.05999999865889549
+            ],
+            "diffuse": [
+                0.6000000238418579,
+                0.6000000238418579,
+                0.6000000238418579
+            ],
+            "specular": [
+                0.25999999046325686,
+                0.25999999046325686,
+                0.25999999046325686
+            ]
         }
     ],
     "point_lights": [
         {
-            "position": [ 0.0, 0.0, 0.0 ],
-            "ambient": [ 0.05, 0.05, 0.05 ],
-            "diffuse": [ 0.4, 0.4, 0.4 ],
-            "specular": [ 0.5, 0.5, 0.5 ],
-            "constant": 0.4,
-            "linear": 0.07,
-            "quadratic": 0.031
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "ambient": [
+                0.05000000074505806,
+                0.05000000074505806,
+                0.05000000074505806
+            ],
+            "diffuse": [
+                0.4000000059604645,
+                0.4000000059604645,
+                0.4000000059604645
+            ],
+            "specular": [
+                0.5,
+                0.5,
+                0.5
+            ],
+            "constant": 0.4000000059604645,
+            "linear": 0.07000000029802323,
+            "quadratic": 0.03099999949336052
         }
     ]
 }

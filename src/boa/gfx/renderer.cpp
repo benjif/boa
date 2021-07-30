@@ -436,8 +436,8 @@ void Renderer::draw_renderables(vk::CommandBuffer cmd) {
             draw_node(model.nodes[node_idx], entity_transform_matrix);
 
         auto &bounding_box_material = m_asset_manager.get_material(BOUNDING_BOX_MATERIAL_INDEX);
-        if (m_draw_bounding_boxes || (entity_group.has_component<boa::ngn::EngineConfigurable>(e_id) &&
-                                      entity_group.get_component<boa::ngn::EngineConfigurable>(e_id).selected)) {
+        if (m_draw_bounding_boxes || (entity_group.has_component<boa::ngn::EngineSelectable>(e_id) &&
+                                      entity_group.get_component<boa::ngn::EngineSelectable>(e_id).selected)) {
             PushConstants push_constants = {
                 .extra0 = { -1, -1, -1, -1 },
                 .extra1 = { 1.f, 0.f, 0.f, 0.6f },

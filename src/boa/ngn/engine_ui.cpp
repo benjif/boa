@@ -76,24 +76,34 @@ void Engine::draw_toolbox() {
         current_tool = ImGuizmo::SCALE;
 
     auto &transformable = entity_group.get_component<boa::gfx::Transformable>(selected_entity);
-
     float *transform_matrix = glm::value_ptr(transformable.transform_matrix);
     float *current_translation = glm::value_ptr(transformable.translation);
-    float *current_matrix_scale = glm::value_ptr(transformable.scale);
+    float *current_scale = glm::value_ptr(transformable.scale);
 
-    float translation[3] = { current_translation[0], current_translation[1], current_translation[2] };
-    float scale[3] = { current_matrix_scale[0], current_matrix_scale[1], current_matrix_scale[2] };
-    float rotation[3] = {
-        glm::degrees(glm::pitch(transformable.orientation)),
+    float current_rotation[3] = {
         glm::degrees(glm::yaw(transformable.orientation)),
+        glm::degrees(glm::pitch(transformable.orientation)),
         glm::degrees(glm::roll(transformable.orientation)),
     };
 
-    ImGuizmo::DecomposeMatrixToComponents(transform_matrix, translation, rotation, scale);
-    ImGui::InputFloat3("T", translation);
-    ImGui::InputFloat3("R", rotation);
-    ImGui::InputFloat3("S", scale);
-    ImGuizmo::RecomposeMatrixFromComponents(translation, rotation, scale, transform_matrix);
+    ImGuizmo::DecomposeMatrixToComponents(transform_matrix, current_translation, current_rotation, current_scale);
+
+    ImGui::InputFloat3("T", current_translation);
+    ImGui::InputFloat3("R", current_rotation);
+    ImGui::InputFloat3("S", current_scale);
+
+    transformable.scale = glm::vec3(std::max(0.001f, transformable.scale.x),
+                                    std::max(0.001f, transformable.scale.y),
+                                    std::max(0.001f, transformable.scale.z));
+
+    ImGuizmo::RecomposeMatrixFromComponents(current_translation, current_rotation, current_scale, transform_matrix);
+
+    /*transformable.orientation = glm::quat(glm::vec3(glm::radians(current_rotation[2]),
+                                                    glm::radians(current_rotation[0]),
+                                                    glm::radians(current_rotation[1])));*/
+    transformable.orientation = glm::quat(glm::vec3(glm::radians(current_rotation[0]),
+                                                    glm::radians(current_rotation[1]),
+                                                    glm::radians(current_rotation[2])));
 
     physics_controller.sync_physics_transform(selected_entity);
 
@@ -352,7 +362,7 @@ void Engine::draw_entity_create_window() {
 
         uint32_t new_entity = entity_group.copy_entity<boa::ngn::LoadedAsset, boa::gfx::Animated>(current_entity.value());
         entity_group.enable_and_make<boa::gfx::Renderable>(new_entity, base_renderable.model_id);
-        entity_group.enable_and_make<boa::ngn::EngineConfigurable>(new_entity, true);
+        entity_group.enable_and_make<boa::ngn::EngineSelectable>(new_entity, true);
         m_ui_state.show_object_properties = true;
         last_selected_entity = new_entity;
 

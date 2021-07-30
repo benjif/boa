@@ -25,10 +25,12 @@ Engine::Engine()
     LOG_INFO("(Engine) Initializing");
 
     physics_controller.enable_debug_drawing(renderer);
+    setup_input();
+
+    //SystemManager::get().register_system<>();
 
     m_state.load_from_json("save/default.json");
     m_state.add_entities(asset_manager, animation_controller, physics_controller);
-    setup_input();
 }
 
 Engine::~Engine() {
@@ -104,7 +106,7 @@ void Engine::main_loop() {
 
 void Engine::deselect_object() {
     if (last_selected_entity.has_value()) {
-        auto &ngn_config = entity_group.get_component<EngineConfigurable>(last_selected_entity.value());
+        auto &ngn_config = entity_group.get_component<EngineSelectable>(last_selected_entity.value());
         ngn_config.selected = false;
         last_selected_entity.reset();
     }
@@ -200,7 +202,7 @@ void Engine::setup_input() {
                         glm::quat{ 0.0f, 0.0f, 1.0f, 0.0f },
                         glm::vec3{ sin(i * 0.23f), 20.0f + i * 5.0f, 0.0f },
                         glm::vec3{ 1.0f, 1.0f, 1.0f });
-                    entity_group.enable_and_make<EngineConfigurable>(entity_copy);
+                    entity_group.enable_and_make<EngineSelectable>(entity_copy);
 
                     physics_controller.add_entity(entity_copy, i * 20.0f + 30.0f);
                 }
@@ -245,9 +247,9 @@ void Engine::setup_input() {
                 renderer.get_view_projection(),
                 1000.0f);
 
-            if (hit.has_value() && entity_group.has_component<EngineConfigurable>(hit.value())) {
+            if (hit.has_value() && entity_group.has_component<EngineSelectable>(hit.value())) {
                 auto &physical = entity_group.get_component<boa::phy::Physical>(hit.value());
-                auto &ngn_config = entity_group.get_component<EngineConfigurable>(hit.value());
+                auto &ngn_config = entity_group.get_component<EngineSelectable>(hit.value());
                 ngn_config.selected = true;
                 last_selected_entity = hit.value();
                 m_ui_state.show_object_properties = true;

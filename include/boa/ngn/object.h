@@ -18,13 +18,13 @@ struct LoadedAsset {
     std::string resource_path;
 };
 
-struct EngineConfigurable {
-    EngineConfigurable()
+struct EngineSelectable {
+    EngineSelectable()
         : selected(false)
     {
     }
 
-    EngineConfigurable(bool s)
+    EngineSelectable(bool s)
         : selected(s)
     {
     }
