@@ -193,6 +193,7 @@ void Engine::draw_main_menu_bar() {
             ImGui::MenuItem("Scene Properties", nullptr, &m_ui_state.show_scene_properties);
             ImGui::MenuItem("Object Properties", nullptr, &m_ui_state.show_object_properties);
             ImGui::MenuItem("Create Entity", nullptr, &m_ui_state.show_entity_create);
+            ImGui::MenuItem("Statistics", nullptr, &m_ui_state.show_statistics);
             ImGui::EndMenu();
         }
 
@@ -377,6 +378,44 @@ void Engine::draw_entity_create_window() {
     ImGui::End();
 }
 
+void Engine::draw_statistics_window() const {
+    ImGui::Begin("Statistics", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing);
+
+    static const size_t sample_interval = 16;
+    static const size_t sample_count = 32;
+
+    static size_t frame_count = 0;
+    frame_count++;
+
+    static auto last_time = std::chrono::high_resolution_clock::now();
+    static auto current_time = last_time;
+
+    current_time = std::chrono::high_resolution_clock::now();
+    float time_change =
+        std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
+    last_time = current_time;
+
+    static float fps_samples[sample_count] = {};
+    static size_t offset = 0;
+
+    if (frame_count % sample_interval == 0) {
+        fps_samples[offset] = 1.0f / time_change;
+        offset = (offset + 1) % IM_ARRAYSIZE(fps_samples);
+    }
+
+    float average = 0.0f;
+    for (size_t i = 0; i < sample_count; i++)
+        average += fps_samples[i];
+    average /= sample_count;
+
+    char overlay[32];
+    sprintf(overlay, "%f", average);
+    ImGui::PlotLines("FPS", fps_samples, IM_ARRAYSIZE(fps_samples), offset, overlay, -1.0f, 1.0f, ImVec2(0, 40.0f));
+    ImGui::LabelText(std::to_string(entity_group.size()).c_str(), "Entity Count");
+
+    ImGui::End();
+}
+
 void Engine::draw_engine_interface() {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -391,6 +430,10 @@ void Engine::draw_engine_interface() {
         draw_object_properties_window();
     if (m_ui_state.show_entity_create)
         draw_entity_create_window();
+    if (m_ui_state.show_statistics)
+        draw_statistics_window();
+
+    //ImGui::ShowDemoWindow();
 
     ImGui::EndFrame();
 }

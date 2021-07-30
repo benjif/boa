@@ -25,6 +25,7 @@ Engine::Engine()
     LOG_INFO("(Engine) Initializing");
 
     physics_controller.enable_debug_drawing(renderer);
+    physics_controller.set_entity_deletion_cutoff(1000.0f);
     setup_input();
 
     //SystemManager::get().register_system<>();
@@ -69,8 +70,8 @@ void Engine::main_loop() {
         window.poll_events();
 
         current_time = std::chrono::high_resolution_clock::now();
-        float time_change
-            = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
+        float time_change =
+            std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
         last_time = current_time;
 
         draw_engine_interface();
@@ -166,8 +167,10 @@ void Engine::setup_input() {
                 break;
             case boa::ctl::KeyDelete:
                 if (last_selected_entity.has_value()) {
+                    physics_controller.remove_entity(last_selected_entity.value());
                     delete_entity(last_selected_entity.value());
-                    last_selected_entity = std::nullopt;
+                    entity_group.delete_entity(last_selected_entity.value());
+                    last_selected_entity.reset();
                 }
                 break;
             case boa::ctl::Key1:

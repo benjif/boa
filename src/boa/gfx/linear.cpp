@@ -2,6 +2,7 @@
 #include "boa/gfx/linear.h"
 #include "glm/gtx/quaternion.hpp"
 #include "glm/gtx/transform.hpp"
+#include "glm/gtx/matrix_decompose.hpp"
 
 namespace boa::gfx {
 
@@ -10,6 +11,12 @@ void Transformable::update() {
     transform_matrix *= glm::translate(translation);
     transform_matrix *= glm::toMat4(orientation);
     transform_matrix *= glm::scale(scale);
+}
+
+void Transformable::decompose() {
+    glm::vec3 skew;
+    glm::vec4 perspective;
+    glm::decompose(transform_matrix, scale, orientation, translation, skew, perspective);
 }
 
 glm::vec3 Box::center() const {

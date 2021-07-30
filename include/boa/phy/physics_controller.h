@@ -71,6 +71,8 @@ public:
                                                     const glm::mat4 &view_projection,
                                                     float length);
 
+    void set_entity_deletion_cutoff(double max);
+
     void enable_debug_drawing(boa::gfx::Renderer &renderer);
     void debug_draw() const;
     void debug_reset() const;
@@ -87,6 +89,8 @@ private:
     std::unique_ptr<BulletDebugDrawer> m_debug_drawer;
 
     bool m_enabled;
+
+    std::optional<double> m_entity_deletion_cutoff;
 };
 
 }

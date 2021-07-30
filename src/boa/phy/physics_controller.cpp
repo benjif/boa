@@ -148,9 +148,22 @@ void PhysicsController::update(float time_change) {
         else
             trans = obj->getWorldTransform();
 
-        transform.translation = bullet_to_glm(trans.getOrigin()) - physical.on_origin_center;
-        transform.orientation = bullet_to_glm(trans.getRotation());
-        transform.update();
+        //transform.translation = bullet_to_glm(trans.getOrigin()) - physical.on_origin_center;
+        //transform.orientation = bullet_to_glm(trans.getRotation());
+        //transform.update();
+
+        // PERF: decomposition/recomposition shouldn't be necessary but it works for now
+        transform.transform_matrix = bullet_to_glm(trans);
+        transform.transform_matrix = glm::translate(transform.transform_matrix, -physical.on_origin_center);
+        transform.decompose();
+
+        //transform.translation -= physical.on_origin_center;
+        //transform.update();
+
+        if (m_entity_deletion_cutoff.has_value() && glm::length(transform.translation) > m_entity_deletion_cutoff.value()) {
+            remove_entity(e_id);
+            entity_group.delete_entity(e_id);
+        }
 
         return Iteration::Continue;
     });
@@ -252,6 +265,10 @@ glm::dvec3 PhysicsController::get_angular_velocity(uint32_t e_id) const {
     const btVector3 &angular_velocity = physical.rigid_body->getAngularVelocity();
 
     return glm::dvec3{ angular_velocity.getX(), angular_velocity.getY(), angular_velocity.getZ() };
+}
+
+void PhysicsController::set_entity_deletion_cutoff(double max) {
+    m_entity_deletion_cutoff = max;
 }
 
 void PhysicsController::enable_debug_drawing(boa::gfx::Renderer &renderer) {

@@ -27,6 +27,7 @@ struct Transformable {
     glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
 
     void update();
+    void decompose();
 };
 
 struct SmallVertex {

@@ -7,7 +7,6 @@
 #include <vector>
 #include <bitset>
 #include <algorithm>
-#include <queue>
 #include <optional>
 
 namespace boa::ecs {
@@ -44,8 +43,8 @@ struct EntityGroup {
         uint32_t new_e_id = entities.size();
 
         if (free_entities.size() > 0) {
-            new_e_id = free_entities.top();
-            free_entities.pop();
+            new_e_id = free_entities.back();
+            free_entities.pop_back();
         }
 
         for (size_t i = 0; i < sizeof...(C); i++) {
@@ -164,7 +163,7 @@ struct EntityGroup {
     }
 
     std::vector<EntityMeta> entities;
-    std::priority_queue<uint32_t> free_entities;
+    std::vector<uint32_t> free_entities;
 };
 
 }

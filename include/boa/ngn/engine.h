@@ -36,6 +36,7 @@ private:
         bool show_scene_properties{ false };
         bool show_object_properties{ false };
         bool show_entity_create{ false };
+        bool show_statistics{ false };
 
         bool show_renderer_bounding_boxes{ false };
         bool show_physics_bounding_boxes{ false };
@@ -89,6 +90,7 @@ private:
     void draw_inactive_physics_properties();
     void draw_animation();
     void draw_inactive_animation() const;
+    void draw_statistics_window() const;
 
     void cleanup_interface();
 };
