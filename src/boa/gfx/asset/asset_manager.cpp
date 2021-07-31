@@ -5,6 +5,7 @@
 #include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/renderer.h"
 #include <array>
+#include <filesystem>
 
 namespace boa::gfx {
 
@@ -14,7 +15,7 @@ AssetManager::AssetManager(Renderer &renderer)
 }
 
 uint32_t AssetManager::load_model(const glTFModel &model, LightingInteractivity preferred_lighting) {
-    std::string file_path = model.get_file_path();
+    std::string file_path = std::filesystem::absolute(model.get_file_path()).string();
     LOG_INFO("(Asset) Loading model at '{}'", file_path);
 
     auto &entity_group = ecs::EntityGroup::get();
@@ -35,7 +36,7 @@ uint32_t AssetManager::load_model(const glTFModel &model, LightingInteractivity 
 }
 
 void AssetManager::load_model_into_entity(uint32_t e_id, const glTFModel &model, LightingInteractivity preferred_lighting) {
-    std::string file_path = model.get_file_path();
+    std::string file_path = std::filesystem::absolute(model.get_file_path()).string();
     LOG_INFO("(Asset) Loading model at '{}'", file_path);
 
     auto &entity_group = ecs::EntityGroup::get();

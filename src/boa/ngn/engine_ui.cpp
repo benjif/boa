@@ -110,26 +110,32 @@ void Engine::draw_toolbox() {
     static bool use_snap(false);
     ImGui::Checkbox("Use snapping", &use_snap);
 
-    glm::vec3 snap;
+    static float translate_snap[3]  = { 1.0f, 1.0f, 1.0f },
+                 rotate_snap[3]     = { 45.0f, 45.0f, 45.0f },
+                 scale_snap[3]      = { 1.0f, 1.0f, 1.0f };
+    float snap[3];
     switch (current_tool) {
     case ImGuizmo::TRANSLATE:
-        //snap = config.mSnapTranslation;
-        snap = glm::vec3{ 1.0f, 1.0f, 1.0f };
-        ImGui::InputFloat3("Snap", &snap.x);
+        ImGui::InputFloat3("Snap", translate_snap);
+        snap[0] = translate_snap[0];
+        snap[1] = translate_snap[1];
+        snap[2] = translate_snap[2];
         break;
     case ImGuizmo::ROTATE:
-        snap = glm::vec3{ 30.0f, 30.0f, 30.0f };
-        //snap = config.mSnapRotation;
-        ImGui::InputFloat("Angle Snap", &snap.x);
+        ImGui::InputFloat("Angle Snap", rotate_snap);
+        snap[0] = rotate_snap[0];
+        snap[1] = rotate_snap[1];
+        snap[2] = rotate_snap[2];
         break;
     case ImGuizmo::SCALE:
-        snap = glm::vec3{ 1.0f, 1.0f, 1.0f };
-        //snap = config.mSnapScale;
-        ImGui::InputFloat("Scale Snap", &snap.x);
+        ImGui::InputFloat("Scale Snap", scale_snap);
+        snap[0] = scale_snap[0];
+        snap[1] = scale_snap[1];
+        snap[2] = scale_snap[2];
         break;
     }
 
-    glm::mat4 view_m = renderer.get_view();
+    glm::mat4 &view_m = renderer.get_view();
     glm::mat4 projection_m = renderer.get_projection();
     projection_m[1][1] *= -1;
 
@@ -138,9 +144,17 @@ void Engine::draw_toolbox() {
 
     ImGuiIO &io = ImGui::GetIO();
     ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+
+    // Can't use currently because `ViewManipulate` does not set `IsOver()`
+    /*ImGuizmo::ViewManipulate(view_m_raw,
+                             10.f,
+                             ImVec2(io.DisplaySize.x - 128, 0),
+                             ImVec2(128, 128),
+                             0x10101010);*/
+
     ImGuizmo::Manipulate(view_m_raw,
                          projection_m_raw,
-                         current_tool, ImGuizmo::WORLD, transform_matrix, NULL, use_snap ? &snap.x : NULL);
+                         current_tool, ImGuizmo::WORLD, transform_matrix, NULL, use_snap ? snap : NULL);
 
     ImGui::LabelText("", "Currently Selected: %d", last_selected_entity.value());
 }
@@ -148,7 +162,10 @@ void Engine::draw_toolbox() {
 void Engine::draw_inactive_animation() const {
     ImGui::GetStyle().Alpha = 0.25f;
 
-    ImGui::Button("Play 0 Animation");
+    int dummy_id = 0;
+    ImGui::InputInt("Animation ID", &dummy_id);
+
+    ImGui::Button("Play Animation");
 
     ImGui::GetStyle().Alpha = 1.00f;
 }
@@ -167,8 +184,18 @@ void Engine::draw_animation() {
         return;
     }
 
-    if (ImGui::Button("Play 0 Animation"))
-        animation_controller.play_animation(selected_entity, 0);
+    auto &animated = entity_group.get_component<boa::gfx::Animated>(selected_entity);
+
+    static int id = 0;
+    ImGui::InputInt("Animation ID", &id);
+
+    if (id >= animated.animations.size())
+        id = animated.animations.size() - 1;
+    else if (id < 0)
+        id = 0;
+
+    if (ImGui::Button("Play Animation"))
+        animation_controller.play_animation(selected_entity, id);
 }
 
 void Engine::draw_main_menu_bar() {
@@ -363,9 +390,7 @@ void Engine::draw_entity_create_window() {
 
         uint32_t new_entity = entity_group.copy_entity<boa::ngn::LoadedAsset, boa::gfx::Animated>(current_entity.value());
         entity_group.enable_and_make<boa::gfx::Renderable>(new_entity, base_renderable.model_id);
-        entity_group.enable_and_make<boa::ngn::EngineSelectable>(new_entity, true);
-        m_ui_state.show_object_properties = true;
-        last_selected_entity = new_entity;
+        entity_group.enable_and_make<boa::ngn::EngineSelectable>(new_entity, false);
 
         glm::vec3 new_pos = camera.get_position() + camera.get_target() * 5.0f;
         entity_group.enable_and_make<boa::gfx::Transformable>(new_entity,

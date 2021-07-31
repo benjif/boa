@@ -69,13 +69,13 @@ public:
         return INIT_HEIGHT;
     } // TODO: same
 
-    glm::mat4 get_view() const {
+    glm::mat4 &get_view() {
         return m_transforms.view;
     }
-    glm::mat4 get_projection() const {
+    glm::mat4 &get_projection() {
         return m_transforms.projection;
     }
-    glm::mat4 get_view_projection() const {
+    glm::mat4 &get_view_projection() {
         return m_transforms.view_projection;
     }
 

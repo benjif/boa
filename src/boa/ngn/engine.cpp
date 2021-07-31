@@ -214,9 +214,8 @@ void Engine::setup_input() {
                 break;
             }
             case boa::ctl::KeyO:
-                if (mods & boa::ctl::ModControl) {
+                if (mods & boa::ctl::ModControl)
                     m_dialog_shown = DialogShown::Open;
-                }
                 break;
             case boa::ctl::KeyP:
                 if (physics_controller.is_physics_enabled()) {
@@ -228,9 +227,8 @@ void Engine::setup_input() {
                 }
                 break;
             case boa::ctl::KeyS:
-                if (mods & boa::ctl::ModControl) {
+                if (mods & boa::ctl::ModControl)
                     m_dialog_shown = DialogShown::Save;
-                }
                 break;
             }
         }

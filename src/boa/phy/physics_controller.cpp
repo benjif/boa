@@ -142,11 +142,7 @@ void PhysicsController::update(float time_change) {
 
         btCollisionObject *obj = (btCollisionObject *)physical.rigid_body;
 
-        btTransform trans;
-        if (physical.rigid_body->getMotionState())
-            physical.rigid_body->getMotionState()->getWorldTransform(trans);
-        else
-            trans = obj->getWorldTransform();
+        btTransform trans = obj->getWorldTransform();
 
         //transform.translation = bullet_to_glm(trans.getOrigin()) - physical.on_origin_center;
         //transform.orientation = bullet_to_glm(trans.getRotation());
@@ -199,6 +195,7 @@ std::optional<uint32_t> PhysicsController::raycast_cursor_position(uint32_t scre
     btCollisionWorld::ClosestRayResultCallback ray_callback(
         glm_to_bullet(start_scene),
         glm_to_bullet(ray_end));
+
     m_dynamics_world->rayTest(
         glm_to_bullet(start_scene),
         glm_to_bullet(ray_end),
@@ -245,8 +242,11 @@ void PhysicsController::sync_physics_transform(uint32_t e_id) const {
     physical.rigid_body->setCenterOfMassTransform(bt_transform);
     physical.rigid_body->activate(true);
 
-    m_dynamics_world->updateSingleAabb(physical.rigid_body);
+    m_dynamics_world->computeOverlappingPairs();
     m_dynamics_world->synchronizeSingleMotionState(physical.rigid_body);
+    m_dynamics_world->updateSingleAabb(physical.rigid_body);
+    //m_dynamics_world->performDiscreteCollisionDetection();
+    //m_dynamics_world->updateAabbs();
 }
 
 glm::dvec3 PhysicsController::get_linear_velocity(uint32_t e_id) const {
@@ -255,7 +255,7 @@ glm::dvec3 PhysicsController::get_linear_velocity(uint32_t e_id) const {
 
     const btVector3 &linear_velocity = physical.rigid_body->getLinearVelocity();
 
-    return glm::dvec3{ linear_velocity.getX(), linear_velocity.getY(), linear_velocity.getZ() };
+    return bullet_to_glm(linear_velocity);
 }
 
 glm::dvec3 PhysicsController::get_angular_velocity(uint32_t e_id) const {
@@ -264,7 +264,7 @@ glm::dvec3 PhysicsController::get_angular_velocity(uint32_t e_id) const {
 
     const btVector3 &angular_velocity = physical.rigid_body->getAngularVelocity();
 
-    return glm::dvec3{ angular_velocity.getX(), angular_velocity.getY(), angular_velocity.getZ() };
+    return bullet_to_glm(angular_veloctiy);
 }
 
 void PhysicsController::set_entity_deletion_cutoff(double max) {
