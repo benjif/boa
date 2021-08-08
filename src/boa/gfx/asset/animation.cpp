@@ -19,6 +19,7 @@ void AnimationController::load_animations(uint32_t e_id, const glTFModel &model)
     animated.active = false;
     animated.loop = false;
     animated.progress = 0.0f;
+    animated.speed = 1.0f;
     animated.animations.clear();
 
     model.for_each_animation([&](const auto &model_animation) {
@@ -110,7 +111,7 @@ void AnimationController::play_animation(uint32_t e_id, uint32_t animation_id, b
     if (animation_id >= animated.animations.size())
         return;
 
-    LOG_INFO("(Animation) Playing animation {} for entity {} (looped = {})", animation_id, e_id, loop);
+    LOG_INFO("(Animation) Playing animation {} for entity {} (looped = {}, speed = {:f})", animation_id, e_id, loop, speed);
 
     animated.active_animation = animation_id;
     animated.active = true;

@@ -202,6 +202,11 @@ void Engine::draw_animation() {
     else if (id < 0)
         id = 0;
 
+    if (speed < 0.0f)
+        speed = 0.0f;
+    else if (speed > 100.0f)
+        speed = 100.0f;
+
     if (ImGui::Button("Play Animation"))
         animation_controller.play_animation(selected_entity, id, loop, speed);
 }
@@ -392,7 +397,7 @@ void Engine::draw_entity_create_window() {
     static float new_mass = 0.0f;
     ImGui::InputFloat("Mass", &new_mass, 0.0f, 1000.0f, "%.3f");
 
-    if (ImGui::Button("Add to scene") && current_entity.has_value()) {
+    if (ImGui::Button("Add to World") && current_entity.has_value()) {
         auto &base_renderable = entity_group.get_component<boa::gfx::BaseRenderable>(current_entity.value());
         auto &loaded_asset = entity_group.get_component<boa::ngn::LoadedAsset>(current_entity.value());
 

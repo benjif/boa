@@ -64,7 +64,7 @@ struct Animated {
 
     float progress{ 0.0f };
     float speed{ 1.0f };
-    uint32_t active_animation;
+    uint16_t active_animation;
     bool active{ false };
     bool loop{ false };
 
