@@ -99,7 +99,7 @@ void AnimationController::update(float time_change) {
     });
 }
 
-void AnimationController::play_animation(uint32_t e_id, uint32_t animation_id, bool loop) {
+void AnimationController::play_animation(uint32_t e_id, uint32_t animation_id, bool loop, float speed) {
     auto &entity_group = boa::ecs::EntityGroup::get();
 
     if (!entity_group.has_component<Animated>(e_id))
@@ -114,6 +114,7 @@ void AnimationController::play_animation(uint32_t e_id, uint32_t animation_id, b
 
     animated.active_animation = animation_id;
     animated.active = true;
+    animated.speed = speed;
     animated.loop = loop;
 }
 
@@ -210,6 +211,8 @@ void Animated::reset() {
 void Animated::update(float time_change) {
     if (!active)
         return;
+
+    time_change *= speed;
 
     bool still_working = animations[active_animation].update(time_change, progress);
     progress += time_change;

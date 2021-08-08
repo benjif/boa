@@ -15,7 +15,7 @@
 
 namespace boa::ngn {
 
-Engine::Engine()
+Engine::Engine(const std::string &default_path)
     : renderer(),
       window(renderer.get_window()),
       camera(renderer.get_camera()),
@@ -24,17 +24,17 @@ Engine::Engine()
       asset_manager(renderer.get_asset_manager()),
       physics_controller(asset_manager)
 {
-    LOG_INFO("(Engine) Initializing");
+    LOG_INFO("(Engine) Initializing with world file '{}'", default_path);
 
     physics_controller.enable_debug_drawing(renderer);
     physics_controller.set_entity_deletion_cutoff(1000.0f);
     setup_input();
 
-    m_state.load_from_json("save/default.json");
+    m_state.load_from_json(default_path.c_str());
     m_state.add_entities(asset_manager, animation_controller, physics_controller);
 
     physics_controller.set_collision_callback([&](uint32_t a, uint32_t b) {
-        LOG_INFO("Collision between entities {} and {}", a, b);
+        LOG_INFO("(Engine) Collision between entities {} and {}", a, b);
     });
 }
 

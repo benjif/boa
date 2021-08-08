@@ -4,7 +4,9 @@
 int main(int argc, char **argv) {
     LOG_INFO("(Global) Started");
 
-    boa::ngn::Engine engine;
+    std::string default_path(argc > 1 ? argv[1] : "save/default.json");
+
+    boa::ngn::Engine engine(default_path);
     engine.run();
 
     LOG_INFO("(Global) Exiting");

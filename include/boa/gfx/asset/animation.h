@@ -18,7 +18,7 @@ public:
     AnimationController() {}
 
     void load_animations(uint32_t e_id, const boa::gfx::glTFModel &model);
-    void play_animation(uint32_t e_id, uint32_t animation_id, bool loop = false);
+    void play_animation(uint32_t e_id, uint32_t animation_id, bool loop = false, float speed = 1.0f);
     void stop_animation(uint32_t e_id);
     void update(float time_change);
 };
@@ -63,6 +63,7 @@ struct Animated {
     std::vector<Animation> animations;
 
     float progress{ 0.0f };
+    float speed{ 1.0f };
     uint32_t active_animation;
     bool active{ false };
     bool loop{ false };

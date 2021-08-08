@@ -163,7 +163,11 @@ void Engine::draw_inactive_animation() const {
     ImGui::GetStyle().Alpha = 0.25f;
 
     int dummy_id = 0;
+    float dummy_speed = 0.0f;
+    bool dummy_loop = false;
     ImGui::InputInt("Animation ID", &dummy_id);
+    ImGui::InputFloat("Speed", &dummy_speed);
+    ImGui::Checkbox("Loop", &dummy_loop);
 
     ImGui::Button("Play Animation");
 
@@ -187,7 +191,11 @@ void Engine::draw_animation() {
     auto &animated = entity_group.get_component<boa::gfx::Animated>(selected_entity);
 
     static int id = 0;
+    static float speed = 1.0f;
+    static bool loop = false;
     ImGui::InputInt("Animation ID", &id);
+    ImGui::InputFloat("Speed", &speed);
+    ImGui::Checkbox("Loop", &loop);
 
     if (id >= animated.animations.size())
         id = animated.animations.size() - 1;
@@ -195,7 +203,7 @@ void Engine::draw_animation() {
         id = 0;
 
     if (ImGui::Button("Play Animation"))
-        animation_controller.play_animation(selected_entity, id);
+        animation_controller.play_animation(selected_entity, id, loop, speed);
 }
 
 void Engine::draw_main_menu_bar() {

@@ -25,7 +25,7 @@ namespace boa::ngn {
 
 class Engine {
 public:
-    Engine();
+    explicit Engine(const std::string &default_path);
     ~Engine();
     void run();
 
