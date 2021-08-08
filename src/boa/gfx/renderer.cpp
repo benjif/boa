@@ -16,8 +16,6 @@
 #include <chrono>
 #include <stack>
 
-#define BENCHMARK_FRAME_COUNT 30000
-
 namespace boa::gfx {
 
 Renderer::Renderer()

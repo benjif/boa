@@ -144,17 +144,10 @@ void PhysicsController::update(float time_change) {
 
         btTransform trans = obj->getWorldTransform();
 
-        //transform.translation = bullet_to_glm(trans.getOrigin()) - physical.on_origin_center;
-        //transform.orientation = bullet_to_glm(trans.getRotation());
-        //transform.update();
-
         // PERF: decomposition/recomposition shouldn't be necessary but it works for now
         transform.transform_matrix = bullet_to_glm(trans);
         transform.transform_matrix = glm::translate(transform.transform_matrix, -physical.on_origin_center);
         transform.decompose();
-
-        //transform.translation -= physical.on_origin_center;
-        //transform.update();
 
         if (m_entity_deletion_cutoff.has_value() && glm::length(transform.translation) > m_entity_deletion_cutoff.value()) {
             remove_entity(e_id);
@@ -163,6 +156,24 @@ void PhysicsController::update(float time_change) {
 
         return Iteration::Continue;
     });
+
+    std::unordered_set<std::pair<uint32_t, uint32_t>, PairHash> tmp_present_manifolds;
+    for (size_t i = 0; i < m_dispatcher->getNumManifolds(); i++) {
+        btPersistentManifold *contact_manifold = m_dispatcher->getManifoldByIndexInternal(i);
+        const btCollisionObject *object_a = contact_manifold->getBody0();
+        const btCollisionObject *object_b = contact_manifold->getBody1();
+
+        const Physical *physical_a = static_cast<const Physical *>(object_a->getUserPointer());
+        const Physical *physical_b = static_cast<const Physical *>(object_b->getUserPointer());
+
+        std::pair<uint32_t, uint32_t> manifold_entities(physical_a->e_id, physical_b->e_id);
+
+        tmp_present_manifolds.insert(manifold_entities);
+        if (m_present_manifolds.count(manifold_entities) == 0 && m_collision_callback)
+            m_collision_callback(physical_a->e_id, physical_b->e_id);
+    }
+
+    m_present_manifolds = std::move(tmp_present_manifolds);
 }
 
 std::optional<uint32_t> PhysicsController::raycast_cursor_position(uint32_t screen_w, uint32_t screen_h,
@@ -264,7 +275,7 @@ glm::dvec3 PhysicsController::get_angular_velocity(uint32_t e_id) const {
 
     const btVector3 &angular_velocity = physical.rigid_body->getAngularVelocity();
 
-    return bullet_to_glm(angular_veloctiy);
+    return bullet_to_glm(angular_velocity);
 }
 
 void PhysicsController::set_entity_deletion_cutoff(double max) {
@@ -286,6 +297,10 @@ void PhysicsController::debug_draw() const {
 
 void PhysicsController::debug_reset() const {
     m_debug_drawer->reset();
+}
+
+void PhysicsController::set_collision_callback(std::function<void(uint32_t, uint32_t)> callback) {
+    m_collision_callback = callback;
 }
 
 }

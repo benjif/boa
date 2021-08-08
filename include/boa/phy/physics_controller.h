@@ -7,6 +7,8 @@
 #include "boa/phy/debug_drawer.h"
 #include <unordered_set>
 #include <memory>
+#include <utility>
+#include <functional>
 
 namespace boa::gfx {
 class AssetManager;
@@ -14,6 +16,15 @@ class Renderer;
 }
 
 namespace boa::phy {
+
+struct PairHash {
+    template <typename T1, typename T2>
+    std::size_t operator()(std::pair<T1, T2> const &p) const {
+        std::size_t h1 = std::hash<T1>()(p.first);
+        std::size_t h2 = std::hash<T1>()(p.second);
+        return h1 ^ h2;
+    }
+};
 
 class BulletDebugDrawer;
 
@@ -73,6 +84,8 @@ public:
 
     void set_entity_deletion_cutoff(double max);
 
+    void set_collision_callback(std::function<void(uint32_t, uint32_t)> callback);
+
     void enable_debug_drawing(boa::gfx::Renderer &renderer);
     void debug_draw() const;
     void debug_reset() const;
@@ -91,6 +104,9 @@ private:
     bool m_enabled;
 
     std::optional<double> m_entity_deletion_cutoff;
+    std::unordered_set<std::pair<uint32_t, uint32_t>, PairHash> m_present_manifolds;
+
+    std::function<void(uint32_t, uint32_t)> m_collision_callback;
 };
 
 }

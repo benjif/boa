@@ -11,6 +11,8 @@
 #include "boa/ngn/engine.h"
 #include <chrono>
 
+#define BENCHMARK_FRAME_COUNT 30000
+
 namespace boa::ngn {
 
 Engine::Engine()
@@ -28,10 +30,12 @@ Engine::Engine()
     physics_controller.set_entity_deletion_cutoff(1000.0f);
     setup_input();
 
-    //SystemManager::get().register_system<>();
-
     m_state.load_from_json("save/default.json");
     m_state.add_entities(asset_manager, animation_controller, physics_controller);
+
+    physics_controller.set_collision_callback([&](uint32_t a, uint32_t b) {
+        LOG_INFO("Collision between entities {} and {}", a, b);
+    });
 }
 
 Engine::~Engine() {
