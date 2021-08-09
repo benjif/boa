@@ -55,7 +55,58 @@ IF(NOT imguizmo_POPULATED)
 ENDIF()
 SET(IMGUIZMO_INCLUDE_DIRS "${imguizmo_SOURCE_DIR}")
 
+# ************************
+# ** IMGUICOLORTEXTEDIT **
+# ************************
+FetchContent_Declare(
+    imguicolortextedit
+    GIT_REPOSITORY          "https://github.com/BalazsJako/ImGuiColorTextEdit"
+    GIT_TAG                 "0a88824f7de8d0bd11d8419066caa7d3469395c4"
+    GIT_PROGRESS            TRUE
+    GIT_SHALLOW             TRUE
+    USES_TERMINAL_DOWNLOAD  TRUE
+    CONFIGURE_COMMAND       ""
+    BUILD_COMMAND           ""
+)
+FetchContent_GetProperties(imguicolortextedit)
+IF(NOT imguicolortextedit_POPULATED)
+    FetchContent_Populate(imguicolortextedit)
+ENDIF()
+SET(IMGUICOLORTEXTEDIT_INCLUDE_DIRS "${imguicolortextedit_SOURCE_DIR}")
+
+# ************
+# ** LUAJIT **
+# ************
+FetchContent_Declare(
+    luajit
+    GIT_REPOSITORY          "https://github.com/LuaJIT/LuaJIT"
+    GIT_TAG                 "v2.0.5"
+    GIT_PROGRESS            TRUE
+    GIT_SHALLOW             TRUE
+    USES_TERMINAL_DOWNLOAD  TRUE
+)
+FetchContent_GetProperties(luajit)
+IF(NOT luajit_POPULATED)
+    FetchContent_Populate(luajit)
+ENDIF()
+SET(LUAJIT_INCLUDE_DIRS "${luajit_SOURCE_DIR}/src")
+
+ADD_CUSTOM_TARGET(build_luajit ALL
+    COMMAND make -C ${LUAJIT_INCLUDE_DIRS}
+    WORKING_DIRECTORY "${LUAJIT_INCLUDE_DIRS}"
+    COMMENT "Makefile for luajit")
+
+ADD_LIBRARY(luajit SHARED IMPORTED)
+SET_PROPERTY(TARGET luajit APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
+SET_TARGET_PROPERTIES(luajit PROPERTIES
+    IMPORTED_LOCATION_NOCONFIG "${LUAJIT_INCLUDE_DIRS}/libluajit.so")
+
 FILE(GLOB SOURCES
+    "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_glfw.cpp"
+    "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_vulkan.cpp"
+    "${IMGUI_INCLUDE_DIRS}/*.cpp"
+    "${IMGUIZMO_INCLUDE_DIRS}/*.cpp"
+    "${IMGUICOLORTEXTEDIT_INCLUDE_DIRS}/*.cpp"
     src/*.cpp
     src/boa/ngn/*.cpp
     src/boa/phy/*.cpp
@@ -65,12 +116,10 @@ FILE(GLOB SOURCES
     src/boa/gfx/*.cpp
     src/boa/gfx/vk/*.cpp
     src/boa/gfx/asset/*.cpp
-    "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_glfw.cpp"
-    "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_vulkan.cpp"
-    "${IMGUI_INCLUDE_DIRS}/*.cpp"
-    "${IMGUIZMO_INCLUDE_DIRS}/*.cpp"
 )
 ADD_EXECUTABLE(boa ${SOURCES})
+
+ADD_DEPENDENCIES(luajit build_luajit)
 
 OPTION(BENCHMARK "BENCHMARK" OFF)
 IF(BENCHMARK)
@@ -254,8 +303,10 @@ ADD_SHADER(boa "${CMAKE_CURRENT_SOURCE_DIR}/shaders/bounding_box/bounding_box.ve
 
 INCLUDE_DIRECTORIES(
     "${PROJECT_SOURCE_DIR}/include"
+    ${LUAJIT_INCLUDE_DIRS}
     ${IMGUI_INCLUDE_DIRS}
     ${IMGUIZMO_INCLUDE_DIRS}
+    ${IMGUICOLORTEXTEDIT_INCLUDE_DIRS}
     ${GLM_INCLUDE_DIRS}
     ${GLFW_INCLUDE_DIRS}
     ${VMA_INCLUDE_DIRS}
@@ -270,6 +321,7 @@ LINK_DIRECTORIES("${PROJECT_SOURCE_DIR}/cmake/lib")
 
 TARGET_LINK_LIBRARIES(boa
     ${Vulkan_LIBRARIES}
+    luajit
     fmt
     glfw
     BulletSoftBody

@@ -7,8 +7,10 @@
 #include "boa/gfx/asset/gltf_model.h"
 #include "boa/phy/physics_controller.h"
 #include "boa/ngn/engine_state.h"
+#include "boa/ngn/scripting.h"
 #include "imgui.h"
 #include "ImGuizmo.h"
+#include "TextEditor.h"
 
 namespace boa::gfx {
 class AssetManager;
@@ -37,6 +39,7 @@ private:
         bool show_object_properties{ false };
         bool show_entity_create{ false };
         bool show_statistics{ false };
+        bool show_script_editor{ false };
 
         bool show_renderer_bounding_boxes{ false };
         bool show_physics_bounding_boxes{ false };
@@ -69,6 +72,7 @@ private:
     boa::gfx::AssetManager &asset_manager;
     boa::gfx::AnimationController animation_controller;
     boa::phy::PhysicsController physics_controller;
+    boa::ngn::ScriptController script_controller;
 
     void setup_input();
     void input_update(float time_change);
@@ -91,6 +95,7 @@ private:
     void draw_animation();
     void draw_inactive_animation() const;
     void draw_statistics_window() const;
+    void draw_script_editor_window();
 
     void cleanup_interface();
 };

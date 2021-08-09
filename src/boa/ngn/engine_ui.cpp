@@ -5,6 +5,7 @@
 #include "boa/ngn/object.h"
 #include "boa/ngn/file_dialog.h"
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 namespace boa::ngn {
@@ -234,6 +235,7 @@ void Engine::draw_main_menu_bar() {
             ImGui::MenuItem("Object Properties", nullptr, &m_ui_state.show_object_properties);
             ImGui::MenuItem("Create Entity", nullptr, &m_ui_state.show_entity_create);
             ImGui::MenuItem("Statistics", nullptr, &m_ui_state.show_statistics);
+            ImGui::MenuItem("Script Editor", nullptr, &m_ui_state.show_script_editor);
             ImGui::EndMenu();
         }
 
@@ -454,6 +456,86 @@ void Engine::draw_statistics_window() const {
     ImGui::End();
 }
 
+void Engine::draw_script_editor_window() {
+    ImGui::SetWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Script Editor", nullptr, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_MenuBar);
+
+    static TextEditor editor;
+    static bool new_script_open = false;
+    static std::string open_script_path;
+
+    auto lang = TextEditor::LanguageDefinition::Lua();
+    editor.SetLanguageDefinition(lang);
+
+    auto cursor_position = editor.GetCursorPosition();
+
+    if (ImGui::BeginMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New")) {
+                open_script_path.clear();
+                editor = TextEditor{};
+            }
+
+            if (ImGui::MenuItem("Open"))
+                FileDialog::get().open("Open script from file");
+
+            if (ImGui::MenuItem("Save") && open_script_path.size() != 0) {
+                std::ofstream out_script_file(open_script_path);
+                out_script_file << editor.GetText();
+                out_script_file.close();
+            }
+
+            if (ImGui::MenuItem("Save as"))
+                FileDialog::get().open("Save script to file");
+
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Script")) {
+            if (ImGui::MenuItem("Run")) {
+                std::string current_script_state = editor.GetText();
+                script_controller.run_from_buffer(current_script_state);
+            }
+
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMenuBar();
+    }
+
+    if (FileDialog::get().draw("Open script from file", FileDialog::Mode::Open, { ".lua" })) {
+        open_script_path = FileDialog::get().get_selected_path();
+        new_script_open = true;
+    }
+
+    if (FileDialog::get().draw("Save script to file", FileDialog::Mode::Save)) {
+        std::ofstream out_script_file(FileDialog::get().get_selected_path());
+        out_script_file << editor.GetText();
+        out_script_file.close();
+    }
+
+    static std::string script;
+    if (new_script_open) {
+        std::ifstream script_file(open_script_path);
+        if (!script_file.good()) {
+            m_ui_state.show_script_editor = false;
+            return;
+        }
+
+        std::stringstream script_stream;
+        script_stream << script_file.rdbuf();
+        script = script_stream.str();
+        script_file.close();
+
+        editor.SetText(script);
+        new_script_open = false;
+    }
+
+    editor.Render("TextEditor");
+
+    ImGui::End();
+}
+
 void Engine::draw_engine_interface() {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -470,6 +552,8 @@ void Engine::draw_engine_interface() {
         draw_entity_create_window();
     if (m_ui_state.show_statistics)
         draw_statistics_window();
+    if (m_ui_state.show_script_editor)
+        draw_script_editor_window();
 
     //ImGui::ShowDemoWindow();
 

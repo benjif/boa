@@ -22,7 +22,8 @@ Engine::Engine(const std::string &default_path)
       keyboard(renderer.get_keyboard()),
       mouse(renderer.get_mouse()),
       asset_manager(renderer.get_asset_manager()),
-      physics_controller(asset_manager)
+      physics_controller(asset_manager),
+      script_controller()
 {
     LOG_INFO("(Engine) Initializing with world file '{}'", default_path);
 
@@ -55,7 +56,7 @@ void Engine::input_update(float time_change) {
             directions |= boa::gfx::Camera::DirectionFlags::Right;
 
         camera.update_position(time_change, directions);
-    
+
         if (window.get_cursor_disabled()) {
             glm::dvec2 cursor_change = mouse.last_movement();
             camera.update_target(cursor_change);
