@@ -285,6 +285,25 @@ IF(NOT rapidjson_POPULATED)
 ENDIF()
 SET(RAPIDJSON_INCLUDE_DIRS "${rapidjson_SOURCE_DIR}/include/rapidjson")
 
+# ************
+# ** SOLOUD **
+# ************
+FetchContent_Declare(
+    soloud
+    GIT_REPOSITORY          "https://github.com/jarikomppa/soloud"
+    GIT_TAG                 "RELEASE_20200207"
+    GIT_PROGRESS            TRUE
+    GIT_SHALLOW             TRUE
+    USES_TERMINAL_DOWNLOAD  TRUE
+    CONFIGURE_COMMAND       ""
+    BUILD_COMMAND           ""
+)
+FetchContent_GetProperties(soloud)
+IF(NOT soloud_POPULATED)
+    FetchContent_Populate(soloud)
+ENDIF()
+SET(SOLOUD_INCLUDE_DIRS "${soloud_SOURCE_DIR}/include")
+
 # SHADERS
 ADD_SUBDIRECTORY("${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
@@ -314,6 +333,7 @@ INCLUDE_DIRECTORIES(
     ${BULLET_INCLUDE_DIRS}
     ${RAPIDJSON_INCLUDE_DIRS}
     ${FMT_INCLUDE_DIRS}
+    ${SOLOUD_INCLUDE_DIRS}
     ${Vulkan_INCLUDE_DIRS}
 )
 

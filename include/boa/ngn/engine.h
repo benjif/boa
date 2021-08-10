@@ -5,7 +5,7 @@
 #include "boa/gfx/renderer.h"
 #include "boa/gfx/asset/animation.h"
 #include "boa/gfx/asset/gltf_model.h"
-#include "boa/phy/physics_controller.h"
+#include "boa/phy/physics.h"
 #include "boa/ngn/engine_state.h"
 #include "boa/ngn/scripting.h"
 #include "imgui.h"

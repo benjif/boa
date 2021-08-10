@@ -25,7 +25,7 @@ do {                                                            \
 } while (false)
 #   define LOG_WARN(fmt_, ...)                                  \
 do {                                                            \
-    fmt::print(fmt::fg(fmt::color::white), "WARN: ");           \
+    fmt::print(fmt::fg(fmt::color::yellow), "WARN: ");          \
     fmt::print("{}\n", fmt::format((fmt_), ##__VA_ARGS__));     \
 } while (false)
 #   define LOG_FAIL(fmt_, ...)                                  \

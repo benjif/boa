@@ -18,7 +18,7 @@ void Camera::update_position(float time_change, DirectionFlags directions) {
         m_position += glm::normalize(glm::cross(m_target, m_up)) * m_movement_speed * time_change;
 }
 
-void Camera::update_target(const glm::dvec2 &cursor_offset) {
+void Camera::update_target_from_cursor_offset(const glm::dvec2 &cursor_offset) {
     m_pitch += -cursor_offset.y * m_sensitivity;
     m_yaw += cursor_offset.x * m_sensitivity;
 

@@ -1,5 +1,6 @@
 // PERF: for saving/loading, using `rapidjson::Writer`
 // would be faster than `rapidjson::PrettyWriter`
+// (I still hand edit world files occasionally)
 #include "prettywriter.h"
 //#include "writer.h"
 #include "document.h"
@@ -10,7 +11,7 @@
 #include "boa/ngn/object.h"
 #include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/asset/animation.h"
-#include "boa/phy/physics_controller.h"
+#include "boa/phy/physics.h"
 #include "boa/ecs/ecs.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtx/quaternion.hpp"

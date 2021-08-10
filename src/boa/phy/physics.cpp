@@ -1,6 +1,6 @@
 #include "boa/ecs/ecs.h"
 #include "boa/utl/macros.h"
-#include "boa/phy/physics_controller.h"
+#include "boa/phy/physics.h"
 #include "boa/phy/bullet_glm.h"
 #include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/asset/asset.h"

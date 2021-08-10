@@ -24,13 +24,18 @@ ScriptController::~ScriptController() {
 }
 
 void ScriptController::run_from_file(const std::string &script_path) const {
-    if (luaL_dofile(m_state, script_path.c_str()) != 0)
-        LOG_WARN("(Scripting) Failed to run script '{}'", script_path);
+    if (luaL_dofile(m_state, script_path.c_str()) != 0) {
+        LOG_WARN("(Scripting) Script error '{}' => '{}'", script_path, lua_tostring(m_state, -1));
+        lua_pop(m_state, 1);
+    }
 }
 
 void ScriptController::run_from_buffer(const std::string &script_content) const {
     luaL_loadbuffer(m_state, script_content.c_str(), script_content.size(), "buffer script");
-    lua_pcall(m_state, 0, 0, 0);
+    if (lua_pcall(m_state, 0, 0, 0) != 0) {
+        LOG_WARN("(Scripting) Script error '{}'", lua_tostring(m_state, -1));
+        lua_pop(m_state, 1);
+    }
 }
 
 int ScriptController::exception_callback(lua_State *L, lua_CFunction f) {

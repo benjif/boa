@@ -479,10 +479,14 @@ void Engine::draw_script_editor_window() {
             if (ImGui::MenuItem("Open"))
                 FileDialog::get().open("Open script from file");
 
-            if (ImGui::MenuItem("Save") && open_script_path.size() != 0) {
-                std::ofstream out_script_file(open_script_path);
-                out_script_file << editor.GetText();
-                out_script_file.close();
+            if (ImGui::MenuItem("Save")) {
+                if (open_script_path.size() != 0) {
+                    std::ofstream out_script_file(open_script_path);
+                    out_script_file << editor.GetText();
+                    out_script_file.close();
+                } else {
+                    FileDialog::get().open("Save script to file");
+                }
             }
 
             if (ImGui::MenuItem("Save as"))
@@ -552,6 +556,9 @@ void Engine::draw_engine_interface() {
         draw_entity_create_window();
     if (m_ui_state.show_statistics)
         draw_statistics_window();
+
+    // TODO: support multiple text editor windows at once
+    // (separate stuff into separate class)
     if (m_ui_state.show_script_editor)
         draw_script_editor_window();
 

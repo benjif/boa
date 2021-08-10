@@ -1,5 +1,5 @@
-#ifndef BOA_PHY_PHYSICS_CONTROLLER_H
-#define BOA_PHY_PHYSICS_CONTROLLER_H
+#ifndef BOA_PHY_PHYSICS_H
+#define BOA_PHY_PHYSICS_H
 
 #include "btBulletDynamicsCommon.h"
 #include "glm/glm.hpp"

@@ -60,12 +60,12 @@
     "skyboxes": [
         {
             "paths": [
-                "skybox/mountains/right.png",
-                "skybox/mountains/left.png",
-                "skybox/mountains/top.png",
-                "skybox/mountains/bottom.png",
-                "skybox/mountains/front.png",
-                "skybox/mountains/back.png"
+                "skybox/skywater/0.png",
+                "skybox/skywater/1.png",
+                "skybox/skywater/2.png",
+                "skybox/skywater/3.png",
+                "skybox/skywater/4.png",
+                "skybox/skywater/5.png"
             ]
         }
     ],

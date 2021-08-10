@@ -6,7 +6,7 @@
 #include "boa/gfx/asset/asset_manager.h"
 #include "boa/gfx/asset/animation.h"
 #include "boa/gfx/renderer.h"
-#include "boa/phy/physics_controller.h"
+#include "boa/phy/physics.h"
 #include "boa/ngn/object.h"
 #include "boa/ngn/engine.h"
 #include <chrono>
@@ -59,7 +59,7 @@ void Engine::input_update(float time_change) {
 
         if (window.get_cursor_disabled()) {
             glm::dvec2 cursor_change = mouse.last_movement();
-            camera.update_target(cursor_change);
+            camera.update_target_from_cursor_offset(cursor_change);
         }
     }
 }
