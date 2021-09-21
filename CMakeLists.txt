@@ -7,6 +7,7 @@ SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 
 LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+INCLUDE(ExternalProject)
 INCLUDE(FetchContent)
 FIND_PACKAGE(Vulkan REQUIRED)
 
@@ -74,32 +75,24 @@ IF(NOT imguicolortextedit_POPULATED)
 ENDIF()
 SET(IMGUICOLORTEXTEDIT_INCLUDE_DIRS "${imguicolortextedit_SOURCE_DIR}")
 
-# ************
-# ** LUAJIT **
-# ************
-FetchContent_Declare(
-    luajit
-    GIT_REPOSITORY          "https://github.com/LuaJIT/LuaJIT"
-    GIT_TAG                 "v2.0.5"
-    GIT_PROGRESS            TRUE
-    GIT_SHALLOW             TRUE
-    USES_TERMINAL_DOWNLOAD  TRUE
+ExternalProject_Add(luajit_lib
+    DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/luajit"
+    GIT_REPOSITORY "https://github.com/LuaJIT/LuaJIT"
+    UPDATE_COMMAND ""
+    SOURCE_SUBDIR "src"
+    BUILD_IN_SOURCE 1
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND make -j4
+    INSTALL_COMMAND ""
 )
-FetchContent_GetProperties(luajit)
-IF(NOT luajit_POPULATED)
-    FetchContent_Populate(luajit)
-ENDIF()
-SET(LUAJIT_INCLUDE_DIRS "${luajit_SOURCE_DIR}/src")
+ExternalProject_Get_Property(luajit_lib INSTALL_DIR)
+SET(LUAJIT_INCLUDE_DIRS "${INSTALL_DIR}/src/luajit_lib/src")
 
-ADD_CUSTOM_TARGET(build_luajit ALL
-    COMMAND make -C ${LUAJIT_INCLUDE_DIRS}
-    WORKING_DIRECTORY "${LUAJIT_INCLUDE_DIRS}"
-    COMMENT "Makefile for luajit")
-
-ADD_LIBRARY(luajit SHARED IMPORTED)
-SET_PROPERTY(TARGET luajit APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-SET_TARGET_PROPERTIES(luajit PROPERTIES
-    IMPORTED_LOCATION_NOCONFIG "${LUAJIT_INCLUDE_DIRS}/libluajit.so")
+ADD_LIBRARY(luajit_lib_libA STATIC IMPORTED GLOBAL)
+SET_PROPERTY(TARGET luajit_lib_libA
+    PROPERTY IMPORTED_LOCATION
+    "${LUAJIT_INCLUDE_DIRS}/libluajit.so"
+)
 
 FILE(GLOB SOURCES
     "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_glfw.cpp"
@@ -119,7 +112,7 @@ FILE(GLOB SOURCES
 )
 ADD_EXECUTABLE(boa ${SOURCES})
 
-ADD_DEPENDENCIES(luajit build_luajit)
+ADD_DEPENDENCIES(boa luajit_lib)
 
 OPTION(BENCHMARK "BENCHMARK" OFF)
 IF(BENCHMARK)
@@ -341,7 +334,7 @@ LINK_DIRECTORIES("${PROJECT_SOURCE_DIR}/cmake/lib")
 
 TARGET_LINK_LIBRARIES(boa
     ${Vulkan_LIBRARIES}
-    luajit
+    luajit_lib_libA
     fmt
     glfw
     BulletSoftBody
