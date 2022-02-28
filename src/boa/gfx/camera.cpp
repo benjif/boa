@@ -1,5 +1,6 @@
 #include <iostream>
 #include "boa/gfx/camera.h"
+#include "boa/utl/macros.h"
 
 namespace boa::gfx {
 
@@ -18,9 +19,9 @@ void Camera::update_position(float time_change, DirectionFlags directions) {
         m_position += glm::normalize(glm::cross(m_target, m_up)) * m_movement_speed * time_change;
 }
 
-void Camera::update_target_from_cursor_offset(const glm::dvec2 &cursor_offset) {
-    m_pitch += -cursor_offset.y * m_sensitivity;
-    m_yaw += cursor_offset.x * m_sensitivity;
+void Camera::update_target_from_cursor_offset(float time_change, const glm::dvec2 &cursor_offset) {
+    m_pitch += -cursor_offset.y * m_sensitivity * time_change;
+    m_yaw += cursor_offset.x * m_sensitivity * time_change;
 
     if (m_pitch > 89.0f)
         m_pitch = 89.0f;

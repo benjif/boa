@@ -59,7 +59,7 @@ void Engine::input_update(float time_change) {
 
         if (window.get_cursor_disabled()) {
             glm::dvec2 cursor_change = mouse.last_movement();
-            camera.update_target_from_cursor_offset(cursor_change);
+            camera.update_target_from_cursor_offset(time_change, cursor_change);
         }
     }
 }
@@ -262,6 +262,8 @@ void Engine::setup_input() {
             }
         }
     });
+
+	camera.set_sensitivity(0.8);
 }
 
 void Engine::run() {

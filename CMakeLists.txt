@@ -75,6 +75,9 @@ IF(NOT imguicolortextedit_POPULATED)
 ENDIF()
 SET(IMGUICOLORTEXTEDIT_INCLUDE_DIRS "${imguicolortextedit_SOURCE_DIR}")
 
+# ************
+# ** LUAJIT **
+# ************
 ExternalProject_Add(luajit_lib
     DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/luajit"
     GIT_REPOSITORY "https://github.com/LuaJIT/LuaJIT"
@@ -89,10 +92,27 @@ ExternalProject_Get_Property(luajit_lib INSTALL_DIR)
 SET(LUAJIT_INCLUDE_DIRS "${INSTALL_DIR}/src/luajit_lib/src")
 
 ADD_LIBRARY(luajit_lib_libA STATIC IMPORTED GLOBAL)
-SET_PROPERTY(TARGET luajit_lib_libA
-    PROPERTY IMPORTED_LOCATION
-    "${LUAJIT_INCLUDE_DIRS}/libluajit.so"
+
+IF(WIN32)
+    SET_PROPERTY(TARGET luajit_lib_libA
+        PROPERTY IMPORTED_LOCATION
+        "${LUAJIT_INCLUDE_DIRS}/lua51.dll"
+    )
+ELSE()
+    SET_PROPERTY(TARGET luajit_lib_libA
+        PROPERTY IMPORTED_LOCATION
+        "${LUAJIT_INCLUDE_DIRS}/libluajit.so"
+    )
+ENDIF(WIN32)
+
+ADD_CUSTOM_COMMAND(TARGET boa ALL
+    COMMAND ${CMAKE_COMMAND} -E copy
+            "${CMAKE_BINARY_DIR}/luajit_lib-prefix/src/luajit_lib/src/lua51.dll"
+            "${CMAKE_BINARY_DIR}"
 )
+
+#ADD_CUSTOM_TARGET(luajit_cpy ALL
+#    DEPENDS lua51.dll)
 
 FILE(GLOB SOURCES
     "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_glfw.cpp"

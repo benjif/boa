@@ -23,7 +23,21 @@ Renderer::Renderer()
 {
 #ifndef NDEBUG
     auto boa_start_time = std::chrono::high_resolution_clock::now();
+
+    uint32_t instance_version = VK_API_VERSION_1_0;
+    auto FN_vkEnumerateInstanceVersion
+        = PFN_vkEnumerateInstanceVersion(vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion"));
+    if (vkEnumerateInstanceVersion) {
+        vkEnumerateInstanceVersion(&instance_version);
+    }
+
+    uint32_t major = VK_VERSION_MAJOR(instance_version);
+    uint32_t minor = VK_VERSION_MINOR(instance_version);
+    uint32_t patch = VK_VERSION_PATCH(instance_version);
+
+    LOG_INFO("(Renderer) Vulkan version: {}.{}.{}", major, minor, patch);
 #endif
+
     init_window_user_pointers();
     init_window();
     create_instance();
@@ -88,7 +102,7 @@ void Renderer::create_allocator() {
         .physicalDevice     = m_physical_device,
         .device             = m_device.get(),
         .instance           = m_instance.get(),
-        .vulkanApiVersion   = VK_API_VERSION_1_2,
+        .vulkanApiVersion   = VK_API_VERSION_1_3,
     };
 
     vmaCreateAllocator(&alloc_info, &m_allocator);
@@ -556,7 +570,7 @@ void Renderer::create_instance() {
         .applicationVersion = 1,
         .pEngineName        = "Boa",
         .engineVersion      = 1,
-        .apiVersion         = VK_API_VERSION_1_2
+        .apiVersion         = VK_API_VERSION_1_3
     };
 
     vk::InstanceCreateInfo create_info{};

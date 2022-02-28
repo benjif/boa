@@ -20,7 +20,7 @@ public:
     };
 
     void update_position(float time_change, DirectionFlags directions);
-    void update_target_from_cursor_offset(const glm::dvec2 &cursor_offset);
+    void update_target_from_cursor_offset(float time_change, const glm::dvec2 &cursor_offset);
 
     void set_sensitivity(float value);
     void set_movement_speed(float value);
