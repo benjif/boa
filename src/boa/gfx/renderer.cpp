@@ -1120,7 +1120,7 @@ void Renderer::create_framebuffer() {
     };
 
     vk::FramebufferAttachmentImageInfo color_attach_resolve{
-        .usage              = vk::ImageUsageFlagBits::eColorAttachment,
+        .usage              = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc,
         .width              = m_window_extent.width,
         .height             = m_window_extent.height,
         .layerCount         = 1,
