@@ -33,8 +33,18 @@ Boa is my toy game engine.
 
 Note that I use `FetchContent` for all dependencies except Vulkan, which requires a system-wide installation.
 
+### Linux
 ```
 mkdir cmake
 cd cmake && cmake ..
-ninja all
+make
+```
+
+### Windows
+I've only tested Windows builds with MINGW.
+
+```
+mkdir cmake
+cd cmake && cmake ..
+mingw32-make.exe
 ```
