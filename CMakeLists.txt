@@ -1,6 +1,13 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 PROJECT(boa)
 
+IF(WIN32)
+    SET(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
+ELSE()
+    SET(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ ${CMAKE_CXX_STANDARD_LIBRARIES}")
+ENDIF()
+
 SET(CMAKE_CXX_FLAGS "-std=c++17")
 SET(CMAKE_CXX_FLAGS_RELEASE "-march=native -O3 -DNDEBUG")
 SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
@@ -78,61 +85,41 @@ SET(IMGUICOLORTEXTEDIT_INCLUDE_DIRS "${imguicolortextedit_SOURCE_DIR}")
 # ************
 # ** LUAJIT **
 # ************
-ExternalProject_Add(luajit_lib
-    DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/luajit"
+ExternalProject_Add(luajit_lib_download
+    PREFIX "${CMAKE_CURRENT_BINARY_DIR}/luajit"
     GIT_REPOSITORY "https://github.com/LuaJIT/LuaJIT"
     UPDATE_COMMAND ""
     SOURCE_SUBDIR "src"
-    BUILD_IN_SOURCE 1
+    BUILD_IN_SOURCE true
     CONFIGURE_COMMAND ""
-    BUILD_COMMAND make -j4
+    BUILD_COMMAND $(MAKE) BUILDMODE=static
     INSTALL_COMMAND ""
 )
-ExternalProject_Get_Property(luajit_lib INSTALL_DIR)
-SET(LUAJIT_INCLUDE_DIRS "${INSTALL_DIR}/src/luajit_lib/src")
+ExternalProject_Get_Property(luajit_lib_download INSTALL_DIR)
+SET(LUAJIT_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/luajit/src/luajit_lib_download/src")
+SET(LUAJIT_LIB_DIR "${LUAJIT_INCLUDE_DIRS}")
 
-ADD_LIBRARY(luajit_lib_libA STATIC IMPORTED GLOBAL)
+ADD_LIBRARY(luajit_lib STATIC IMPORTED GLOBAL)
 
-IF(WIN32)
-    SET_PROPERTY(TARGET luajit_lib_libA
-        PROPERTY IMPORTED_LOCATION
-        "${LUAJIT_INCLUDE_DIRS}/lua51.dll"
-    )
-ELSE()
-    SET_PROPERTY(TARGET luajit_lib_libA
-        PROPERTY IMPORTED_LOCATION
-        "${LUAJIT_INCLUDE_DIRS}/libluajit.so"
-    )
-ENDIF(WIN32)
-
-ADD_CUSTOM_COMMAND(TARGET boa ALL
-    COMMAND ${CMAKE_COMMAND} -E copy
-            "${CMAKE_BINARY_DIR}/luajit_lib-prefix/src/luajit_lib/src/lua51.dll"
-            "${CMAKE_BINARY_DIR}"
+SET_PROPERTY(TARGET
+    luajit_lib
+    PROPERTY
+    IMPORTED_LOCATION
+    "${LUAJIT_LIB_DIR}/libluajit.a"
 )
 
-#ADD_CUSTOM_TARGET(luajit_cpy ALL
-#    DEPENDS lua51.dll)
-
-FILE(GLOB SOURCES
+FILE(GLOB EXTERNAL_SOURCES
     "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_glfw.cpp"
     "${IMGUI_INCLUDE_DIRS}/backends/imgui_impl_vulkan.cpp"
     "${IMGUI_INCLUDE_DIRS}/*.cpp"
     "${IMGUIZMO_INCLUDE_DIRS}/*.cpp"
     "${IMGUICOLORTEXTEDIT_INCLUDE_DIRS}/*.cpp"
-    src/*.cpp
-    src/boa/ngn/*.cpp
-    src/boa/phy/*.cpp
-    src/boa/utl/*.cpp
-    src/boa/ctl/*.cpp
-    src/boa/ecs/*.cpp
-    src/boa/gfx/*.cpp
-    src/boa/gfx/vk/*.cpp
-    src/boa/gfx/asset/*.cpp
 )
-ADD_EXECUTABLE(boa ${SOURCES})
+FILE(GLOB_RECURSE INTERNAL_SOURCES src/*.cpp)
+ADD_EXECUTABLE(boa ${EXTERNAL_SOURCES} ${INTERNAL_SOURCES})
 
-ADD_DEPENDENCIES(boa luajit_lib)
+ADD_DEPENDENCIES(boa luajit_lib_download)
+TARGET_LINK_LIBRARIES(boa luajit_lib)
 
 OPTION(BENCHMARK "BENCHMARK" OFF)
 IF(BENCHMARK)
@@ -293,6 +280,10 @@ FetchContent_Declare(
     BUILD_COMMAND           ""
 )
 FetchContent_GetProperties(rapidjson)
+SET(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+SET(RAPIDJSON_BUILD_THIRDPARTY_GTEST OFF CACHE BOOL "" FORCE)
+SET(RAPIDJSON_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+SET(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "" FORCE)
 IF(NOT rapidjson_POPULATED)
     FetchContent_Populate(rapidjson)
 ENDIF()
@@ -354,7 +345,7 @@ LINK_DIRECTORIES("${PROJECT_SOURCE_DIR}/cmake/lib")
 
 TARGET_LINK_LIBRARIES(boa
     ${Vulkan_LIBRARIES}
-    luajit_lib_libA
+    luajit_lib
     fmt
     glfw
     BulletSoftBody
