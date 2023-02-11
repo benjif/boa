@@ -95,7 +95,7 @@ void Engine::main_loop() {
         input_update(time_change);
 
 #ifdef BENCHMARK
-        if (m_frame == BENCHMARK_FRAME_COUNT)
+        if (renderer.get_frame_count() == BENCHMARK_FRAME_COUNT)
             break;
 #endif
     }

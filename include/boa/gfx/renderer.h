@@ -69,6 +69,10 @@ public:
         return INIT_HEIGHT;
     } // TODO: same
 
+    uint32_t get_frame_count() const {
+        return m_frame;
+    }
+
     glm::mat4 &get_view() {
         return m_transforms.view;
     }
