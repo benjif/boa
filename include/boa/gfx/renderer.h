@@ -28,7 +28,7 @@ class Renderer {
 public:
     static constexpr uint32_t INIT_WIDTH = 1280;
     static constexpr uint32_t INIT_HEIGHT = 960;
-    static constexpr const char *WINDOW_TITLE = "Vulkan";
+    static constexpr const char *WINDOW_TITLE = "Boa Engine";
 
     struct WindowUserPointers {
         Renderer *renderer;
@@ -63,11 +63,11 @@ public:
     Window &get_window()            { return m_window;      }
 
     uint32_t get_width() const {
-        return INIT_WIDTH;
-    } // TODO: change after adding window resizing
+        return m_window_extent.width;
+    }
     uint32_t get_height() const {
-        return INIT_HEIGHT;
-    } // TODO: same
+        return m_window_extent.height;
+    }
 
     uint32_t get_frame_count() const {
         return m_frame;
@@ -103,6 +103,11 @@ public:
     };
 
 private:
+    enum {
+        SWAPCHAIN_DELETE_TAG = (1 << 1),
+        FRAMEBUFF_DELETE_TAG = (2 << 1),
+    };
+
     const std::vector<const char *> validation_layers = {
         "VK_LAYER_KHRONOS_validation"
     };
@@ -182,6 +187,7 @@ private:
 
     Window m_window{ INIT_WIDTH, INIT_HEIGHT, WINDOW_TITLE };
     WindowUserPointers m_user_pointers;
+    bool m_framebuffer_resize{ false };
 
     // TODO: move input and camera stuff outside of renderer class
     ctl::Keyboard m_keyboard;
@@ -239,6 +245,7 @@ private:
     bool m_draw_bounding_boxes{ false };
 
     static void framebuffer_size_callback(void *user_ptr_v, int w, int h);
+    void wait_if_minimized();
 
     PerFrame &current_frame();
 
@@ -256,6 +263,7 @@ private:
     void create_allocator();
     void create_surface();
     void create_swapchain();
+    void recreate_swapchain();
     void create_commands();
     void create_default_renderpass();
     void create_framebuffer();

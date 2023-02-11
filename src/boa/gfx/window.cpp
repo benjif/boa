@@ -10,7 +10,6 @@ Window::Window(int w, int h, const char *name)
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     m_window = glfwCreateWindow(m_width, m_height, m_window_name.c_str(), nullptr, nullptr);

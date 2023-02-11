@@ -109,9 +109,9 @@ void Renderer::create_allocator() {
 }
 
 void Renderer::framebuffer_size_callback(void *user_ptr_v, int w, int h) {
-    //auto user_pointers = reinterpret_cast<Renderer::WindowUserPointers *>(user_ptr_v);
-    //auto renderer = user_pointers->renderer;
-    // TODO: implement proper framebuffer resizing
+    auto user_pointers = reinterpret_cast<Renderer::WindowUserPointers *>(user_ptr_v);
+    auto renderer = user_pointers->renderer;
+    renderer->m_framebuffer_resize = true;
 }
 
 void Renderer::cleanup() {
@@ -133,7 +133,6 @@ void Renderer::wait_for_all_frames() const {
 
 void Renderer::draw_frame() {
     m_device.get().waitForFences(1, &current_frame().render_fence, true, 1e9);
-    m_device.get().resetFences(1, &current_frame().render_fence);
 
     ImGui::Render();
 
@@ -145,8 +144,14 @@ void Renderer::draw_frame() {
             current_frame().present_sem
         ).value;
     } catch (const vk::SystemError &err) {
-        throw std::runtime_error("Failed to acquire swapchain image");
+        if (err.code() == vk::Result::eErrorOutOfDateKHR) {
+            recreate_swapchain();
+        } else if (err.code() != vk::Result::eSuboptimalKHR) {
+            throw std::runtime_error(err.what());
+        }
     }
+
+    m_device.get().resetFences(1, &current_frame().render_fence);
 
     vk::CommandBuffer frame_cmd = current_frame().command_buffer;
 
@@ -253,7 +258,14 @@ void Renderer::draw_frame() {
     try {
         m_graphics_queue.presentKHR(present_info);
     } catch (const vk::SystemError &err) {
-        throw std::runtime_error("Failed to present image");
+        if (err.code() == vk::Result::eErrorOutOfDateKHR ||
+                err.code() == vk::Result::eSuboptimalKHR ||
+                m_framebuffer_resize) {
+            m_framebuffer_resize = false;
+            recreate_swapchain();
+        } else {
+            throw std::runtime_error(err.what());
+        }
     }
 
     m_frame++;
@@ -912,7 +924,7 @@ void Renderer::create_swapchain() {
         m_device.get().destroySwapchainKHR(m_swapchain);
         for (size_t i = 0; i < m_swapchain_image_views.size(); i++)
             m_device.get().destroyImageView(m_swapchain_image_views[i]);
-    });
+    }, SWAPCHAIN_DELETE_TAG);
 
     vk::Extent3D img_extent = {
         m_window_extent.width,
@@ -974,7 +986,32 @@ void Renderer::create_swapchain() {
         m_device.get().destroyImageView(m_msaa_image_view);
         vmaDestroyImage(m_allocator, m_depth_image.image, m_depth_image.allocation);
         vmaDestroyImage(m_allocator, m_msaa_image.image, m_msaa_image.allocation);
-    });
+    }, SWAPCHAIN_DELETE_TAG);
+}
+
+void Renderer::wait_if_minimized() {
+    int w = 0, h = 0;
+    m_window.get_framebuffer_size(w, h);
+    while (w == 0 || h == 0) {
+        m_window.get_framebuffer_size(w, h);
+        m_window.wait_events();
+    }
+}
+
+void Renderer::recreate_swapchain() {
+    wait_if_minimized();
+    wait_idle();
+
+    int w = 0, h = 0;
+    m_window.get_framebuffer_size(w, h);
+    m_window_extent.width = w;
+    m_window_extent.height = h;
+
+    m_deletion_queue.flush_tags(SWAPCHAIN_DELETE_TAG);
+    m_deletion_queue.flush_tags(FRAMEBUFF_DELETE_TAG);
+
+    create_swapchain();
+    create_framebuffer();
 }
 
 void Renderer::create_commands() {
@@ -1158,7 +1195,7 @@ void Renderer::create_framebuffer() {
 
     m_deletion_queue.enqueue([=]() {
         m_device.get().destroyFramebuffer(m_framebuffer);
-    });
+    }, FRAMEBUFF_DELETE_TAG);
 }
 
 void Renderer::create_sync_objects() {
