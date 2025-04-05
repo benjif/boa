@@ -272,7 +272,8 @@ FetchContent_MakeAvailable(bullet)
 FetchContent_Declare(
     rapidjson
     GIT_REPOSITORY          "https://github.com/tencent/rapidjson"
-    GIT_TAG                 "v1.1.0"
+    # The last tagged version of RapidJSON has a build error using GCC 14.
+    GIT_TAG                 "24b5e7a8b27f42fa16b96fc70aade9106cf7102f"
     GIT_PROGRESS            TRUE
     GIT_SHALLOW             TRUE
     USES_TERMINAL_DOWNLOAD  TRUE

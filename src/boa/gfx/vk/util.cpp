@@ -39,7 +39,8 @@ void populate_debug_messenger_create_info(vk::DebugUtilsMessengerCreateInfoEXT &
         .messageType        = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
             vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
             vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
-        .pfnUserCallback    = debug_callback
+        .pfnUserCallback    = reinterpret_cast<vk::PFN_DebugUtilsMessengerCallbackEXT>(debug_callback)
+
     };
 }
 

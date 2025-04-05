@@ -1,9 +1,11 @@
 #ifndef BOA_CTL_KEYBOARD_H
 #define BOA_CTL_KEYBOARD_H
 
-#include "boa/ctl/action.h"
 #include <bitset>
 #include <functional>
+#include <cstdint>
+
+#include "boa/ctl/action.h"
 
 namespace boa::ctl {
 
